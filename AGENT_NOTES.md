@@ -105,6 +105,35 @@ uncompressed and `exec`-able from `nativeLibraryDir`.
 
 ---
 
+## Build configuration — deviations from the handoff doc
+
+The handoff doc specifies **Android 16 / API 36**. The current build targets
+API 35 because AGP 9 / SDK 36 caused a sync failure during M1 step 1. Recorded
+deviation:
+
+| Setting | Handoff doc | Current build | Why |
+|---|---|---|---|
+| AGP | (not specified, scaffold defaulted to 9.2.1) | 8.7.3 | AGP 9 unstable in the local env; 8.7.3 is current-stable. |
+| compileSdk | 36 | 35 | AGP 8.7.3 can't compile against SDK 36. |
+| targetSdk | 36 | 35 | Matches compileSdk. |
+| minSdk | 36 | 26 | The bundled adaptive-icon resource needs API 26+. SDK 36 was an overly tight floor anyway given a single target device. |
+| Theme parent | (n/a) | `Theme.Material3.DayNight.NoActionBar` (from MDC 1.12.0) | Conventional Compose XML theme. |
+| Plugin alias style | (n/a) | camelCase (`androidApp`, `kotlinAndroid`, `composeCompiler`) | Avoids collisions with the Kotlin DSL's built-in `android`/`kotlin` accessors. |
+
+Practical impact on M1: none. The S22 Ultra runs the app fine on Android 16
+regardless of compileSdk 35, and nothing in the Pocket Mode loop needs API 36.
+
+**Revisit trigger:** before starting the post-M1 screen-off / `AccessibilityService`
+spike. Some Android 16 foreground service types and Accessibility behavior
+changes are API-36-gated; we need to confirm we don't need them before
+committing to SDK 35 long-term. If the spike needs an API 36 feature, bump AGP
+to 8.10+ (or 9.x once stable) and raise compileSdk/targetSdk back to 36 at
+that time.
+
+Build-system context for these decisions is in `BUILD_FIXES_2025_05_14.md`.
+
+---
+
 ## Architecture sketch (M1, aligned with addendum)
 
 ```text
