@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-14 (after M1 step 2a, commit `e5e51c0`).
+Last updated: 2026-05-14 (after firmware vendoring + cleanup).
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -12,7 +12,10 @@ as session-priority cleanup before doing other work.
 - **Milestone:** M1 — Pocket Mode loop (keyboard → UCI → bestmove → TTS).
 - **In flight:** nothing — last sub-step shipped clean.
 - **Last completed:** M1 step 2a — 4-coordinate cycler grammar with
-  Logcat feedback (commit `e5e51c0`, pushed to `origin/main`).
+  Logcat feedback (commit `e5e51c0`, pushed). Side track: Arduino keypad
+  firmware was vendored into `firmware/RBE_32u4_chess/` and cleaned up
+  (char-buffer instead of `String`, stable-for-N-ms debounce, LED-blink
+  error indicator, BluefruitConfig.h pin-collision note, README).
 - **Next:** M1 step 2b — TTS scaffold + 2.5 s inactivity prompt.
 
 ## M1 implementation checklist
@@ -68,6 +71,8 @@ as steps land:
 3. `RBE_CHESS_APP_HANDOFF.md` — original project spec.
 4. `BUILD_FIXES_2025_05_14.md` — sidecar narrative on the AGP/SDK
    deviation (Gemini's pass on 2026-05-14).
+5. `firmware/RBE_32u4_chess/README.md` — firmware build instructions
+   and library dependencies. Read before touching `*.ino`.
 
 ## Memory pointers
 
