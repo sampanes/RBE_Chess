@@ -7,9 +7,11 @@ short routing layer over those two docs.
 
 Precedence when docs disagree:
 
-1. `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` (most recent, M1-specific)
-2. `RBE_CHESS_APP_HANDOFF.md` (original spec)
-3. This file
+1. **This file** for any topic where a later hardware/build reality has
+   diverged from the addendum (notably: keyboard grammar, AGP/SDK level).
+2. `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` (M1 spec for everything not
+   superseded here).
+3. `RBE_CHESS_APP_HANDOFF.md` (original spec).
 
 If anything is still ambiguous, ask the user before deviating.
 
@@ -266,7 +268,83 @@ All four open questions this file used to track are answered by
 | Stockfish binary source | §"Stockfish Binary Source" | Stockfish 18 Android ARMv8 Dot Product (`sf_18`); fallback plain ARMv8. Record in `app/src/main/jniLibs/README.md` when the `.so` is added. |
 | Engine settings defaults | §"Engine Settings Defaults" | Threads=3, Hash=64 MB, MultiPV=1, Ponder=false, movetime=1000 ms. Run the 20-analysis thermal test before raising. |
 | AccessibilityService UX | §"AccessibilityService UX" | Not required for M1. When added later: explicit consent screen, two-button choice, opens `Settings.ACTION_ACCESSIBILITY_SETTINGS`. |
-| Keyboard grammar v0 | §"Keyboard Grammar V0" | `<from><to>[<promo>]` + Enter, with Backspace/Ctrl+Backspace/U/Space/?/Esc controls and the spoken-feedback rules listed there. |
+
+(The addendum's original "Keyboard grammar v0" question is no longer
+listed here; its answer is the "Keyboard grammar — hardware-aware V1"
+section below, which is the single source of truth for keyboard input.)
 
 If a future change reopens any of these, update the relevant addendum
 section first, then update this table.
+
+---
+
+## Keyboard grammar — hardware-aware V1 (supersedes addendum V0)
+
+The Bluetooth "keyboard" is a custom 5-button HID device — Adafruit Feather
+32u4 Bluefruit LE, firmware in (gitignored) `hidden/RBE_32u4_chess_arduino/`.
+It only emits the HID keystrokes `D`, `F`, `J`, `K`, `Space`. The addendum's
+"type `e2e4` Enter" grammar cannot work on this device. New grammar:
+
+**Four-coordinate cycler.** Each cycle button owns one coordinate of a
+from-to move and advances it by one on every press, wrapping around:
+
+| Button | Coordinate | Cycle | TTS on press |
+|---|---|---|---|
+| **D** | from-file | a → b → c → … → h → a | speak the new letter |
+| **F** | from-rank | 1 → 2 → 3 → … → 8 → 1 | speak the new digit |
+| **J** | to-file   | a → … → h → a         | speak the new letter |
+| **K** | to-rank   | 1 → … → 8 → 1         | speak the new digit |
+
+**Default state at the start of each move:** all four coordinates start
+**unset**. For display (inactivity prompt, on-screen text), unset renders
+as `'a'` or `'1'`, so an untouched move appears as `a1a1`. **The first
+press of a cycle button selects the first value rather than advancing
+past it**, so press N lands on the Nth letter / digit:
+
+- 1st D press → 'A' (idx 0)
+- 2nd D press → 'B' (idx 1)
+- 3rd D press → 'C' (idx 2)
+- 8th D press → 'H' (idx 7)
+- 9th D press → 'A' (wraps)
+
+A coord the user never touches stays unset and renders as `'a'` / `'1'`
+in the prompt. After Commit (Space), all four coords return to unset so
+the next move starts fresh.
+
+**Inactivity prompt:** after **2.5 s** of no presses, TTS speaks the
+assembled move as a question: *"Move C1 to A1?"*. The timer resets on every
+press.
+
+**Space (single tap) — commit and advance:**
+
+1. Apply the entered move to the board state as the opponent's move.
+2. Run Stockfish `go movetime 1000`.
+3. TTS speaks the bestmove (e.g. *"Best move: D2 to D4"*).
+4. **Auto-apply the bestmove** to the board state — the user will play it
+   on the physical board next, so the model advances with it.
+5. Reset the buffer to `(a, 1, a, 1)`.
+
+**Space (double tap):** reserved.
+
+**Promotion handling.** When the committed move places a pawn on its
+promotion rank, the app enters a brief *promotion-pick* state instead of
+finalizing on Space. Mapping (best-guess from user's note "k, b, r, q
+(two btns are queen)"; confirm before committing code if it matters):
+
+| Input  | Promotion piece |
+|---|---|
+| **Space** | Queen (default; ~all real games) |
+| **K**     | Queen (redundant fast path; right hand) |
+| **D**     | Knight |
+| **F**     | Bishop |
+| **J**     | Rook |
+
+**Not in M1, deferred to a later milestone:**
+- Undo last committed move.
+- Cancel/clear current input buffer.
+- "Exit Pocket Mode" gesture (M1: tap the touchscreen anywhere — Activity
+  is foregrounded so touch still works).
+- A toggleable *"I type my own moves too"* mode where the user enters their
+  own moves on the cycler in addition to the opponent's, instead of trusting
+  the engine's suggestion blindly. User asked for this to be logged as a
+  possible future mode. M1 ships only the auto-advance flow above.

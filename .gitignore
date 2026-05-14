@@ -17,3 +17,7 @@ local.properties
 # Android Studio / IntelliJ
 .idea/
 *.iml
+
+# Local-only working notes / reference material kept out of git
+/hidden/
+/.claude/

@@ -171,54 +171,14 @@ service/
 
 Do not put Stockfish process ownership in the AccessibilityService. If an AccessibilityService is added, it should only relay commands to the app/engine layer.
 
-## Keyboard Grammar V0
+## Keyboard Grammar
 
-Confirm this grammar for M1:
-
-```text
-<from><to>[<promo>] + Enter
-```
-
-Examples:
-
-```text
-e2e4 Enter
-g1f3 Enter
-e7e8q Enter
-```
-
-Meaning:
-
-- `e2e4` moves from e2 to e4.
-- `g1f3` moves from g1 to f3.
-- `e7e8q` promotes to queen.
-- Enter confirms the move.
-- Backspace deletes the current move buffer.
-- Ctrl+Backspace or U undoes the last confirmed move.
-- Space triggers analysis.
-- `?` speaks keyboard help.
-- Esc exits Pocket Mode, preferably requiring hold/double-press to avoid accidental exit.
-
-Move buffer rules:
-
-```text
-Allowed files: a-h
-Allowed ranks: 1-8
-Allowed promotion: q, r, b, n
-Move length: 4 or 5 chars
-Enter validates and commits
-Invalid move triggers spoken error
-```
-
-Spoken feedback:
-
-```text
-Input: e2e4
-Speak: "E two to E four."
-
-Input: e7e8q
-Speak: "E seven to E eight, queen."
-```
+The grammar that originally appeared here assumed a full alphanumeric
+Bluetooth keyboard. The real input device is a custom 5-button HID device
+(Adafruit Feather 32u4 Bluefruit LE) that only emits D / F / J / K / Space.
+The real M1 grammar is documented in `AGENT_NOTES.md` §"Keyboard grammar —
+hardware-aware V1". This section is intentionally short so that the
+hardware-aware grammar is the single source of truth.
 
 ## Spoken Best Move
 
@@ -405,28 +365,35 @@ M1 is complete when all of these work on the S22 Ultra:
 4. App receives engine ID/options.
 5. App sends `isready`.
 6. App receives `readyok`.
-7. User can enter `e2e4` using Bluetooth keyboard.
-8. User presses Enter and the app confirms the move.
-9. User presses Space and the app analyzes.
-10. App receives `bestmove`.
-11. App displays the best move.
-12. App speaks the best move through Android TTS.
-13. Pocket Mode black/minimal screen still accepts Bluetooth keyboard input.
-14. Pocket Mode can be exited intentionally.
+7. User can enter a from-to move using the 5-button HID keyboard, per
+   the hardware-aware grammar in AGENT_NOTES.md.
+8. Each press is spoken back via TTS (letter or digit).
+9. After ~2.5 s of inactivity the app speaks the assembled move as a
+   "Move <from> to <to>?" question.
+10. User presses Space and the app commits + analyzes.
+11. App receives `bestmove`.
+12. App displays the best move.
+13. App speaks the best move through Android TTS.
+14. App auto-applies the bestmove to its own board state, ready for the
+    next opponent move.
+15. Pocket Mode black/minimal screen still accepts Bluetooth keyboard input.
+16. Pocket Mode can be exited intentionally.
 ```
 
 True screen-off input is not required for M1.
 
 ## M1 Implementation Order
 
-1. Build visible keyboard input in the Activity.
-2. Add `KeyboardGrammar`.
-3. Add TTS speech output.
-4. Add hardcoded Stockfish UCI proof.
-5. Connect move list to Stockfish.
-6. Add Pocket Mode black/minimal screen.
-7. Test Bluetooth keyboard in Pocket Mode.
-8. Only then test AccessibilityService as a spike.
+1. Build visible keyboard input in the Activity (`HardwareKeyboardHandler`,
+   `KeyboardGrammar`, `MoveBuffer`). Logcat-only feedback at first.
+2. Add TTS speech output (`SpeechOutput`, `SpokenMoveFormatter`). Each
+   button press speaks; inactivity prompt fires per AGENT_NOTES grammar.
+   Keyboard and TTS must land together to be perceivable.
+3. Add hardcoded Stockfish UCI proof.
+4. Connect move list + commits to Stockfish; speak bestmove.
+5. Add Pocket Mode black/minimal screen.
+6. Test Bluetooth keyboard in Pocket Mode on the S22 Ultra.
+7. Only then test AccessibilityService as a spike (post-M1 if at all).
 
 ## Agent Guardrails
 
