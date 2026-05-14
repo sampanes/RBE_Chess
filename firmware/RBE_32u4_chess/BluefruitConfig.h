@@ -1,3 +1,11 @@
+// NOTE: This project uses **SPI mode** (see RBE_32u4_chess.ino line ~77,
+// where Adafruit_BluefruitLE_SPI ble(...) is instantiated). The SW UART
+// pin defines further down (BLUEFRUIT_SWUART_RXD_PIN, BLUEFRUIT_SWUART_TXD_PIN,
+// BLUEFRUIT_UART_CTS_PIN, BLUEFRUIT_UART_MODE_PIN) are NOT used at runtime
+// and their pin numbers (9, 10, 11, 12) intentionally overlap with this
+// project's button pin assignments. Do not switch to UART mode without
+// reassigning the button pins first.
+//
 // COMMON SETTINGS
 // ----------------------------------------------------------------------------------------------
 // These settings are used in both SW UART, HW UART and SPI mode

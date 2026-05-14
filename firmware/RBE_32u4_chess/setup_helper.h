@@ -81,10 +81,18 @@ Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_
 //                             BLUEFRUIT_SPI_MOSI, BLUEFRUIT_SPI_CS,
 //                             BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
 
-// A small helper
+// A small helper: print the error (if a serial host is attached) and
+// blink the onboard LED forever so a silent boot failure is visible
+// without a USB cable.
 void error(const __FlashStringHelper*err) {
   Serial.println(err);
-  while (1);
+  pinMode(LED_BUILTIN, OUTPUT);
+  while (1) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(150);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(150);
+  }
 }
 
 /**************************************************************************/
