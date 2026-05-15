@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -15,9 +16,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
+import com.ratherbeembed.rbe_chess.pocket.PocketModeScreen
+import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 
 @Composable
-fun AppRoot(buffer: MoveBuffer) {
+fun AppRoot(
+    buffer: MoveBuffer,
+    pocketMode: PocketModeState,
+    onEnterPocketMode: () -> Unit,
+    onExitPocketMode: () -> Unit,
+) {
+    when (pocketMode) {
+        PocketModeState.Pocket -> PocketModeScreen(onExit = onExitPocketMode)
+        PocketModeState.Normal -> NormalScreen(buffer = buffer, onEnterPocketMode = onEnterPocketMode)
+    }
+}
+
+@Composable
+private fun NormalScreen(buffer: MoveBuffer, onEnterPocketMode: () -> Unit) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -32,7 +48,7 @@ fun AppRoot(buffer: MoveBuffer) {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "M1 step 2b — cycler + TTS feedback",
+                text = "M1 step 2c — Pocket Mode shell",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(16.dp))
@@ -58,6 +74,15 @@ fun AppRoot(buffer: MoveBuffer) {
                 text = "TTS speaks each press; pause 2.5 s for the prompt.",
                 style = MaterialTheme.typography.bodySmall
             )
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = onEnterPocketMode) {
+                Text("Enter Pocket Mode")
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Tap anywhere on the black screen to exit.",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -66,6 +91,11 @@ fun AppRoot(buffer: MoveBuffer) {
 @Composable
 private fun AppRootPreview() {
     MaterialTheme {
-        AppRoot(buffer = MoveBuffer.DEFAULT)
+        AppRoot(
+            buffer = MoveBuffer.DEFAULT,
+            pocketMode = PocketModeState.Normal,
+            onEnterPocketMode = {},
+            onExitPocketMode = {},
+        )
     }
 }

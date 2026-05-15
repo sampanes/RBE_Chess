@@ -25,6 +25,10 @@ class BestMoveSpeaker(private val output: SpeechOutput) {
         output.speak(SpokenMoveFormatter.spokenInactivityPrompt(buffer))
     }
 
+    fun speakCommit() {
+        output.speak("Calculating")
+    }
+
     fun speakBestMove(uci: String) {
         output.speak(SpokenMoveFormatter.spokenBestMove(uci))
     }
