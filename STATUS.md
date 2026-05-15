@@ -147,6 +147,30 @@ Landed after M2:
 
 What's still deferred:
 
+- **M3 - terminal-state handling.** Detect when the current position is
+  over instead of treating `bestmove (none)` like a normal move. Acceptance:
+  app says a useful terminal phrase ("checkmate", "stalemate", or "game
+  over"), does not auto-append `(none)`, stops asking Stockfish for moves
+  until Undo/New Game, and keeps the visible board/history intact. Cheapest
+  first pass: make the engine bridge return a structured result that can
+  represent `bestmove (none)` and consume Stockfish `info ... mate ...`
+  lines where available.
+- **M4 - keypad move legality guard.** Reject impossible/illegal user
+  input before appending it to `MoveHistory` or sending it as the next
+  position. Acceptance: illegal moves leave history unchanged, keep or
+  clear the buffer deliberately, and speak a short correction such as
+  "Illegal move." Candidate implementation: use a small JVM/Android chess
+  rules library if one is clean; otherwise ask Stockfish for legal moves
+  from the current position and validate the typed UCI against that set.
+- **Repeat-last spoken move.** Reserved Thumb+Middle is the best current
+  chord candidate. It should replay the last spoken engine move/status
+  without querying Stockfish and without mutating history. Avoid automatic
+  repeated speech as the default; user-triggered replay is less annoying
+  during physical-board play.
+- **Battery telemetry smoothing.** A transient `0%` followed by a normal
+  value should not immediately fire a critical warning. Require repeated
+  low samples or firmware-side averaged/median ADC reads before speaking
+  low/critical battery.
 - **Resign / end-of-game state.** Explicit "this game is over" signal
   so the engine stops being asked for moves on a finished position,
   and TTS can say something useful ("you resigned" / "checkmate" /

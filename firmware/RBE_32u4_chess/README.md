@@ -100,6 +100,12 @@ The conversion curve is approximate; treat the percentage as a coarse
 fuel gauge ("plenty / getting low / charge soon"), not a calibrated
 reading.
 
+Dogfooding caveat: one transient `B000` followed by a plausible normal
+value has been observed. Future firmware should smooth this by discarding
+the first ADC read and averaging/median-filtering several samples before
+reporting. App-side warning logic should also require repeated low samples
+before speaking low/critical battery.
+
 Debounce is a "stable for N ms" model (signal must hold the new state
 continuously for `DOWN_DB_MS` / `UP_DB_MS` before the transition commits).
 Defaults are conservative at 50 ms / 25 ms; lower if presses feel
