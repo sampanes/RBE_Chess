@@ -368,7 +368,13 @@ finalizing on Space. Mapping (best-guess from user's note "k, b, r, q
 - Cancel/clear current input buffer.
 - "Exit Pocket Mode" gesture (M1: tap the touchscreen anywhere — Activity
   is foregrounded so touch still works).
-- A toggleable *"I type my own moves too"* mode where the user enters their
-  own moves on the cycler in addition to the opponent's, instead of trusting
-  the engine's suggestion blindly. User asked for this to be logged as a
-  possible future mode. M1 ships only the auto-advance flow above.
+- A toggleable *"I type my own moves too"* mode (working title:
+  **manual mode**) where the user enters their own moves on the cycler
+  in addition to the opponent's, instead of auto-advancing the engine's
+  pick. Stockfish still speaks its bestmove, but the user is free to
+  play something else. Use case: deliberately deviate from the engine
+  — e.g. pretend to blunder against a friend, then play out the
+  recovery — while still hearing what Stockfish would have played as
+  a hidden advisor. Gated on whether real-world M1 testing shows the
+  cycler is intuitive enough that doubling input per move is worth
+  it. M1 ships only the auto-advance flow above.

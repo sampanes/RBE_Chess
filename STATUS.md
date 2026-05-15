@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M1 step 3 Stockfish PoC verified end-to-end on hardware — UCI handshake + bestmove from startpos works).
+Last updated: 2026-05-15 (M1 step 4 wired: Space → engine → bestmove + auto-advance history. Code-complete, JVM-green; awaiting on-device verification).
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -10,20 +10,22 @@ as session-priority cleanup before doing other work.
 ## Where we are
 
 - **Milestone:** M1 — Pocket Mode loop (keyboard → UCI → bestmove → TTS).
-- **In flight:** nothing — last sub-step shipped clean.
-- **Last completed:** M1 step 3 — Stockfish PoC. `engine/` package
-  (`StockfishEngine` interface, `StockfishProcessEngine` real impl,
-  `FakeStockfishEngine` for tests). Stockfish 18 Android ARMv8
-  dot-product binary fetched via `scripts/fetch-stockfish.sh` (109 MB,
-  gitignored — too large for GitHub). Packaging fix:
-  `useLegacyPackaging = true` so AGP injects `extractNativeLibs="true"`
-  and Android writes a real exec'able file at install time (the
-  modern `false` default `mmap`s from APK and breaks `Runtime.exec()`
-  with ENOENT — AGENT_NOTES corrected). PoC button on the normal
-  screen runs `boot` + `bestMove(startpos, movetime=1000)` and speaks
-  the result. Verified on the S22 Ultra 2026-05-15.
-- **Next:** M1 step 4 — wire Space commit to engine, speak the
-  bestmove, auto-advance bestmove into board state.
+- **In flight:** M1 step 4 on-device verification (code-complete, awaiting
+  hardware run).
+- **Last completed (code):** M1 step 4 — Space commit wired to engine.
+  New `chess/MoveHistory.kt` (immutable UCI ply list, Compose-stable).
+  `MainActivity.commitMove(opponentMove)` speaks "Calculating", boots the
+  engine (idempotent), calls `engine.bestMove(history + opp, movetime=1000)`,
+  speaks the bestmove via `SpokenMoveFormatter`, and on success appends
+  both plies to `moveHistory` (engine error leaves history unchanged so the
+  user can retry without a corrupt move list). Concurrent-Space guard
+  drops re-entered commits while `engineJob.isActive`. `NormalScreen`
+  surfaces the running history line. JVM: 42 / 42 tests green;
+  `assembleDebug` green. The Stockfish PoC button still works against
+  startpos as an independent diagnostic.
+- **Next:** verify step 4 end-to-end on the S22 Ultra (type a move on
+  the Bluefruit keypad → engine bestmove spoken via BT earbuds →
+  history advances → next move continues from advanced state).
 
 ## M1 implementation checklist
 
@@ -46,18 +48,55 @@ as steps land:
 - [x] **3** Stockfish PoC: `engine/` package + `scripts/fetch-stockfish.sh`
       + `useLegacyPackaging = true` (forces extractNativeLibs). UCI
       handshake + `bestmove` from startpos verified on the S22 Ultra.
-- [ ] **4** Wire `Space` commit to engine; speak bestmove; auto-advance
-      the bestmove into board state.
+- [~] **4** Wire `Space` commit to engine; speak bestmove; auto-advance
+      the bestmove into board state. `chess/MoveHistory.kt` + new
+      `MainActivity.commitMove(...)` ship the wiring. JVM-green;
+      hardware verification pending.
 - [ ] **5** Test BT keyboard in Pocket Mode on the S22 Ultra.
 - [ ] **post-M1** `AccessibilityService` spike for true screen-off
       (optional; revisit AGP/SDK 36 first per AGENT_NOTES).
+
+## Beyond M1 — roadmap
+
+M1 is deliberately a "one game, you play white, no exit" loop — it
+proves the *move* loop works. The next milestone covers everything M1
+punts on around the *game* itself.
+
+### M2 — Game Lifecycle
+
+No design decisions locked in yet; captured here so these stop being
+invisible follow-ups:
+
+- **Side select.** Tell the app which colour you're playing before the
+  first move. M1's implicit default is **user + engine play as black**:
+  `MainActivity.commitMove(opponentMove)` treats every typed move as
+  the *opponent's*, so the first ply typed is white's opener and the
+  engine answers for black. To play white instead, the engine has to
+  move first off an empty history before the user types anything, and
+  the user then enters the opponent's replies — same loop after the
+  bootstrap. Likely a startup screen toggle or a dedicated keystroke
+  before any moves are typed.
+- **New game / reset.** Keyboard-driven way to clear `MoveHistory` and
+  start over without relaunching the app. Today the only escape hatch
+  is force-stop + reopen.
+- **Resign / end-of-game state.** Explicit "this game is over" signal
+  so the engine stops being asked for moves on a finished position,
+  and TTS can say something useful ("you resigned" / "checkmate" /
+  "stalemate").
+- **Terminal-position detection.** Notice checkmate, stalemate, and
+  forced draws automatically. Stockfish already reports mate in its
+  `info` lines; cheapest path is probably to consume those rather
+  than ship our own rules engine.
+
+Not in M2 (further out): clock / time control, draw offers, takebacks,
+PGN/FEN export, opening book.
 
 ## Verification status
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 with `engine/` package + sf binary in jniLibs |
-| `:app:testDebugUnitTest` | 36 / 36 green | adds `FakeStockfishEngineTest` (5); `StockfishProcessEngine` is Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after step 4 changes |
+| `:app:testDebugUnitTest` | 42 / 42 green | adds `MoveHistoryTest` (6); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
 | App launch on S22 Ultra | green | confirmed 2026-05-14 |
@@ -69,13 +108,21 @@ as steps land:
 | TTS routing to BT A2DP speaker | green | dual-BT verified 2026-05-15: earbuds + Bluefruit keypad together, audio routes to earbuds |
 | Pocket Mode entry/exit on-device | green | enter dims + keeps awake; BT keypad still drives TTS through earbuds; tap-anywhere exits and restores brightness 2026-05-15 |
 | Stockfish UCI loop on-device | green | "Test Stockfish" button: boot → uci/uciok → isready/readyok → position startpos → go movetime 1000 → bestmove returned and spoken via TTS 2026-05-15 |
+| Space → engine → bestmove on-device | pending | step-4 commit path: type a move on the Bluefruit, press Space, "Calculating" + bestmove spoken, history advances by two plies. Not yet run on hardware. |
 
 ## Open follow-ups (scheduled, not blockers)
 
 - Bump AGP and `compileSdk` back to 36 before the post-M1 screen-off
   spike. (AGENT_NOTES §"Build configuration — deviations".)
-- "User types their own moves too" mode — future-mode candidate, logged
-  in AGENT_NOTES §"Keyboard grammar — hardware-aware V1" → Deferred list.
+- *Manual mode* (working title: "user types their own moves too") —
+  optional toggle where Stockfish still speaks the bestmove but the
+  user types their *own* move on the cycler instead of the engine
+  auto-advancing. Motivation: deliberately deviate from the engine —
+  e.g. play a sub-optimal move against a friend, then recover from
+  there — while still hearing the engine's pick as a hidden advisor.
+  Gated on whether real-world M1 testing finds the cycler intuitive
+  enough that doubling input per move isn't punishing. Logged in
+  AGENT_NOTES §"Keyboard grammar — hardware-aware V1" → Deferred list.
 - Promotion mapping (`D=N, F=B, J=R, K=Q, Space=Q`) is a best-guess.
   Verify with the user before the promo-pick code lands.
 - Double-tap Space semantics — TBD.

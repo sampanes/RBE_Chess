@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import com.ratherbeembed.rbe_chess.chess.MoveHistory
 import com.ratherbeembed.rbe_chess.engine.StockfishProcessEngine
 import com.ratherbeembed.rbe_chess.input.ChessKey
 import com.ratherbeembed.rbe_chess.input.GrammarAction
@@ -30,12 +31,13 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "RBE_CHESS"
 private const val INACTIVITY_PROMPT_MS = 2_500L
-private const val POC_MOVETIME_MS = 1_000L
+private const val ENGINE_MOVETIME_MS = 1_000L
 
 class MainActivity : ComponentActivity() {
     private var moveBuffer by mutableStateOf(MoveBuffer.DEFAULT)
     private var pocketMode by mutableStateOf(PocketModeState.Normal)
-    private var engineStatus by mutableStateOf("Engine: not yet tested")
+    private var moveHistory by mutableStateOf(MoveHistory.EMPTY)
+    private var engineStatus by mutableStateOf("Engine: idle")
     private lateinit var speechOutput: SpeechOutput
     private lateinit var speaker: BestMoveSpeaker
     private lateinit var pocketController: PocketModeController
@@ -55,6 +57,7 @@ class MainActivity : ComponentActivity() {
                 AppRoot(
                     buffer = moveBuffer,
                     pocketMode = pocketMode,
+                    history = moveHistory,
                     engineStatus = engineStatus,
                     onEnterPocketMode = ::enterPocketMode,
                     onExitPocketMode = ::exitPocketMode,
@@ -80,6 +83,12 @@ class MainActivity : ComponentActivity() {
             val key = HardwareKeyboardHandler.toChessKey(event.keyCode)
             if (key != ChessKey.IGNORED) {
                 val action = KeyboardGrammar.translate(key)
+                if (action == GrammarAction.Commit && engineJob?.isActive == true) {
+                    // Engine is mid-think; ignore the press entirely so the
+                    // current buffer stays visible and TTS isn't double-fired.
+                    Log.d(TAG, "Commit ignored — engine still calculating")
+                    return true
+                }
                 val before = moveBuffer
                 val after = KeyboardGrammar.apply(action, before)
                 moveBuffer = after
@@ -115,10 +124,39 @@ class MainActivity : ComponentActivity() {
                 scheduleInactivityPrompt(after)
             }
             GrammarAction.Commit -> {
-                speaker.speakCommit()
-                Log.d(TAG, "Commit ${before.toUciString()} (engine wiring is step 4)")
+                commitMove(before.toUciString())
             }
             GrammarAction.Ignored -> Unit
+        }
+    }
+
+    /**
+     * Step 4 commit: speak "Calculating", boot the engine if needed, ask
+     * Stockfish for the bestmove given (current history + opponent move),
+     * speak it, and auto-advance both plies into [moveHistory]. On engine
+     * error we surface the message but leave [moveHistory] untouched so the
+     * user can retry without a corrupt move list.
+     */
+    private fun commitMove(opponentMove: String) {
+        speaker.speakCommit()
+        val historyForEngine = moveHistory.append(opponentMove)
+        engineStatus = "Engine: thinking on $opponentMove..."
+        Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves})")
+        engineJob = lifecycleScope.launch {
+            try {
+                engine.boot()
+                val best = engine.bestMove(
+                    uciMoves = historyForEngine.moves,
+                    movetimeMs = ENGINE_MOVETIME_MS,
+                )
+                speaker.speakBestMove(best)
+                moveHistory = historyForEngine.append(best)
+                engineStatus = "Last: opp=$opponentMove → engine=$best (${moveHistory.size} plies)"
+                Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
+            } catch (t: Throwable) {
+                engineStatus = "Engine error after $opponentMove: ${t.message}"
+                Log.e(TAG, "engine bestmove failed", t)
+            }
         }
     }
 
@@ -150,8 +188,8 @@ class MainActivity : ComponentActivity() {
         engineJob = lifecycleScope.launch {
             try {
                 engine.boot()
-                engineStatus = "Engine: thinking (movetime ${POC_MOVETIME_MS} ms)..."
-                val move = engine.bestMove(uciMoves = emptyList(), movetimeMs = POC_MOVETIME_MS)
+                engineStatus = "Engine: thinking (movetime ${ENGINE_MOVETIME_MS} ms)..."
+                val move = engine.bestMove(uciMoves = emptyList(), movetimeMs = ENGINE_MOVETIME_MS)
                 engineStatus = "Engine bestmove from startpos: $move"
                 Log.d(TAG, "Stockfish PoC bestmove = $move")
                 speaker.speakBestMove(move)
