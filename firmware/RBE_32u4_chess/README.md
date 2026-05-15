@@ -83,3 +83,44 @@ without a USB cable.
 - `BluefruitConfig.h` — SPI-mode pin definitions. The SW UART defines in
   this file are unused but their pin numbers overlap with button pins;
   see the comment at the top of that file.
+
+## Troubleshooting upload (Windows / Arduino IDE 1.8.x)
+
+Symptom that has bitten this project before:
+
+```
+Sketch uses ... bytes ... (compile succeeds)
+An error occurred while uploading the sketch
+avrdude: butterfly_recv(): programmer is not responding
+Found programmer: Id = "?"; type = ?
+```
+
+That means avrdude opened the COM port but the Feather's Caterina
+bootloader didn't answer. The 32u4 only exposes the bootloader port
+for ~8 seconds after a reset, and the IDE's automatic 1200 bps "soft
+reset" trick can fail if the running sketch's USB stack has crashed.
+
+**Recipe that has worked reliably here:**
+
+1. Unplug the Feather, plug it back in.
+2. (Recommended) Enable upload diagnostics: **File → Preferences →
+   Show verbose output during: Upload**. Helps next time something is
+   off.
+3. Open a known-good primer sketch: **File → Examples → 01.Basics →
+   Blink**.
+4. **Tools → Board → Adafruit Feather 32u4**.
+5. **Tools → Port → COM5** (or whichever number the board enumerates
+   as on this machine; check Device Manager → Ports if unsure).
+6. Click **Upload**.
+7. **The instant the IDE status flips from "Compiling…" to "Uploading…",
+   double-tap the RST button** on the Feather. The onboard LED should
+   start a slow breathing pulse (Caterina is now alive). Avrdude finds
+   it and flashes.
+8. Reopen your real sketch and upload normally — no RST gymnastics
+   needed for subsequent uploads in the same session, because the
+   freshly-flashed sketch's USB stack is healthy and the soft-reset
+   trick works again.
+
+If even Blink won't take, the cable is the next suspect (~30% of
+random micro-USB cables are charge-only). Try a different cable, then
+a different USB port.
