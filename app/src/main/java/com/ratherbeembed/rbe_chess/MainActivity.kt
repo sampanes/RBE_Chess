@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import com.ratherbeembed.rbe_chess.chess.ChessSide
 import com.ratherbeembed.rbe_chess.chess.MoveHistory
 import com.ratherbeembed.rbe_chess.engine.StockfishProcessEngine
 import com.ratherbeembed.rbe_chess.input.BatteryReportParser
@@ -52,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private var engineStatus by mutableStateOf("Engine: idle")
     private var phase by mutableStateOf<AppPhase>(AppPhase.StartMenu(0))
     private var gameMode by mutableStateOf(GameMode.AutoAdvance)
+    private var playerSide by mutableStateOf(ChessSide.WHITE)
     private var batteryPct by mutableStateOf<Int?>(null)
     private var batteryWarnedLow = false
     private var batteryWarnedCritical = false
@@ -79,6 +81,7 @@ class MainActivity : ComponentActivity() {
                     history = moveHistory,
                     engineStatus = engineStatus,
                     gameMode = gameMode,
+                    playerSide = playerSide,
                     batteryPct = batteryPct,
                     onEnterPocketMode = ::enterPocketMode,
                     onExitPocketMode = ::exitPocketMode,
@@ -181,6 +184,7 @@ class MainActivity : ComponentActivity() {
         engineJob?.cancel(); engineJob = null
         moveHistory = MoveHistory.EMPTY
         moveBuffer = MoveBuffer.DEFAULT
+        playerSide = if (asWhite) ChessSide.WHITE else ChessSide.BLACK
         phase = AppPhase.InGame
         engineStatus = if (asWhite) "Engine: opening as white..." else "Engine: idle"
         speaker.speakGameStart(asWhite)

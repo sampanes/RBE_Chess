@@ -134,6 +134,16 @@ no Android Settings dependency.
 ## Beyond M2 — roadmap
 
 M1 proved the move loop; M2 makes the *game* operable from the keypad.
+Landed after M2:
+
+- **Minimal in-app board viewer.** Display-only Compose board on the
+  normal in-game screen, oriented with the selected Stockfish/player
+  side at the bottom. It projects `MoveHistory` from the start position,
+  renders rank/file labels and piece letters, and highlights the source
+  and target squares of the last applied UCI move. It intentionally has
+  no touch input; the board only changes through Stockfish auto-advance
+  and keyboard-entered moves.
+
 What's still deferred:
 
 - **Resign / end-of-game state.** Explicit "this game is over" signal
@@ -158,8 +168,9 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after step 4 changes |
-| `:app:testDebugUnitTest` | 42 / 42 green | adds `MoveHistoryTest` (6); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after minimal board viewer |
+| `:app:testDebugUnitTest` | 67 / 67 green | includes `BoardProjectorTest` (7); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
 | App launch on S22 Ultra | green | confirmed 2026-05-14 |

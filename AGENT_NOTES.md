@@ -254,8 +254,9 @@ Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
 - True screen-off input via `AccessibilityService` (experimental — addendum
   §"True Screen-Off Mode: Experimental").
 - Foreground service + wake locks (only if screen-off path is pursued).
-- Compose board UI, tappable squares, FEN/PGN, MultiPV, etc. (handoff M4+
-  and §Future Enhancements).
+- Tappable board input, FEN/PGN, MultiPV, etc. (handoff M4+ and §Future
+  Enhancements). A minimal display-only Compose board viewer shipped
+  post-M2.
 
 ---
 
