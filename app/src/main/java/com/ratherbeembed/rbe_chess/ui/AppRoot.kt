@@ -23,17 +23,29 @@ import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 fun AppRoot(
     buffer: MoveBuffer,
     pocketMode: PocketModeState,
+    engineStatus: String,
     onEnterPocketMode: () -> Unit,
     onExitPocketMode: () -> Unit,
+    onTestStockfish: () -> Unit,
 ) {
     when (pocketMode) {
         PocketModeState.Pocket -> PocketModeScreen(onExit = onExitPocketMode)
-        PocketModeState.Normal -> NormalScreen(buffer = buffer, onEnterPocketMode = onEnterPocketMode)
+        PocketModeState.Normal -> NormalScreen(
+            buffer = buffer,
+            engineStatus = engineStatus,
+            onEnterPocketMode = onEnterPocketMode,
+            onTestStockfish = onTestStockfish,
+        )
     }
 }
 
 @Composable
-private fun NormalScreen(buffer: MoveBuffer, onEnterPocketMode: () -> Unit) {
+private fun NormalScreen(
+    buffer: MoveBuffer,
+    engineStatus: String,
+    onEnterPocketMode: () -> Unit,
+    onTestStockfish: () -> Unit,
+) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -48,7 +60,7 @@ private fun NormalScreen(buffer: MoveBuffer, onEnterPocketMode: () -> Unit) {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "M1 step 2c — Pocket Mode shell",
+                text = "M1 step 3 — Stockfish PoC",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(16.dp))
@@ -83,6 +95,15 @@ private fun NormalScreen(buffer: MoveBuffer, onEnterPocketMode: () -> Unit) {
                 text = "Tap anywhere on the black screen to exit.",
                 style = MaterialTheme.typography.bodySmall
             )
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = onTestStockfish) {
+                Text("Test Stockfish (startpos)")
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = engineStatus,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -94,8 +115,10 @@ private fun AppRootPreview() {
         AppRoot(
             buffer = MoveBuffer.DEFAULT,
             pocketMode = PocketModeState.Normal,
+            engineStatus = "Engine: not yet tested",
             onEnterPocketMode = {},
             onExitPocketMode = {},
+            onTestStockfish = {},
         )
     }
 }

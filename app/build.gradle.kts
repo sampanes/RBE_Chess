@@ -40,6 +40,21 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        jniLibs {
+            // MUST be true for our use case. Modern AGP defaults to false,
+            // which stores .so files uncompressed in the APK and lets the
+            // linker mmap them directly without extraction. That works for
+            // System.loadLibrary, but Runtime.exec() (which we use for the
+            // Stockfish UCI subprocess) needs a real filesystem path —
+            // false produces ENOENT at exec time. Setting this to true
+            // makes AGP inject `android:extractNativeLibs="true"` into the
+            // merged manifest, so Android extracts the binary into the
+            // app's nativeLibraryDir as a real exec'able file on install.
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
