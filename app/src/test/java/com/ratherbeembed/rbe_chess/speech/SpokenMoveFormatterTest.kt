@@ -39,7 +39,7 @@ class SpokenMoveFormatterTest {
     @Test
     fun `spokenInactivityPrompt on default buffer reads A one to A one`() {
         val prompt = SpokenMoveFormatter.spokenInactivityPrompt(MoveBuffer.DEFAULT)
-        assertEquals("Move A one to A one?", prompt)
+        assertEquals("Saw A one to A one?", prompt)
     }
 
     @Test
@@ -50,7 +50,7 @@ class SpokenMoveFormatterTest {
             .cycleToFile()                                    // 'a'
             .cycleToRank()                                    // 1
         val prompt = SpokenMoveFormatter.spokenInactivityPrompt(b)
-        assertEquals("Move C one to A one?", prompt)
+        assertEquals("Saw C one to A one?", prompt)
     }
 
     @Test
