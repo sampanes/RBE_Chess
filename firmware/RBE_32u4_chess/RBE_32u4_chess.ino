@@ -2,7 +2,7 @@
 // many times on boot, and setup_helper.h appends "v<N>" to the BLE device
 // name. Together they let you verify *from outside* whether the chip is
 // running the bits you think it is, no USB cable required.
-#define FIRMWARE_VERSION 3
+#define FIRMWARE_VERSION 4
 
 #include "setup_helper.h"
 
@@ -93,15 +93,23 @@ bool chordConsumed = false;
 // now returns a tri-state.
 enum BtnEdge { EDGE_NONE, EDGE_PRESS, EDGE_RELEASE };
 
-// --- Battery telemetry (firmware v3) ----------------------------------
+// --- Battery telemetry (firmware v3+) ---------------------------------
 //
-// BLE Battery Service is enabled in setup_helper.h. The keypad still
-// has to push values to it via AT+BLEBATTVAL=<0..100>. We sample slowly
-// (battery just doesn't move that fast) and route the send through the
-// existing non-blocking BLE state machine so it can never block input.
+// We try to enable the standard BLE Battery Service in setup_helper.h
+// via AT+BLEBATTEN=on. That command isn't documented on every revision
+// of the nRF51 SPI Friend AT firmware, so the call is *non-fatal*:
+// setup_helper sets batteryServiceAvailable=true only if the command
+// returned OK. When it's false we skip the periodic AT+BLEBATTVAL push
+// entirely -- spamming an unsupported command would just waste BLE
+// roundtrips. The keypad still works as a keyboard either way.
+//
+// v3 made the AT+BLEBATTEN failure fatal (error() blink-forever) which
+// bricked the keypad if the module didn't support the command; v4 is
+// the warn-and-continue fix.
 #define BATTERY_UPDATE_MS 60000UL
 unsigned long lastBatteryMs = 0;
-bool batteryPending = true;  // push once shortly after boot
+bool batteryPending = false;
+bool batteryServiceAvailable = false;  // set in setup_helper
 
 void blinkVersion(void)
 {
@@ -128,6 +136,14 @@ void setup(void)
   {
     pinMode(buttonPins[i], INPUT_PULLUP);
     buttonCandidateSince[i] = now;
+  }
+
+  // If BAS is supported, push the first battery reading shortly after
+  // boot so Android's BT settings populate the % quickly rather than
+  // waiting a full BATTERY_UPDATE_MS interval.
+  if (batteryServiceAvailable)
+  {
+    batteryPending = true;
   }
 }
 
@@ -250,7 +266,7 @@ void tickBle(void)
         Serial.print(F("BLE> ")); Serial.println(batch);
         #endif
       }
-      else if (batteryPending)
+      else if (batteryPending && batteryServiceAvailable)
       {
         int pct = voltage_to_percent(battery_voltage());
         if (pct < 0)   pct = 0;
@@ -379,8 +395,9 @@ void loop(void)
 
   // Periodic battery sample. tickBle() does the actual send when it
   // sees batteryPending and the FIFO is empty, so a chord burst can't
-  // be delayed by the battery push.
-  if (millis() - lastBatteryMs > BATTERY_UPDATE_MS)
+  // be delayed by the battery push. Skipped entirely if BAS init failed
+  // at boot -- spamming unsupported commands is just wasted bandwidth.
+  if (batteryServiceAvailable && millis() - lastBatteryMs > BATTERY_UPDATE_MS)
   {
     lastBatteryMs = millis();
     batteryPending = true;
