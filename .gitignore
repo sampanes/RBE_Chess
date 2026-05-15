@@ -21,3 +21,7 @@ local.properties
 # Local-only working notes / reference material kept out of git
 /hidden/
 /.claude/
+
+# Stockfish binary — too large for GitHub (>100 MB hard limit).
+# Run scripts/fetch-stockfish.sh to populate before ./gradlew assembleDebug.
+/app/src/main/jniLibs/arm64-v8a/*.so

@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import com.ratherbeembed.rbe_chess.engine.StockfishProcessEngine
 import com.ratherbeembed.rbe_chess.input.ChessKey
 import com.ratherbeembed.rbe_chess.input.GrammarAction
 import com.ratherbeembed.rbe_chess.input.HardwareKeyboardHandler
@@ -29,28 +30,35 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "RBE_CHESS"
 private const val INACTIVITY_PROMPT_MS = 2_500L
+private const val POC_MOVETIME_MS = 1_000L
 
 class MainActivity : ComponentActivity() {
     private var moveBuffer by mutableStateOf(MoveBuffer.DEFAULT)
     private var pocketMode by mutableStateOf(PocketModeState.Normal)
+    private var engineStatus by mutableStateOf("Engine: not yet tested")
     private lateinit var speechOutput: SpeechOutput
     private lateinit var speaker: BestMoveSpeaker
     private lateinit var pocketController: PocketModeController
+    private lateinit var engine: StockfishProcessEngine
     private var inactivityJob: Job? = null
+    private var engineJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         speechOutput = SpeechOutput(this)
         speaker = BestMoveSpeaker(speechOutput)
         pocketController = PocketModeController(this)
+        engine = StockfishProcessEngine(this)
         setContent {
             val colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
             MaterialTheme(colorScheme = colors) {
                 AppRoot(
                     buffer = moveBuffer,
                     pocketMode = pocketMode,
+                    engineStatus = engineStatus,
                     onEnterPocketMode = ::enterPocketMode,
                     onExitPocketMode = ::exitPocketMode,
+                    onTestStockfish = ::testStockfish,
                 )
             }
         }
@@ -59,6 +67,9 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         inactivityJob?.cancel()
         inactivityJob = null
+        engineJob?.cancel()
+        engineJob = null
+        engine.shutdown()
         pocketController.exit()
         speechOutput.shutdown()
         super.onDestroy()
@@ -128,5 +139,26 @@ class MainActivity : ComponentActivity() {
         pocketController.exit()
         pocketMode = PocketModeState.Normal
         Log.d(TAG, "Pocket Mode OFF")
+    }
+
+    private fun testStockfish() {
+        if (engineJob?.isActive == true) {
+            Log.d(TAG, "Stockfish test already running, ignoring")
+            return
+        }
+        engineStatus = "Engine: booting..."
+        engineJob = lifecycleScope.launch {
+            try {
+                engine.boot()
+                engineStatus = "Engine: thinking (movetime ${POC_MOVETIME_MS} ms)..."
+                val move = engine.bestMove(uciMoves = emptyList(), movetimeMs = POC_MOVETIME_MS)
+                engineStatus = "Engine bestmove from startpos: $move"
+                Log.d(TAG, "Stockfish PoC bestmove = $move")
+                speaker.speakBestMove(move)
+            } catch (t: Throwable) {
+                engineStatus = "Engine error: ${t.message}"
+                Log.e(TAG, "Stockfish PoC failed", t)
+            }
+        }
     }
 }

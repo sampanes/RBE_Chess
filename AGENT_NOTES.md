@@ -89,21 +89,45 @@ The binary itself will be sourced from the official Stockfish project's
 Android arm64 release. Source/license to be recorded in `app/src/main/jniLibs/README.md`
 when the binary is added.
 
-`build.gradle.kts` will need:
+`build.gradle.kts` needs (corrected 2026-05-15 after the original
+recipe failed on-device with `error=2, No such file or directory`):
 
 ```kotlin
 android {
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            // MUST be true for the exec()-the-engine approach.
+            // false stores .so uncompressed in the APK and the linker
+            // mmap's it directly — System.loadLibrary works, but
+            // Runtime.exec() gets ENOENT because nothing is written to
+            // disk. Setting this true makes AGP inject
+            // `android:extractNativeLibs="true"` into the merged
+            // manifest, so Android extracts the binary into
+            // nativeLibraryDir as a real exec'able file at install.
+            useLegacyPackaging = true
             // do NOT add stockfish to excludes
         }
     }
 }
 ```
 
-`useLegacyPackaging = false` is the default on modern AGP; it keeps the `.so`
-uncompressed and `exec`-able from `nativeLibraryDir`.
+The previous version of this section claimed `useLegacyPackaging = false`
+worked; that was wrong. The actual on-device behavior with `false` is
+that no real file lands at `applicationInfo.nativeLibraryDir +
+"/libstockfish.so"`, so `ProcessBuilder.start()` fails immediately.
+Confirm the merged manifest has `extractNativeLibs="true"` after a
+build with:
+
+```
+$ANDROID_SDK/build-tools/<ver>/aapt dump xmltree \
+  app/build/outputs/apk/debug/app-debug.apk AndroidManifest.xml \
+  | grep extractNativeLibs
+# expect: A: android:extractNativeLibs(0x010104ea)=(type 0x12)0xffffffff
+```
+
+Trade-off: the 109 MB Stockfish binary becomes part of the install
+footprint (~114 MB extracted) on top of the compressed APK copy
+(~88 MB). Acceptable for our single-target-device use case.
 
 ---
 

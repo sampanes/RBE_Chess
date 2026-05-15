@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M1 step 2c Pocket Mode shell verified end-to-end on hardware — "flawless" per user).
+Last updated: 2026-05-15 (M1 step 3 Stockfish PoC verified end-to-end on hardware — UCI handshake + bestmove from startpos works).
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -11,15 +11,19 @@ as session-priority cleanup before doing other work.
 
 - **Milestone:** M1 — Pocket Mode loop (keyboard → UCI → bestmove → TTS).
 - **In flight:** nothing — last sub-step shipped clean.
-- **Last completed:** M1 step 2c — Pocket Mode shell (`pocket/`
-  package). Black/minimal screen with `FLAG_KEEP_SCREEN_ON` + dimmed
-  brightness, tap-anywhere exit, brightness restored on exit. Also
-  added `BestMoveSpeaker.speakCommit()` → "Calculating" on Space so
-  commit is audibly confirmed (becomes literal once step 4 wires
-  Stockfish). User reports "flawless" on the S22 Ultra 2026-05-15.
-- **Next:** M1 step 3 — Stockfish PoC. Drop `libstockfish.so` into
-  `app/src/main/jniLibs/arm64-v8a/`, implement `StockfishProcessEngine`,
-  prove a hardcoded UCI loop returns a `bestmove`.
+- **Last completed:** M1 step 3 — Stockfish PoC. `engine/` package
+  (`StockfishEngine` interface, `StockfishProcessEngine` real impl,
+  `FakeStockfishEngine` for tests). Stockfish 18 Android ARMv8
+  dot-product binary fetched via `scripts/fetch-stockfish.sh` (109 MB,
+  gitignored — too large for GitHub). Packaging fix:
+  `useLegacyPackaging = true` so AGP injects `extractNativeLibs="true"`
+  and Android writes a real exec'able file at install time (the
+  modern `false` default `mmap`s from APK and breaks `Runtime.exec()`
+  with ENOENT — AGENT_NOTES corrected). PoC button on the normal
+  screen runs `boot` + `bestMove(startpos, movetime=1000)` and speaks
+  the result. Verified on the S22 Ultra 2026-05-15.
+- **Next:** M1 step 4 — wire Space commit to engine, speak the
+  bestmove, auto-advance bestmove into board state.
 
 ## M1 implementation checklist
 
@@ -39,9 +43,9 @@ as steps land:
       (full black, tap-anywhere onExit). "Enter Pocket Mode" button on
       the normal screen. `BestMoveSpeaker.speakCommit()` → "Calculating"
       on Space. Verified on the S22 Ultra 2026-05-15.
-- [ ] **3** Stockfish PoC: drop `libstockfish.so` into
-      `jniLibs/arm64-v8a/`, implement `StockfishProcessEngine`, prove a
-      hardcoded UCI loop returns a `bestmove`.
+- [x] **3** Stockfish PoC: `engine/` package + `scripts/fetch-stockfish.sh`
+      + `useLegacyPackaging = true` (forces extractNativeLibs). UCI
+      handshake + `bestmove` from startpos verified on the S22 Ultra.
 - [ ] **4** Wire `Space` commit to engine; speak bestmove; auto-advance
       the bestmove into board state.
 - [ ] **5** Test BT keyboard in Pocket Mode on the S22 Ultra.
@@ -52,8 +56,9 @@ as steps land:
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 with `pocket/` package |
-| `:app:testDebugUnitTest` | 27 / 27 green | `SpokenMoveFormatterTest` (10); pocket/controller/screen are Activity-bound, no JVM tests |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 with `engine/` package + sf binary in jniLibs |
+| `:app:testDebugUnitTest` | 36 / 36 green | adds `FakeStockfishEngineTest` (5); `StockfishProcessEngine` is Android-bound |
+| `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
 | App launch on S22 Ultra | green | confirmed 2026-05-14 |
 | BT keyboard input on-device | green | Bluefruit paired as "RBE Keypad v1", all 5 keycodes received and dispatched correctly 2026-05-14 |
@@ -63,7 +68,7 @@ as steps land:
 | 2.5 s inactivity prompt on-device | green (phone speaker) | fires on pause, cancels on next press |
 | TTS routing to BT A2DP speaker | green | dual-BT verified 2026-05-15: earbuds + Bluefruit keypad together, audio routes to earbuds |
 | Pocket Mode entry/exit on-device | green | enter dims + keeps awake; BT keypad still drives TTS through earbuds; tap-anywhere exits and restores brightness 2026-05-15 |
-| Stockfish UCI loop | not implemented | step 3 |
+| Stockfish UCI loop on-device | green | "Test Stockfish" button: boot → uci/uciok → isready/readyok → position startpos → go movetime 1000 → bestmove returned and spoken via TTS 2026-05-15 |
 
 ## Open follow-ups (scheduled, not blockers)
 
