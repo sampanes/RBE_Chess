@@ -55,7 +55,7 @@ only if no chord fired during the hold:
 | Thumb tap (Space press + release, no other key) | `' '` (space) | Commit move (cycler grammar's existing meaning). |
 | Hold Thumb + press Pinky | `'U'` | Undo last move pair. |
 | Hold Thumb + press Ring | `'M'` | Toggle manual mode. |
-| Hold Thumb + press Middle | (nothing) | Reserved chord slot — held for a future action. |
+| Hold Thumb + press Middle | `'R'` | Repeat last replayable spoken output. |
 | Hold Thumb + press Index | `'N'` | New game (back to start menu). |
 
 Once a chord has fired during a Thumb/Space hold, the trailing Thumb/Space release

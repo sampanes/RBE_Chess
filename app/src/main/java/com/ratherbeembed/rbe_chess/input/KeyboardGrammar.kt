@@ -9,12 +9,23 @@ package com.ratherbeembed.rbe_chess.input
  *
  *   Thumb+Pinky  -> 'U' (UNDO)
  *   Thumb+Ring   -> 'M' (TOGGLE_MANUAL)
+ *   Thumb+Middle -> 'R' (REPEAT_LAST)
  *   Thumb+Index  -> 'N' (NEW_GAME)
- *   Thumb+Middle -> reserved (no emission yet)
  *
  * See firmware/RBE_32u4_chess/README.md §"Thumb/Space-as-modifier chords".
  */
-enum class ChessKey { D, F, J, K, SPACE, UNDO, TOGGLE_MANUAL, NEW_GAME, IGNORED }
+enum class ChessKey {
+    D,
+    F,
+    J,
+    K,
+    SPACE,
+    UNDO,
+    TOGGLE_MANUAL,
+    REPEAT_LAST,
+    NEW_GAME,
+    IGNORED,
+}
 
 sealed interface GrammarAction {
     data object CycleFromFile : GrammarAction
@@ -24,6 +35,7 @@ sealed interface GrammarAction {
     data object Commit : GrammarAction
     data object Undo : GrammarAction
     data object ToggleManual : GrammarAction
+    data object RepeatLast : GrammarAction
     data object NewGame : GrammarAction
     data object Ignored : GrammarAction
 }
@@ -37,6 +49,7 @@ object KeyboardGrammar {
         ChessKey.SPACE -> GrammarAction.Commit
         ChessKey.UNDO -> GrammarAction.Undo
         ChessKey.TOGGLE_MANUAL -> GrammarAction.ToggleManual
+        ChessKey.REPEAT_LAST -> GrammarAction.RepeatLast
         ChessKey.NEW_GAME -> GrammarAction.NewGame
         ChessKey.IGNORED -> GrammarAction.Ignored
     }
@@ -49,9 +62,11 @@ object KeyboardGrammar {
         GrammarAction.Commit -> MoveBuffer.DEFAULT
         // Chord actions wipe any in-progress cycler input: after Undo or
         // NewGame the half-typed move is no longer meaningful. Manual
-        // toggle leaves the buffer alone since it's just a settings flip.
+        // toggle and RepeatLast leave the buffer alone since they do not
+        // change the move being typed.
         GrammarAction.Undo -> MoveBuffer.DEFAULT
         GrammarAction.ToggleManual -> buffer
+        GrammarAction.RepeatLast -> buffer
         GrammarAction.NewGame -> MoveBuffer.DEFAULT
         GrammarAction.Ignored -> buffer
     }

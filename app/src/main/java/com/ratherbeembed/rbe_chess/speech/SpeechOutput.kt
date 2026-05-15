@@ -23,7 +23,7 @@ private const val TAG = "RBE_TTS"
  * hears — bursts of presses outpace TTS, and we'd rather speak the current
  * value than play back a stale queue.
  */
-class SpeechOutput(context: Context) {
+class SpeechOutput(context: Context) : SpeechSink {
 
     private val appContext = context.applicationContext
     private val audioManager =
@@ -77,7 +77,7 @@ class SpeechOutput(context: Context) {
         drained.forEach { speakInternal(it) }
     }
 
-    fun speak(text: String) {
+    override fun speak(text: String) {
         if (shutdownRequested || text.isBlank()) return
         if (!ready) {
             synchronized(pendingLock) { pending.addLast(text) }

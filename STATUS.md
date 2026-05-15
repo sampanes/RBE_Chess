@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M2 + firmware v5 battery reporting hardware-confirmed. In-app "Keypad battery: 90%" populated after pairing v5. TTS low/critical thresholds not yet hit at real low battery. Full-game loop still unexercised.)
+Last updated: 2026-05-15 (Repeat-last speech implemented in app + firmware v6 mapping; hardware flash/verification still pending. Firmware v5 battery reporting was hardware-confirmed.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -16,6 +16,10 @@ as session-priority cleanup before doing other work.
 - **In flight:** hardware verification of both M1 step 4 AND M2 — both
   layers ship together since M2 keys the firmware-v2 chords through the
   same Thumb/Space commit path step 4 introduced.
+- **Current code addition:** repeat-last spoken output. Firmware v6 maps
+  Thumb+Middle to `R`; the app maps `KEYCODE_R` to `RepeatLast` and
+  replays the last replayable spoken move/status without changing
+  history. Hardware flash/verification pending.
 - **Last completed (code):** M2 — Thumb-as-modifier chord support
   (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
   `RBE Keypad v2`). Held Thumb + cycler emits a distinct HID letter:
@@ -32,12 +36,12 @@ as session-priority cleanup before doing other work.
   move. Undo cancels in-flight engine work, drops the last pair of
   plies (or one if odd), clears the buffer, says "Undid last move."
   New-game chord cancels engine work, clears history, returns to the
-  start menu. JVM: 52 / 52 tests green; `assembleDebug` green.
-- **Next:** flash firmware v2 (`RBE_32u4_chess.ino`), confirm 2 LED
-  blinks on boot + BLE name `v2`, re-pair phone if needed. Then on the
+  start menu. JVM: 73 / 73 tests green; `assembleDebug` green.
+- **Next:** flash firmware v6 (`RBE_32u4_chess.ino`), confirm 6 LED
+  blinks on boot + BLE name `v6`, re-pair phone if needed. Then on the
   S22 Ultra: verify M1 step 4 (commit → engine → bestmove + auto-
-  advance) AND M2 (chord paths actually deliver `U`/`M`/`N` HID keys;
-  start menu navigates; undo/manual/new-game all do the right thing
+  advance) AND M2/repeat (chord paths actually deliver `U`/`M`/`R`/`N`
+  HID keys; start menu navigates; undo/manual/repeat/new-game all do the right thing
   end-to-end).
 
 ## M1 implementation checklist
@@ -116,7 +120,7 @@ Single new piece of work post-M2. Three attempts:
   confirmed `AT+BLEBATTEN=on` returns ERROR on this nRF51 SPI Friend.
   The BAS-via-AT path is dead on this module. Keypad still works as a
   keyboard.
-- **v5 (current)**: report battery through the existing HID stream
+- **v5 (battery HID stream)**: report battery through the existing HID stream
   instead. Firmware enqueues `'B'` + 3 zero-padded ASCII digits (e.g.
   `B025`) into the same FIFO chords/chess input use, every 60 s, first
   push 5 s after boot. App-side `BatteryReportParser` intercepts the
@@ -125,6 +129,9 @@ Single new piece of work post-M2. Three attempts:
   on crossing 20 % (low) and 5 % (critical), re-armed when % climbs
   back above 30 %. `FIRMWARE_VERSION` 4 → 5 (5-blink boot,
   `RBE Keypad v5` BLE name).
+- **v6 (repeat chord)**: keep v5 battery behavior and map
+  Thumb+Middle to `R` for repeat-last spoken output. Hardware
+  flash/verification pending.
 
 The custom-GATT BAS path (`AT+GATTADDSERVICE` + `AT+GATTADDCHAR`)
 remains an option if we ever want Android's Settings UI to show the
@@ -144,6 +151,9 @@ Landed after M2:
   and target squares of the last applied UCI move. It intentionally has
   no touch input; the board only changes through Stockfish auto-advance
   and keyboard-entered moves.
+- **Repeat-last spoken output.** Firmware v6 maps Thumb+Middle to `R`;
+  the app maps it to `RepeatLast` and replays the last replayable
+  spoken move/status without changing history or querying Stockfish.
 
 What's still deferred:
 
@@ -162,11 +172,6 @@ What's still deferred:
   "Illegal move." Candidate implementation: use a small JVM/Android chess
   rules library if one is clean; otherwise ask Stockfish for legal moves
   from the current position and validate the typed UCI against that set.
-- **Repeat-last spoken move.** Reserved Thumb+Middle is the best current
-  chord candidate. It should replay the last spoken engine move/status
-  without querying Stockfish and without mutating history. Avoid automatic
-  repeated speech as the default; user-triggered replay is less annoying
-  during physical-board play.
 - **Battery telemetry smoothing.** A transient `0%` followed by a normal
   value should not immediately fire a critical warning. Require repeated
   low samples or firmware-side averaged/median ADC reads before speaking
@@ -182,9 +187,6 @@ What's still deferred:
   forced draws automatically. Stockfish already reports mate in its
   `info` lines; cheapest path is probably to consume those rather
   than ship our own rules engine.
-- **Reserved Thumb+Middle chord.** Firmware v2 detects the chord but emits
-  nothing for it. No assignment yet — candidates: undo a single ply
-  rather than a pair, exit Pocket Mode, repeat-last-utterance.
 
 Further out: clock / time control, draw offers, takebacks,
 PGN/FEN export, opening book.
@@ -193,8 +195,8 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after minimal board viewer |
-| `:app:testDebugUnitTest` | 67 / 67 green | includes `BoardProjectorTest` (7); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after repeat-last speech mapping |
+| `:app:testDebugUnitTest` | 73 / 73 green | includes `BoardProjectorTest` (7) and `BestMoveSpeakerTest` (4); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

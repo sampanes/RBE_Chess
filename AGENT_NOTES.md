@@ -414,7 +414,7 @@ Chord assignments (firmware → HID → app action):
 |---|---|---|---|---|
 | Thumb + Pinky | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
 | Thumb + Ring | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance ⇄ Manual; speak the new state. |
-| Thumb + Middle | (none) | — | — | Reserved. Firmware detects + consumes the chord but emits nothing. Candidate assignments: single-ply undo (vs. Thumb+Pinky's pair undo), exit Pocket Mode, repeat-last-utterance, or pause/resume engine. Pick when a real need arises. |
+| Thumb + Middle | `R` | `REPEAT_LAST` | `RepeatLast` | Replay the last replayable spoken move/status without changing history. |
 | Thumb + Index | `N` | `NEW_GAME` | `NewGame` | Cancel engine, clear history + buffer, return to StartMenu. |
 
 Once any chord fires during a Thumb/Space hold, further cycler presses during
@@ -423,8 +423,9 @@ slightly-rolling chord gestures). Release Thumb/Space and re-hold to fire
 another chord.
 
 App routing: see `MainActivity.handleGameKey` / `handleMenuKey`. In
-StartMenu state, chord keys are no-ops — only Ring/Middle (navigate) and Thumb/Space
-(select) do anything.
+StartMenu state, Ring/Middle navigate, Thumb/Space selects, and
+Thumb+Middle repeats the last spoken option/status. Other chord keys are
+no-ops in the menu.
 
 ---
 
@@ -464,12 +465,14 @@ Implementation options:
 
 ### Repeat-last spoken output
 
-Pocket Mode needs a recovery path for "I missed the move." The current best
-assignment is the reserved Thumb+Middle chord. It should replay the last
-spoken engine move/status without querying Stockfish and without mutating
-history. Avoid periodic automatic repeat as the default; it is likely to
-interrupt thought or physical-board handling. If auto-repeat is ever added,
-make it a single delayed reminder after no input, not an infinite interval.
+Pocket Mode needs a recovery path for "I missed the move." Implemented
+assignment: Thumb+Middle emits `R`, which the app maps to `RepeatLast`.
+It replays the last replayable spoken move/status without querying
+Stockfish and without mutating history. Per-button cycler speech and
+battery warnings do not replace the replay memory. Avoid periodic
+automatic repeat as the default; it is likely to interrupt thought or
+physical-board handling. If auto-repeat is ever added, make it a single
+delayed reminder after no input, not an infinite interval.
 
 ---
 

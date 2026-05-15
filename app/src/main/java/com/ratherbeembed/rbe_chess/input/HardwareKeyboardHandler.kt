@@ -12,6 +12,7 @@ object HardwareKeyboardHandler {
         // Firmware v2 chord emissions. See KeyboardGrammar.ChessKey docs.
         KeyEvent.KEYCODE_U -> ChessKey.UNDO
         KeyEvent.KEYCODE_M -> ChessKey.TOGGLE_MANUAL
+        KeyEvent.KEYCODE_R -> ChessKey.REPEAT_LAST
         KeyEvent.KEYCODE_N -> ChessKey.NEW_GAME
         else -> ChessKey.IGNORED
     }

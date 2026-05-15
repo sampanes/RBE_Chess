@@ -172,7 +172,8 @@ class MainActivity : ComponentActivity() {
                 speaker.speakMenuOption(START_MENU_OPTIONS[next])
             }
             ChessKey.SPACE -> selectMenuOption(state.selectedIndex)
-            // Pinky / Index / chord keys are no-ops in menu.
+            ChessKey.REPEAT_LAST -> speaker.repeatLast()
+            // Pinky / Index / other chord keys are no-ops in menu.
             else -> Unit
         }
     }
@@ -230,6 +231,7 @@ class MainActivity : ComponentActivity() {
         when (action) {
             GrammarAction.Undo -> handleUndo()
             GrammarAction.ToggleManual -> handleToggleManual()
+            GrammarAction.RepeatLast -> handleRepeatLast()
             GrammarAction.NewGame -> handleNewGame()
             GrammarAction.Commit -> {
                 if (engineJob?.isActive == true) {
@@ -365,6 +367,12 @@ class MainActivity : ComponentActivity() {
         engineStatus = "Engine: idle"
         speaker.speakMenuOption("New game. ${START_MENU_OPTIONS[0]}")
         Log.d(TAG, "New game -> StartMenu")
+    }
+
+    private fun handleRepeatLast() {
+        inactivityJob?.cancel(); inactivityJob = null
+        speaker.repeatLast()
+        Log.d(TAG, "Repeat last spoken output")
     }
 
     // --- Misc --------------------------------------------------------------

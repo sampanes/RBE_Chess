@@ -25,7 +25,7 @@ flowchart TD
         buttons["5 switches<br/>Pinky / Ring / Middle / Index / Thumb"] --> debounce["Stable-for-N-ms debounce<br/>INPUT_PULLUP pins"]
         debounce --> spaceHeld{"Thumb held?"}
         spaceHeld -- "no" --> cycler["Queue cycler keys<br/>Pinky Ring Middle Index on press<br/>Thumb on tap release"]
-        spaceHeld -- "yes" --> chord["Thumb chords<br/>Pinky=undo<br/>Ring=manual<br/>Middle=reserved<br/>Index=new game"]
+        spaceHeld -- "yes" --> chord["Thumb chords<br/>Pinky=undo<br/>Ring=manual<br/>Middle=repeat<br/>Index=new game"]
         cycler --> fifo["Press FIFO"]
         chord --> fifo
         fifo --> bleState["Non-blocking BLE send state<br/>keeps scanning while awaiting OK"]
@@ -52,7 +52,7 @@ flowchart TD
         inactive --> speaker
 
         grammar -- "Thumb/Space" --> commit["commitMove(buffer.toUciString())"]
-        grammar -- "U/M/N" --> control["Undo / toggle Manual / New Game"]
+        grammar -- "U/M/R/N" --> control["Undo / toggle Manual / Repeat Last / New Game"]
         control --> state["MoveHistory<br/>GameMode<br/>AppPhase"]
         commit --> state
         bootstrap --> state
@@ -99,7 +99,7 @@ flowchart TD
 | **Thumb tap**              | `Space`             | Commit the current UCI move and ask Stockfish |
 | **Hold Thumb + Pinky**     | `U`                 | Undo the last move pair and clear the buffer  |
 | **Hold Thumb + Ring**      | `M`                 | Toggle Manual / AutoAdvance mode              |
-| **Hold Thumb + Middle**    | none                | Reserved; consumed by firmware                |
+| **Hold Thumb + Middle**    | `R`                 | Repeat the last replayable spoken output      |
 | **Hold Thumb + Index**     | `N`                 | New game; return to the start menu            |
 
 Each coordinate starts unset and renders as `a` or `1`. The first press
@@ -114,7 +114,8 @@ assembled move as a confirmation prompt.
 | **Ring**                        | Previous option |
 | **Middle**                      | Next option     |
 | **Thumb**                       | Select side     |
-| **Pinky / Index / chords**      | Ignored         |
+| **Hold Thumb + Middle**         | Repeat last spoken option/status |
+| **Pinky / Index / other chords**| Ignored         |
 
 ## Hardware Prototype
 
@@ -139,7 +140,7 @@ from pin to ground using internal pull-ups:
 
 Firmware blinks `FIRMWARE_VERSION` on boot and advertises as
 `RBE Keypad v<N>`, making it possible to confirm which sketch is flashed
-without a USB serial session. (Current version is 5.)
+without a USB serial session. (Current version is 6.)
 
 Battery is sampled from the A9 voltage divider, converted to a 0–100 %
 piecewise-linear Li-Po estimate, and pushed once per minute as four HID
@@ -231,8 +232,8 @@ Firmware build notes and upload troubleshooting are in
 
 - Pocket Mode black screen, brightness dimming, and Activity-scoped
   keyboard capture are implemented.
-- Firmware v5: finger-labeled cycler keys, Thumb-as-modifier chords
-  (Pinky/Ring/Index emit `U`/`M`/`N` HID), and battery reports via the HID stream
+- Firmware v6: finger-labeled cycler keys, Thumb-as-modifier chords
+  (Pinky/Ring/Middle/Index emit `U`/`M`/`R`/`N` HID), and battery reports via the HID stream
   (`B` + 3 zero-padded ASCII digits, once per minute). The app
   parses the reports out of the keystream and shows
   `Keypad battery: NN%` on the normal screen; TTS warns below 20 %
