@@ -208,6 +208,12 @@ Bluetooth keyboard support is a major desired interaction mode.
 
 Android should generally treat a Bluetooth keyboard as a hardware keyboard. The app should handle key events at the activity or focused composable level.
 
+Current custom-keypad labels should be described by finger, not by the
+underlying HID letters: Pinky = from-file (`D`), Ring = from-rank (`F`),
+Middle = to-file (`J`), Index = to-rank (`K`), Thumb = commit (`Space`).
+Use the HID letters only when documenting firmware or Android keycode
+internals.
+
 Early useful shortcuts:
 
 ```text

@@ -2,16 +2,17 @@ package com.ratherbeembed.rbe_chess.input
 
 /**
  * Every physical/virtual key the app reacts to. The first five map 1:1
- * to the v1 cycler keys on the BT keypad (HID codes D/F/J/K/SPACE). The
+ * to the v1 cycler keys on the BT keypad (Pinky/Ring/Middle/Index/Thumb,
+ * emitted as HID codes D/F/J/K/SPACE). The
  * next three are firmware-v2 chord emissions — the Bluefruit sends a
- * distinct HID letter when Space is held and a cycler is tapped:
+ * distinct HID letter when Thumb/Space is held and a cycler is tapped:
  *
- *   Space+D -> 'U' (UNDO)
- *   Space+F -> 'M' (TOGGLE_MANUAL)
- *   Space+K -> 'N' (NEW_GAME)
- *   Space+J -> reserved (no emission yet)
+ *   Thumb+Pinky  -> 'U' (UNDO)
+ *   Thumb+Ring   -> 'M' (TOGGLE_MANUAL)
+ *   Thumb+Index  -> 'N' (NEW_GAME)
+ *   Thumb+Middle -> reserved (no emission yet)
  *
- * See firmware/RBE_32u4_chess/README.md §"Space-as-modifier chords".
+ * See firmware/RBE_32u4_chess/README.md §"Thumb/Space-as-modifier chords".
  */
 enum class ChessKey { D, F, J, K, SPACE, UNDO, TOGGLE_MANUAL, NEW_GAME, IGNORED }
 

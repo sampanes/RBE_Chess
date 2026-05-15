@@ -85,7 +85,6 @@ class MainActivity : ComponentActivity() {
                     batteryPct = batteryPct,
                     onEnterPocketMode = ::enterPocketMode,
                     onExitPocketMode = ::exitPocketMode,
-                    onTestStockfish = ::testStockfish,
                 )
             }
         }
@@ -173,7 +172,7 @@ class MainActivity : ComponentActivity() {
                 speaker.speakMenuOption(START_MENU_OPTIONS[next])
             }
             ChessKey.SPACE -> selectMenuOption(state.selectedIndex)
-            // D / K / UNDO / TOGGLE_MANUAL / NEW_GAME are no-ops in menu.
+            // Pinky / Index / chord keys are no-ops in menu.
             else -> Unit
         }
     }
@@ -379,26 +378,5 @@ class MainActivity : ComponentActivity() {
         pocketController.exit()
         pocketMode = PocketModeState.Normal
         Log.d(TAG, "Pocket Mode OFF")
-    }
-
-    private fun testStockfish() {
-        if (engineJob?.isActive == true) {
-            Log.d(TAG, "Stockfish test already running, ignoring")
-            return
-        }
-        engineStatus = "Engine: booting..."
-        engineJob = lifecycleScope.launch {
-            try {
-                engine.boot()
-                engineStatus = "Engine: thinking (movetime ${ENGINE_MOVETIME_MS} ms)..."
-                val move = engine.bestMove(uciMoves = emptyList(), movetimeMs = ENGINE_MOVETIME_MS)
-                engineStatus = "Engine bestmove from startpos: $move"
-                Log.d(TAG, "Stockfish PoC bestmove = $move")
-                speaker.speakBestMove(move)
-            } catch (t: Throwable) {
-                engineStatus = "Engine error: ${t.message}"
-                Log.e(TAG, "Stockfish PoC failed", t)
-            }
-        }
     }
 }

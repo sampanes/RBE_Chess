@@ -15,15 +15,16 @@ as session-priority cleanup before doing other work.
   start over) instead of "one game forever from the implicit opening."
 - **In flight:** hardware verification of both M1 step 4 AND M2 — both
   layers ship together since M2 keys the firmware-v2 chords through the
-  same Space-commit path step 4 introduced.
-- **Last completed (code):** M2 — Space-as-modifier chord support
+  same Thumb/Space commit path step 4 introduced.
+- **Last completed (code):** M2 — Thumb-as-modifier chord support
   (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
-  `RBE Keypad v2`). Held Space + cycler emits a distinct HID letter:
-  Space+D → `U` (undo), Space+F → `M` (manual toggle), Space+K → `N`
-  (new game), Space+J reserved (no emission). Space tap alone still
-  emits ` ` as commit. App side: `AppPhase` (StartMenu / InGame) +
+  `RBE Keypad v2`). Held Thumb + cycler emits a distinct HID letter:
+  Thumb+Pinky → `U` (undo), Thumb+Ring → `M` (manual toggle),
+  Thumb+Index → `N` (new game), Thumb+Middle reserved (no emission).
+  Thumb tap alone still emits ` ` as commit. App side:
+  `AppPhase` (StartMenu / InGame) +
   `GameMode` (AutoAdvance / Manual). New `StartMenuScreen` is verbal-
-  first (F up, J down, Space select; D/K no-op in menu); two options
+  first (Ring up, Middle down, Thumb select; Pinky/Index no-op in menu); two options
   Play-as-white / Play-as-black. Play-as-white bootstraps with an
   immediate engine query on empty history so Stockfish speaks white's
   opener; AutoAdvance also appends it. Manual mode keeps the engine's
@@ -56,11 +57,11 @@ as steps land:
       (`FLAG_KEEP_SCREEN_ON` + brightness dim/restore), `PocketModeScreen`
       (full black, tap-anywhere onExit). "Enter Pocket Mode" button on
       the normal screen. `BestMoveSpeaker.speakCommit()` → "Calculating"
-      on Space. Verified on the S22 Ultra 2026-05-15.
+      on Thumb/Space. Verified on the S22 Ultra 2026-05-15.
 - [x] **3** Stockfish PoC: `engine/` package + `scripts/fetch-stockfish.sh`
       + `useLegacyPackaging = true` (forces extractNativeLibs). UCI
       handshake + `bestmove` from startpos verified on the S22 Ultra.
-- [~] **4** Wire `Space` commit to engine; speak bestmove; auto-advance
+- [~] **4** Wire Thumb/Space commit to engine; speak bestmove; auto-advance
       the bestmove into board state. `chess/MoveHistory.kt` + new
       `MainActivity.commitMove(...)` ship the wiring. JVM-green;
       hardware verification pending. Bundled into the M2 hardware
@@ -71,11 +72,11 @@ as steps land:
 
 ## M2 implementation checklist
 
-- [x] **F1** Firmware v2: Space-as-modifier chord detection. Bumped
+- [x] **F1** Firmware v2: Thumb-as-modifier chord detection. Bumped
       `FIRMWARE_VERSION` to 2; new `BtnEdge` tri-state replaces the
-      v1 press-only `is_changed`. Space defers emission until release
-      (and only emits if no chord fired); held Space + cycler emits
-      `U`/`M`/`N` (Space+J reserved). README updated with the chord
+      v1 press-only `is_changed`. Thumb/Space defers emission until release
+      (and only emits if no chord fired); held Thumb + cycler emits
+      `U`/`M`/`N` (Thumb+Middle reserved). README updated with the chord
       table.
 - [x] **A1** App: `ChessKey.UNDO/TOGGLE_MANUAL/NEW_GAME` + grammar
       actions; `HardwareKeyboardHandler` routes `KEYCODE_U/M/N`.
@@ -84,8 +85,8 @@ as steps land:
       last move."
 - [x] **A3** `GameMode` toggle. AutoAdvance appends engine reply;
       Manual leaves it advisory (`speakSuggestion`).
-- [x] **A4** `AppPhase.StartMenu` + `StartMenuScreen`. F/J cycle,
-      Space selects. Play-as-white triggers a bootstrap engine query;
+- [x] **A4** `AppPhase.StartMenu` + `StartMenuScreen`. Ring/Middle cycle,
+      Thumb selects. Play-as-white triggers a bootstrap engine query;
       Play-as-black waits for user input. Cold launch speaks the menu
       intro.
 - [x] **A5** New-game chord returns to StartMenu, cancels engine,
@@ -95,7 +96,7 @@ as steps land:
       pairings by name. (User-confirmed chord emissions reach the app
       as expected, 2026-05-15.)
 - [~] **HW2** S22 Ultra end-to-end: cold launch lands in start menu
-      with TTS; F/J navigate; Space picks a side; play-as-white hears
+      with TTS; Ring/Middle navigate; Thumb picks a side; play-as-white hears
       engine opener; play-as-black waits for input; commit cycle still
       works (M1 step 4); each chord does its thing. Chord paths +
       menu + manual + undo + new-game confirmed; full game loop
@@ -157,7 +158,7 @@ What's still deferred:
   forced draws automatically. Stockfish already reports mate in its
   `info` lines; cheapest path is probably to consume those rather
   than ship our own rules engine.
-- **Reserved Space+J chord.** Firmware v2 detects the chord but emits
+- **Reserved Thumb+Middle chord.** Firmware v2 detects the chord but emits
   nothing for it. No assignment yet — candidates: undo a single ply
   rather than a pair, exit Pocket Mode, repeat-last-utterance.
 
@@ -181,14 +182,14 @@ PGN/FEN export, opening book.
 | 2.5 s inactivity prompt on-device | green (phone speaker) | fires on pause, cancels on next press |
 | TTS routing to BT A2DP speaker | green | dual-BT verified 2026-05-15: earbuds + Bluefruit keypad together, audio routes to earbuds |
 | Pocket Mode entry/exit on-device | green | enter dims + keeps awake; BT keypad still drives TTS through earbuds; tap-anywhere exits and restores brightness 2026-05-15 |
-| Stockfish UCI loop on-device | green | "Test Stockfish" button: boot → uci/uciok → isready/readyok → position startpos → go movetime 1000 → bestmove returned and spoken via TTS 2026-05-15 |
-| Space → engine → bestmove on-device | pending | step-4 commit path: type a move on the Bluefruit, press Space, "Calculating" + bestmove spoken, history advances by two plies. Not yet run on hardware. |
-| Firmware v2 chord detection | green | User-confirmed 2026-05-15: hold Space + tap D/F/K emits the right HID codes. |
-| Start menu navigation on-device | green | User-confirmed 2026-05-15: cold launch lands in StartMenu, TTS speaks the intro, F/J cycle, Space selects. |
-| Manual mode toggle on-device | green | User-confirmed 2026-05-15: Space+F flips mode and TTS announces. |
-| Undo on-device | green | User-confirmed 2026-05-15: Space+D drops the last pair, TTS confirms. |
-| New game on-device | green | User-confirmed 2026-05-15: Space+K returns to StartMenu mid-game. |
-| Space → engine → bestmove on-device | partial | Chord paths verified, but no full game played yet — leaving the commit/engine/auto-advance cycle as not-yet-validated end-to-end. |
+| Stockfish UCI loop on-device | green | Initial proof button verified boot → uci/uciok → isready/readyok → position startpos → go movetime 1000 → bestmove spoken via TTS 2026-05-15; the temporary button has since been removed from the normal screen. |
+| Thumb → engine → bestmove on-device | pending | step-4 commit path: type a move on the Bluefruit, press Thumb, "Calculating" + bestmove spoken, history advances by two plies. Not yet run on hardware. |
+| Firmware v2 chord detection | green | User-confirmed 2026-05-15: hold Thumb + tap Pinky/Ring/Index emits the right HID codes. |
+| Start menu navigation on-device | green | User-confirmed 2026-05-15: cold launch lands in StartMenu, TTS speaks the intro, Ring/Middle cycle, Thumb selects. |
+| Manual mode toggle on-device | green | User-confirmed 2026-05-15: Thumb+Ring flips mode and TTS announces. |
+| Undo on-device | green | User-confirmed 2026-05-15: Thumb+Pinky drops the last pair, TTS confirms. |
+| New game on-device | green | User-confirmed 2026-05-15: Thumb+Index returns to StartMenu mid-game. |
+| Thumb → engine → bestmove on-device | partial | Chord paths verified, but no full game played yet — leaving the commit/engine/auto-advance cycle as not-yet-validated end-to-end. |
 | Firmware v3 BAS battery percentage | broken | v3 made `AT+BLEBATTEN=on` failure fatal; the nRF51 module's AT firmware doesn't support that command, so the keypad bricked into `error()`. |
 | Firmware v4 BAS init non-fatal | green | Confirmed via serial: `AT+BLEBATTEN=on` returns ERROR on this module, warning logged, boot continues. Keypad works as keyboard, no BAS visible to Android. |
 | Firmware v5 HID-stream battery report | green | User-confirmed 2026-05-15: in-app "Keypad battery: 90%" populated shortly after pairing. TTS warning thresholds not yet exercised at low battery. |

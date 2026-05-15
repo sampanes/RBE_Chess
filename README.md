@@ -22,10 +22,10 @@ flowchart TD
 
     subgraph feather["Adafruit Feather 32u4 Bluefruit LE keypad"]
         direction TB
-        buttons["5 switches<br/>D / F / J / K / Space"] --> debounce["Stable-for-N-ms debounce<br/>INPUT_PULLUP pins"]
-        debounce --> spaceHeld{"Space held?"}
-        spaceHeld -- "no" --> cycler["Queue cycler keys<br/>D F J K on press<br/>Space on tap release"]
-        spaceHeld -- "yes" --> chord["Space chords<br/>D=U undo<br/>F=M manual<br/>J=reserved<br/>K=N new game"]
+        buttons["5 switches<br/>Pinky / Ring / Middle / Index / Thumb"] --> debounce["Stable-for-N-ms debounce<br/>INPUT_PULLUP pins"]
+        debounce --> spaceHeld{"Thumb held?"}
+        spaceHeld -- "no" --> cycler["Queue cycler keys<br/>Pinky Ring Middle Index on press<br/>Thumb on tap release"]
+        spaceHeld -- "yes" --> chord["Thumb chords<br/>Pinky=undo<br/>Ring=manual<br/>Middle=reserved<br/>Index=new game"]
         cycler --> fifo["Press FIFO"]
         chord --> fifo
         fifo --> bleState["Non-blocking BLE send state<br/>keeps scanning while awaiting OK"]
@@ -39,7 +39,7 @@ flowchart TD
         direction TB
         dispatch --> phase{"AppPhase"}
 
-        phase -- "StartMenu" --> menu["StartMenuScreen<br/>F/J navigate<br/>Space selects side"]
+        phase -- "StartMenu" --> menu["StartMenuScreen<br/>Ring/Middle navigate<br/>Thumb selects side"]
         menu --> startWhite{"Play as white?"}
         startWhite -- "yes" --> bootstrap["bootstrapEngineMove()<br/>query empty history"]
         startWhite -- "no" --> inGame["AppPhase.InGame"]
@@ -47,11 +47,11 @@ flowchart TD
         phase -- "InGame" --> keyMap["HardwareKeyboardHandler<br/>keyCode -> ChessKey"]
         keyMap --> grammar["KeyboardGrammar<br/>ChessKey -> GrammarAction"]
 
-        grammar -- "D/F/J/K" --> buffer["MoveBuffer<br/>from-file, from-rank<br/>to-file, to-rank"]
+        grammar -- "Pinky/Ring/Middle/Index" --> buffer["MoveBuffer<br/>from-file, from-rank<br/>to-file, to-rank"]
         buffer --> inactive["2.5s inactivity prompt"]
         inactive --> speaker
 
-        grammar -- "Space" --> commit["commitMove(buffer.toUciString())"]
+        grammar -- "Thumb/Space" --> commit["commitMove(buffer.toUciString())"]
         grammar -- "U/M/N" --> control["Undo / toggle Manual / New Game"]
         control --> state["MoveHistory<br/>GameMode<br/>AppPhase"]
         commit --> state
@@ -78,9 +78,9 @@ flowchart TD
 1. Pair the keypad; Android sees it as a hardware keyboard named
    `RBE Keypad v<N>`.
 2. Launch RBE Chess. The verbal start menu speaks the current option.
-3. Use **F/J** to choose a side and **Space** to start.
+3. Use **Ring/Middle** to choose a side and **Thumb** to start.
 4. Enter the opponent's move with the four cycler buttons.
-5. Tap **Space**. The app says "Calculating", sends the move history to
+5. Tap **Thumb**. The app says "Calculating", sends the move history to
    Stockfish, then speaks the best move.
 6. In AutoAdvance mode, the spoken engine move is appended to history so
    the next keypad move is again the opponent's reply. In Manual mode,
@@ -90,31 +90,31 @@ flowchart TD
 
 ### In Game
 
-| Gesture            | Firmware HID output | Android action                                |
-| ------------------ | -------------------:| --------------------------------------------- |
-| **D**              | `D`                 | Cycle from-file: `a` through `h`              |
-| **F**              | `F`                 | Cycle from-rank: `1` through `8`              |
-| **J**              | `J`                 | Cycle to-file: `a` through `h`                |
-| **K**              | `K`                 | Cycle to-rank: `1` through `8`                |
-| **Space tap**      | `Space`             | Commit the current UCI move and ask Stockfish |
-| **Hold Space + D** | `U`                 | Undo the last move pair and clear the buffer  |
-| **Hold Space + F** | `M`                 | Toggle Manual / AutoAdvance mode              |
-| **Hold Space + J** | none                | Reserved; consumed by firmware                |
-| **Hold Space + K** | `N`                 | New game; return to the start menu            |
+| Gesture                    | Firmware HID output | Android action                                |
+| -------------------------- | -------------------:| --------------------------------------------- |
+| **Pinky**                  | `D`                 | Cycle from-file: `a` through `h`              |
+| **Ring**                   | `F`                 | Cycle from-rank: `1` through `8`              |
+| **Middle**                 | `J`                 | Cycle to-file: `a` through `h`                |
+| **Index**                  | `K`                 | Cycle to-rank: `1` through `8`                |
+| **Thumb tap**              | `Space`             | Commit the current UCI move and ask Stockfish |
+| **Hold Thumb + Pinky**     | `U`                 | Undo the last move pair and clear the buffer  |
+| **Hold Thumb + Ring**      | `M`                 | Toggle Manual / AutoAdvance mode              |
+| **Hold Thumb + Middle**    | none                | Reserved; consumed by firmware                |
+| **Hold Thumb + Index**     | `N`                 | New game; return to the start menu            |
 
 Each coordinate starts unset and renders as `a` or `1`. The first press
-selects the first value, so one `D` press speaks `A`, two `D` presses
+selects the first value, so one Pinky press speaks `A`, two Pinky presses
 speak `B`, and so on. After 2.5 seconds of no keypresses, TTS reads the
 assembled move as a confirmation prompt.
 
 ### Start Menu
 
-| Gesture            | Action          |
-| ------------------ | --------------- |
-| **F**              | Previous option |
-| **J**              | Next option     |
-| **Space**          | Select side     |
-| **D / K / chords** | Ignored         |
+| Gesture                         | Action          |
+| ------------------------------- | --------------- |
+| **Ring**                        | Previous option |
+| **Middle**                      | Next option     |
+| **Thumb**                       | Select side     |
+| **Pinky / Index / chords**      | Ignored         |
 
 ## Hardware Prototype
 
@@ -129,13 +129,13 @@ The current keypad firmware lives in
 **Adafruit Feather 32u4 Bluefruit LE** with five momentary switches wired
 from pin to ground using internal pull-ups:
 
-| Button | Finger | Feather pin |
-| ------ | ------ | -----------:|
-| D      | pinky  | 5           |
-| F      | ring   | 6           |
-| J      | middle | 10          |
-| K      | index  | 11          |
-| Space  | thumb  | 12          |
+| Finger | Firmware HID | Feather pin |
+| ------ | ------------ | -----------:|
+| Pinky  | `D`          | 5           |
+| Ring   | `F`          | 6           |
+| Middle | `J`          | 10          |
+| Index  | `K`          | 11          |
+| Thumb  | `Space`      | 12          |
 
 Firmware blinks `FIRMWARE_VERSION` on boot and advertises as
 `RBE Keypad v<N>`, making it possible to confirm which sketch is flashed
@@ -231,8 +231,8 @@ Firmware build notes and upload troubleshooting are in
 
 - Pocket Mode black screen, brightness dimming, and Activity-scoped
   keyboard capture are implemented.
-- Firmware v5: cycler keys, Space-as-modifier chords (Space+D/F/K
-  emit `U`/`M`/`N` HID), and battery reports via the HID stream
+- Firmware v5: finger-labeled cycler keys, Thumb-as-modifier chords
+  (Pinky/Ring/Index emit `U`/`M`/`N` HID), and battery reports via the HID stream
   (`B` + 3 zero-padded ASCII digits, once per minute). The app
   parses the reports out of the keystream and shows
   `Keypad battery: NN%` on the normal screen; TTS warns below 20 %

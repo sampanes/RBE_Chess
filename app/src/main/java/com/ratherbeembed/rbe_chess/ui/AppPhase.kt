@@ -17,7 +17,8 @@ sealed interface AppPhase {
 }
 
 /**
- * Two-option side-select menu. F cycles up, J cycles down, Space selects.
+ * Two-option side-select menu. Ring cycles up, Middle cycles down,
+ * Thumb/Space selects.
  * Index 0 = play as white (engine bootstraps with white's opening move);
  * index 1 = play as black (engine waits for the user to type white's
  * first move). Kept as `val` so the index constants stay stable.

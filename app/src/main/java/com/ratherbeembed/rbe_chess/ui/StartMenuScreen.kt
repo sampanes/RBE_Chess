@@ -21,8 +21,9 @@ import androidx.compose.ui.unit.dp
 /**
  * Verbal start menu. The TTS layer is the primary feedback channel — the
  * visible Compose surface is just so a sighted user can confirm which
- * option is highlighted. F = up, J = down, Space = select; D and K do
- * nothing in menu state. See [com.ratherbeembed.rbe_chess.MainActivity.handleMenuKey].
+ * option is highlighted. Ring = up, Middle = down, Thumb = select;
+ * Pinky and Index do nothing in menu state. See
+ * [com.ratherbeembed.rbe_chess.MainActivity.handleMenuKey].
  */
 @Composable
 fun StartMenuScreen(
@@ -67,12 +68,12 @@ fun StartMenuScreen(
             }
             Spacer(Modifier.height(24.dp))
             Text(
-                text = "F = up   J = down   Space = select",
+                text = "Ring = up   Middle = down   Thumb = select",
                 style = MaterialTheme.typography.bodySmall,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Mid-game: hold Space + D = undo, + F = manual toggle, + K = new game",
+                text = "Mid-game: hold Thumb + Pinky = undo, + Ring = manual, + Index = new game",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
