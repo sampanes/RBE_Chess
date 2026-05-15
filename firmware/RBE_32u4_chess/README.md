@@ -64,6 +64,29 @@ ignored — release Space and start over to fire another chord.
 Cycler keys (D / F / J / K) still emit immediately on press when Space
 is **not** held, so move input feels as snappy as v1.
 
+### Battery reporting over BLE (v3)
+
+The keypad exposes the standard BLE Battery Service. Android reads it
+automatically — once the device is paired, the percentage shows up next
+to its name in **Settings → Connected devices → Bluetooth → RBE Keypad
+v3**. No app code required.
+
+Implementation detail:
+
+- `setup_helper.h` issues `AT+BLEBATTEN=on` before the BLE SW reset so
+  the service is part of the advertisement.
+- The main sketch samples `battery_voltage()` once per `BATTERY_UPDATE_MS`
+  (default 60 s), converts via a piecewise-linear single-cell Li-Po
+  curve in `voltage_to_percent()`, and sends `AT+BLEBATTVAL=<0..100>`
+  through the existing non-blocking BLE state machine. Keys always
+  preempt battery sends — the heartbeat can never delay a chord.
+- First push fires shortly after boot (`batteryPending = true` initial
+  value), so the percentage populates within seconds of pairing.
+
+The conversion curve is approximate; treat the percentage as a coarse
+fuel gauge ("plenty / getting low / charge soon"), not a calibrated
+reading.
+
 Debounce is a "stable for N ms" model (signal must hold the new state
 continuously for `DOWN_DB_MS` / `UP_DB_MS` before the transition commits).
 Defaults are conservative at 50 ms / 25 ms; lower if presses feel

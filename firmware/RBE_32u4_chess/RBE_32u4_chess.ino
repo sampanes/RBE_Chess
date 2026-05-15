@@ -2,7 +2,7 @@
 // many times on boot, and setup_helper.h appends "v<N>" to the BLE device
 // name. Together they let you verify *from outside* whether the chip is
 // running the bits you think it is, no USB cable required.
-#define FIRMWARE_VERSION 2
+#define FIRMWARE_VERSION 3
 
 #include "setup_helper.h"
 
@@ -93,6 +93,16 @@ bool chordConsumed = false;
 // now returns a tri-state.
 enum BtnEdge { EDGE_NONE, EDGE_PRESS, EDGE_RELEASE };
 
+// --- Battery telemetry (firmware v3) ----------------------------------
+//
+// BLE Battery Service is enabled in setup_helper.h. The keypad still
+// has to push values to it via AT+BLEBATTVAL=<0..100>. We sample slowly
+// (battery just doesn't move that fast) and route the send through the
+// existing non-blocking BLE state machine so it can never block input.
+#define BATTERY_UPDATE_MS 60000UL
+unsigned long lastBatteryMs = 0;
+bool batteryPending = true;  // push once shortly after boot
+
 void blinkVersion(void)
 {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -121,8 +131,6 @@ void setup(void)
   }
 }
 
-// Reachable only when SERIAL_OUTPUT is enabled (used inside the
-// #if SERIAL_OUTPUT block in tickBle()). Kept for diagnostic re-enable.
 float battery_voltage()
 {
   float measuredvbat = analogRead(VBATPIN);
@@ -130,6 +138,22 @@ float battery_voltage()
   measuredvbat *= 3.3;  // Multiply by 3.3V, our reference voltage
   measuredvbat /= 1024; // convert to voltage
   return measuredvbat;
+}
+
+// Piecewise-linear single-cell Li-Po SoC curve. The discharge curve is
+// nonlinear in real life (mostly flat between ~3.9 V and ~3.7 V, then
+// drops fast); this approximation keeps the "is it about to die?" end
+// roughly honest without claiming more precision than the rest of the
+// system. Returns an integer percentage 0..100.
+int voltage_to_percent(float v)
+{
+  if (v >= 4.20f) return 100;
+  if (v >= 4.00f) return (int)(75 + (v - 4.00f) * (25.0f / 0.20f));
+  if (v >= 3.85f) return (int)(50 + (v - 3.85f) * (25.0f / 0.15f));
+  if (v >= 3.70f) return (int)(25 + (v - 3.70f) * (25.0f / 0.15f));
+  if (v >= 3.50f) return (int)( 5 + (v - 3.50f) * (20.0f / 0.20f));
+  if (v >= 3.30f) return (int)(     (v - 3.30f) * ( 5.0f / 0.20f));
+  return 0;
 }
 
 // "Stable for N ms" debounce: the signal must read the new state
@@ -207,22 +231,43 @@ void tickBle(void)
   {
     case BLE_IDLE:
     {
-      if (keyFifoEmpty()) return;
+      if (!keyFifoEmpty())
+      {
+        // Keys always win the race -- battery is a slow heartbeat,
+        // user input is not.
+        char batch[KEY_FIFO_SIZE + 1];
+        uint8_t n = drainKeysToBatch(batch, sizeof(batch));
+        if (n == 0) return;
 
-      char batch[KEY_FIFO_SIZE + 1];
-      uint8_t n = drainKeysToBatch(batch, sizeof(batch));
-      if (n == 0) return;
+        ble.print("AT+BleKeyboard=");
+        ble.println(batch);
 
-      ble.print("AT+BleKeyboard=");
-      ble.println(batch);
+        bleState = BLE_AWAITING_OK;
+        bleStateStartMs = millis();
+        bleRespLen = 0;
 
-      bleState = BLE_AWAITING_OK;
-      bleStateStartMs = millis();
-      bleRespLen = 0;
+        #if SERIAL_OUTPUT
+        Serial.print(F("BLE> ")); Serial.println(batch);
+        #endif
+      }
+      else if (batteryPending)
+      {
+        int pct = voltage_to_percent(battery_voltage());
+        if (pct < 0)   pct = 0;
+        if (pct > 100) pct = 100;
 
-      #if SERIAL_OUTPUT
-      Serial.print(F("BLE> ")); Serial.println(batch);
-      #endif
+        ble.print(F("AT+BLEBATTVAL="));
+        ble.println(pct);
+
+        batteryPending = false;
+        bleState = BLE_AWAITING_OK;
+        bleStateStartMs = millis();
+        bleRespLen = 0;
+
+        #if SERIAL_OUTPUT
+        Serial.print(F("BLE> AT+BLEBATTVAL=")); Serial.println(pct);
+        #endif
+      }
       break;
     }
 
@@ -332,7 +377,17 @@ void loop(void)
     }
   }
 
-  // Advance the BLE state machine; sends only when in IDLE with queued keys.
+  // Periodic battery sample. tickBle() does the actual send when it
+  // sees batteryPending and the FIFO is empty, so a chord burst can't
+  // be delayed by the battery push.
+  if (millis() - lastBatteryMs > BATTERY_UPDATE_MS)
+  {
+    lastBatteryMs = millis();
+    batteryPending = true;
+  }
+
+  // Advance the BLE state machine; sends only when in IDLE with queued
+  // keys or a pending battery update.
   tickBle();
 
   delay(DELAY_MS);
