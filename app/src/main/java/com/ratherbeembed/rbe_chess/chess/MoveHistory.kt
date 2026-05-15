@@ -21,6 +21,16 @@ data class MoveHistory(val moves: List<String> = emptyList()) {
 
     fun append(uci: String): MoveHistory = MoveHistory(moves + uci)
 
+    /**
+     * Drop the most recent pair of plies (the user's typed move and the
+     * engine's auto-advanced reply, in normal auto-advance mode). If
+     * fewer than two plies exist, drops what's there. Empty history
+     * stays empty.
+     */
+    fun undoLastPair(): MoveHistory =
+        if (moves.isEmpty()) this
+        else MoveHistory(moves.dropLast(minOf(2, moves.size)))
+
     companion object {
         val EMPTY: MoveHistory = MoveHistory()
     }

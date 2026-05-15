@@ -58,4 +58,37 @@ class KeyboardGrammarTest {
         val after = KeyboardGrammar.apply(GrammarAction.Ignored, populated)
         assertEquals(populated, after)
     }
+
+    @Test
+    fun `UNDO maps to Undo`() {
+        assertEquals(GrammarAction.Undo, KeyboardGrammar.translate(ChessKey.UNDO))
+    }
+
+    @Test
+    fun `TOGGLE_MANUAL maps to ToggleManual`() {
+        assertEquals(GrammarAction.ToggleManual, KeyboardGrammar.translate(ChessKey.TOGGLE_MANUAL))
+    }
+
+    @Test
+    fun `NEW_GAME maps to NewGame`() {
+        assertEquals(GrammarAction.NewGame, KeyboardGrammar.translate(ChessKey.NEW_GAME))
+    }
+
+    @Test
+    fun `apply Undo clears the buffer`() {
+        val populated = MoveBuffer.DEFAULT.cycleFromFile().cycleToRank()
+        assertEquals(MoveBuffer.DEFAULT, KeyboardGrammar.apply(GrammarAction.Undo, populated))
+    }
+
+    @Test
+    fun `apply NewGame clears the buffer`() {
+        val populated = MoveBuffer.DEFAULT.cycleFromFile().cycleToRank()
+        assertEquals(MoveBuffer.DEFAULT, KeyboardGrammar.apply(GrammarAction.NewGame, populated))
+    }
+
+    @Test
+    fun `apply ToggleManual preserves the buffer`() {
+        val populated = MoveBuffer.DEFAULT.cycleFromFile().cycleToRank()
+        assertEquals(populated, KeyboardGrammar.apply(GrammarAction.ToggleManual, populated))
+    }
 }

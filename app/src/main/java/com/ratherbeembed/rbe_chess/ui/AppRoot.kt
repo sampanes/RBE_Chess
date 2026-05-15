@@ -22,23 +22,32 @@ import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 
 @Composable
 fun AppRoot(
+    phase: AppPhase,
     buffer: MoveBuffer,
     pocketMode: PocketModeState,
     history: MoveHistory,
     engineStatus: String,
+    gameMode: GameMode,
     onEnterPocketMode: () -> Unit,
     onExitPocketMode: () -> Unit,
     onTestStockfish: () -> Unit,
 ) {
-    when (pocketMode) {
-        PocketModeState.Pocket -> PocketModeScreen(onExit = onExitPocketMode)
-        PocketModeState.Normal -> NormalScreen(
-            buffer = buffer,
-            history = history,
-            engineStatus = engineStatus,
-            onEnterPocketMode = onEnterPocketMode,
-            onTestStockfish = onTestStockfish,
+    when (phase) {
+        is AppPhase.StartMenu -> StartMenuScreen(
+            options = START_MENU_OPTIONS,
+            selectedIndex = phase.selectedIndex,
         )
+        AppPhase.InGame -> when (pocketMode) {
+            PocketModeState.Pocket -> PocketModeScreen(onExit = onExitPocketMode)
+            PocketModeState.Normal -> NormalScreen(
+                buffer = buffer,
+                history = history,
+                engineStatus = engineStatus,
+                gameMode = gameMode,
+                onEnterPocketMode = onEnterPocketMode,
+                onTestStockfish = onTestStockfish,
+            )
+        }
     }
 }
 
@@ -47,6 +56,7 @@ private fun NormalScreen(
     buffer: MoveBuffer,
     history: MoveHistory,
     engineStatus: String,
+    gameMode: GameMode,
     onEnterPocketMode: () -> Unit,
     onTestStockfish: () -> Unit,
 ) {
@@ -64,7 +74,7 @@ private fun NormalScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "M1 step 4 — Space → engine → bestmove",
+                text = "Mode: ${if (gameMode == GameMode.Manual) "Manual" else "AutoAdvance"}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(16.dp))
@@ -82,12 +92,12 @@ private fun NormalScreen(
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
-                text = "Space = commit + ask engine (auto-advances both plies)",
+                text = "Space = commit + ask engine",
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "TTS speaks each press; pause 2.5 s for the prompt.",
+                text = "Hold Space + D = undo, + F = manual toggle, + K = new game",
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(16.dp))
@@ -120,13 +130,33 @@ private fun NormalScreen(
 
 @Preview
 @Composable
-private fun AppRootPreview() {
+private fun AppRootInGamePreview() {
     MaterialTheme {
         AppRoot(
+            phase = AppPhase.InGame,
             buffer = MoveBuffer.DEFAULT,
             pocketMode = PocketModeState.Normal,
             history = MoveHistory.EMPTY,
             engineStatus = "Engine: idle",
+            gameMode = GameMode.AutoAdvance,
+            onEnterPocketMode = {},
+            onExitPocketMode = {},
+            onTestStockfish = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun AppRootStartMenuPreview() {
+    MaterialTheme {
+        AppRoot(
+            phase = AppPhase.StartMenu(selectedIndex = 0),
+            buffer = MoveBuffer.DEFAULT,
+            pocketMode = PocketModeState.Normal,
+            history = MoveHistory.EMPTY,
+            engineStatus = "Engine: idle",
+            gameMode = GameMode.AutoAdvance,
             onEnterPocketMode = {},
             onExitPocketMode = {},
             onTestStockfish = {},

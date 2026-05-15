@@ -53,4 +53,35 @@ class MoveHistoryTest {
         val h = MoveHistory.EMPTY.append("e7e8q")
         assertEquals(listOf("e7e8q"), h.moves)
     }
+
+    @Test
+    fun `undoLastPair on empty stays empty`() {
+        assertEquals(MoveHistory.EMPTY, MoveHistory.EMPTY.undoLastPair())
+    }
+
+    @Test
+    fun `undoLastPair with one ply drops to empty`() {
+        val h = MoveHistory.EMPTY.append("e2e4")
+        assertEquals(MoveHistory.EMPTY, h.undoLastPair())
+    }
+
+    @Test
+    fun `undoLastPair drops the last two plies`() {
+        val h = MoveHistory.EMPTY
+            .append("e2e4")
+            .append("e7e5")
+            .append("g1f3")
+            .append("b8c6")
+        assertEquals(listOf("e2e4", "e7e5"), h.undoLastPair().moves)
+    }
+
+    @Test
+    fun `undoLastPair is idempotent across repeated calls`() {
+        val h = MoveHistory.EMPTY
+            .append("e2e4").append("e7e5")
+            .append("g1f3").append("b8c6")
+        val once = h.undoLastPair()
+        val twice = once.undoLastPair()
+        assertEquals(MoveHistory.EMPTY, twice)
+    }
 }

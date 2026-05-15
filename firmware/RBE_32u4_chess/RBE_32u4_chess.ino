@@ -2,7 +2,7 @@
 // many times on boot, and setup_helper.h appends "v<N>" to the BLE device
 // name. Together they let you verify *from outside* whether the chip is
 // running the bits you think it is, no USB cable required.
-#define FIRMWARE_VERSION 1
+#define FIRMWARE_VERSION 2
 
 #include "setup_helper.h"
 
@@ -65,6 +65,34 @@ int buttonCandidateState[5]           = {  HIGH,  HIGH,  HIGH,  HIGH,      HIGH 
 unsigned long buttonCandidateSince[5] = {    0,     0,     0,     0,         0 };
 char buttonCharacter[5]               = {   'D',   'F',   'J',   'K',       ' ' };
 
+// Button-index constants for readability.
+#define BTN_D     0
+#define BTN_F     1
+#define BTN_J     2
+#define BTN_K     3
+#define BTN_SPACE 4
+
+// Space-as-modifier chord state (firmware v2).
+//
+// Space no longer emits on press. Instead:
+//   - on Space PRESS: arm chord state (spaceHeld=true, chordConsumed=false)
+//   - cycler press while spaceHeld: emit the mapped chord char
+//     (Space+D='U' undo, Space+F='M' manual, Space+K='N' new-game,
+//     Space+J reserved => no emission). Mark chordConsumed so the
+//     trailing Space release stays silent and further cycler presses
+//     during the same hold are ignored (prevents accidental double-fire).
+//   - on Space RELEASE: emit ' ' only if no chord was consumed.
+//
+// Cycler keys still emit on press, so the move-input loop feels as
+// snappy as v1. Only Space pays the press-to-release latency cost.
+bool spaceHeld = false;
+bool chordConsumed = false;
+
+// Edge type returned by get_edge(). v1 only reported presses; chord
+// detection needs releases too (specifically Space's), so the function
+// now returns a tri-state.
+enum BtnEdge { EDGE_NONE, EDGE_PRESS, EDGE_RELEASE };
+
 void blinkVersion(void)
 {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -105,9 +133,9 @@ float battery_voltage()
 }
 
 // "Stable for N ms" debounce: the signal must read the new state
-// continuously for db_ms before the transition commits. Returns true
-// only on the HIGH->LOW (press) transition, not on release.
-bool is_changed(int buttonID)
+// continuously for db_ms before the transition commits. Returns
+// EDGE_PRESS on HIGH->LOW, EDGE_RELEASE on LOW->HIGH, EDGE_NONE otherwise.
+BtnEdge get_edge(int buttonID)
 {
   int reading = digitalRead(buttonPins[buttonID]);
 
@@ -115,16 +143,31 @@ bool is_changed(int buttonID)
   {
     buttonCandidateState[buttonID] = reading;
     buttonCandidateSince[buttonID] = millis();
-    return false;
+    return EDGE_NONE;
   }
 
-  if (reading == buttonStableState[buttonID]) return false;
+  if (reading == buttonStableState[buttonID]) return EDGE_NONE;
 
   int db_ms = (buttonStableState[buttonID] == HIGH) ? DOWN_DB_MS : UP_DB_MS;
-  if (millis() - buttonCandidateSince[buttonID] < (unsigned long)db_ms) return false;
+  if (millis() - buttonCandidateSince[buttonID] < (unsigned long)db_ms) return EDGE_NONE;
 
   buttonStableState[buttonID] = reading;
-  return reading == LOW;
+  return (reading == LOW) ? EDGE_PRESS : EDGE_RELEASE;
+}
+
+// Map a cycler index pressed while Space is held to its chord HID
+// character. Returns 0 for unmapped / reserved slots so the caller can
+// skip the enqueue without emitting anything.
+char chord_char_for(int buttonID)
+{
+  switch (buttonID)
+  {
+    case BTN_D: return 'U'; // undo last pair
+    case BTN_F: return 'M'; // toggle manual mode
+    case BTN_J: return 0;   // reserved
+    case BTN_K: return 'N'; // new game (return to start menu)
+    default:    return 0;
+  }
 }
 
 // --- Press FIFO ---------------------------------------------------------
@@ -244,9 +287,48 @@ void loop(void)
   // Scan every loop iteration -- never blocked on BLE.
   for (int ii = 0; ii < 5; ii++)
   {
-    if (is_changed(ii))
+    BtnEdge edge = get_edge(ii);
+    if (edge == EDGE_NONE) continue;
+
+    if (ii == BTN_SPACE)
     {
-      enqueueKey(buttonCharacter[ii]);
+      if (edge == EDGE_PRESS)
+      {
+        // Arm chord state but don't emit yet -- decision deferred to
+        // either the chord branch below or the matching release.
+        spaceHeld = true;
+        chordConsumed = false;
+      }
+      else // EDGE_RELEASE
+      {
+        spaceHeld = false;
+        if (!chordConsumed)
+        {
+          enqueueKey(' ');
+        }
+        chordConsumed = false;
+      }
+    }
+    else
+    {
+      // Cycler key. Release edges are irrelevant -- the cycler still
+      // emits on press.
+      if (edge != EDGE_PRESS) continue;
+
+      if (spaceHeld && !chordConsumed)
+      {
+        char c = chord_char_for(ii);
+        if (c != 0) enqueueKey(c);
+        // Mark consumed even on the reserved slot, so a follow-up
+        // cycler press during the same hold stays silent rather than
+        // double-firing a chord.
+        chordConsumed = true;
+      }
+      else if (!spaceHeld)
+      {
+        enqueueKey(buttonCharacter[ii]);
+      }
+      // else: spaceHeld && chordConsumed -- ignore the press silently.
     }
   }
 
