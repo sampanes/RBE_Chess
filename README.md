@@ -29,7 +29,7 @@ flowchart TD
         cycler --> fifo["Press FIFO"]
         chord --> fifo
         fifo --> bleState["Non-blocking BLE send state<br/>keeps scanning while awaiting OK"]
-        bleState --> bleCmd["AT+BleKeyboard=&lt;chars&gt;"]
+        bleState --> bleCmd["AT+BleKeyboard=<chars>"]
     end
 
     bleCmd --> androidHid["Android Bluetooth HID keyboard stack"]
@@ -60,7 +60,7 @@ flowchart TD
         state --> engine["StockfishProcessEngine"]
         engine --> uci["UCI pipe<br/>position startpos moves ...<br/>go movetime 1000"]
         uci --> stockfish["libstockfish.so<br/>nativeLibraryDir process"]
-        stockfish --> bestmove["bestmove &lt;uci&gt;"]
+        stockfish --> bestmove["bestmove <uci>"]
         bestmove --> speaker["BestMoveSpeaker<br/>SpokenMoveFormatter"]
 
         speaker --> tts["Android TextToSpeech<br/>USAGE_MEDIA + speech"]
@@ -90,17 +90,17 @@ flowchart TD
 
 ### In Game
 
-| Gesture | Firmware HID output | Android action |
-|---|---:|---|
-| **D** | `D` | Cycle from-file: `a` through `h` |
-| **F** | `F` | Cycle from-rank: `1` through `8` |
-| **J** | `J` | Cycle to-file: `a` through `h` |
-| **K** | `K` | Cycle to-rank: `1` through `8` |
-| **Space tap** | `Space` | Commit the current UCI move and ask Stockfish |
-| **Hold Space + D** | `U` | Undo the last move pair and clear the buffer |
-| **Hold Space + F** | `M` | Toggle Manual / AutoAdvance mode |
-| **Hold Space + J** | none | Reserved; consumed by firmware |
-| **Hold Space + K** | `N` | New game; return to the start menu |
+| Gesture            | Firmware HID output | Android action                                |
+| ------------------ | -------------------:| --------------------------------------------- |
+| **D**              | `D`                 | Cycle from-file: `a` through `h`              |
+| **F**              | `F`                 | Cycle from-rank: `1` through `8`              |
+| **J**              | `J`                 | Cycle to-file: `a` through `h`                |
+| **K**              | `K`                 | Cycle to-rank: `1` through `8`                |
+| **Space tap**      | `Space`             | Commit the current UCI move and ask Stockfish |
+| **Hold Space + D** | `U`                 | Undo the last move pair and clear the buffer  |
+| **Hold Space + F** | `M`                 | Toggle Manual / AutoAdvance mode              |
+| **Hold Space + J** | none                | Reserved; consumed by firmware                |
+| **Hold Space + K** | `N`                 | New game; return to the start menu            |
 
 Each coordinate starts unset and renders as `a` or `1`. The first press
 selects the first value, so one `D` press speaks `A`, two `D` presses
@@ -109,17 +109,19 @@ assembled move as a confirmation prompt.
 
 ### Start Menu
 
-| Gesture | Action |
-|---|---|
-| **F** | Previous option |
-| **J** | Next option |
-| **Space** | Select side |
-| **D / K / chords** | Ignored |
+| Gesture            | Action          |
+| ------------------ | --------------- |
+| **F**              | Previous option |
+| **J**              | Next option     |
+| **Space**          | Select side     |
+| **D / K / chords** | Ignored         |
 
 ## Hardware Prototype
 
-| Top view | Side view |
-|---|---|
+A carved and warped piece of split pvc pipe, heat-formed to hug my thigh while resting in my pocket. buttons are pressable through jeans/pants. Battery fits into notch, no switch yet (will be wired between ground and enable)
+
+| Bottom view                                               | Top view                                                   |
+| --------------------------------------------------------- | ---------------------------------------------------------- |
 | ![Early prototype top view](assets/early_prototype_1.jpg) | ![Early prototype side view](assets/early_prototype_2.jpg) |
 
 The current keypad firmware lives in
@@ -128,12 +130,12 @@ The current keypad firmware lives in
 from pin to ground using internal pull-ups:
 
 | Button | Finger | Feather pin |
-|---|---|---:|
-| D | pinky | 5 |
-| F | ring | 6 |
-| J | middle | 10 |
-| K | index | 11 |
-| Space | thumb | 12 |
+| ------ | ------ | -----------:|
+| D      | pinky  | 5           |
+| F      | ring   | 6           |
+| J      | middle | 10          |
+| K      | index  | 11          |
+| Space  | thumb  | 12          |
 
 Firmware v2 blinks `FIRMWARE_VERSION` on boot and advertises as
 `RBE Keypad v<N>`, making it possible to confirm which sketch is flashed
@@ -144,14 +146,14 @@ without a USB serial session.
 The app is intentionally small and Activity-owned for the M1/M2 pocket
 loop:
 
-| Area | Files | Responsibility |
-|---|---|---|
-| App shell | `MainActivity.kt`, `ui/` | Start menu, normal screen, Pocket Mode entry, key dispatch |
-| Input grammar | `input/` | Map Android `KeyEvent`s to chess actions and mutate `MoveBuffer` |
-| Game state | `chess/MoveHistory.kt`, `ui/AppPhase.kt` | Track UCI plies, side selection, AutoAdvance vs Manual |
-| Pocket Mode | `pocket/` | Keep the Activity awake, dim the screen, show the black tap-to-exit surface |
-| Engine | `engine/` | Spawn Stockfish and speak UCI over stdin/stdout |
-| Speech | `speech/` | Convert UCI moves and status events into TTS-friendly phrases |
+| Area          | Files                                    | Responsibility                                                              |
+| ------------- | ---------------------------------------- | --------------------------------------------------------------------------- |
+| App shell     | `MainActivity.kt`, `ui/`                 | Start menu, normal screen, Pocket Mode entry, key dispatch                  |
+| Input grammar | `input/`                                 | Map Android `KeyEvent`s to chess actions and mutate `MoveBuffer`            |
+| Game state    | `chess/MoveHistory.kt`, `ui/AppPhase.kt` | Track UCI plies, side selection, AutoAdvance vs Manual                      |
+| Pocket Mode   | `pocket/`                                | Keep the Activity awake, dim the screen, show the black tap-to-exit surface |
+| Engine        | `engine/`                                | Spawn Stockfish and speak UCI over stdin/stdout                             |
+| Speech        | `speech/`                                | Convert UCI moves and status events into TTS-friendly phrases               |
 
 Stockfish is treated as a black-box process. The Android code does not
 implement chess search; it sends `position startpos moves ...` and
