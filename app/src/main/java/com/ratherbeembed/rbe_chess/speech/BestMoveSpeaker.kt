@@ -32,4 +32,30 @@ class BestMoveSpeaker(private val output: SpeechOutput) {
     fun speakBestMove(uci: String) {
         output.speak(SpokenMoveFormatter.spokenBestMove(uci))
     }
+
+    /** Spoken in manual mode where the engine's pick is advisory only. */
+    fun speakSuggestion(uci: String) {
+        // Reuse the bestmove formatter to keep pronunciation consistent
+        // ("E two to E four"); only the leading label differs.
+        val spoken = SpokenMoveFormatter.spokenBestMove(uci)
+            .removePrefix("Best move:")
+            .trim()
+        output.speak("Suggestion: $spoken")
+    }
+
+    fun speakUndo() {
+        output.speak("Undid last move")
+    }
+
+    fun speakManualMode(on: Boolean) {
+        output.speak(if (on) "Manual mode on" else "Manual mode off")
+    }
+
+    fun speakMenuOption(text: String) {
+        output.speak(text)
+    }
+
+    fun speakGameStart(asWhite: Boolean) {
+        output.speak(if (asWhite) "Playing as white" else "Playing as black")
+    }
 }

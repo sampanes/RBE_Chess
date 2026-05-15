@@ -24,7 +24,11 @@ import com.ratherbeembed.rbe_chess.pocket.PocketModeController
 import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 import com.ratherbeembed.rbe_chess.speech.BestMoveSpeaker
 import com.ratherbeembed.rbe_chess.speech.SpeechOutput
+import com.ratherbeembed.rbe_chess.ui.AppPhase
 import com.ratherbeembed.rbe_chess.ui.AppRoot
+import com.ratherbeembed.rbe_chess.ui.GameMode
+import com.ratherbeembed.rbe_chess.ui.START_MENU_OPTIONS
+import com.ratherbeembed.rbe_chess.ui.START_MENU_PLAY_WHITE
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -38,6 +42,8 @@ class MainActivity : ComponentActivity() {
     private var pocketMode by mutableStateOf(PocketModeState.Normal)
     private var moveHistory by mutableStateOf(MoveHistory.EMPTY)
     private var engineStatus by mutableStateOf("Engine: idle")
+    private var phase by mutableStateOf<AppPhase>(AppPhase.StartMenu(0))
+    private var gameMode by mutableStateOf(GameMode.AutoAdvance)
     private lateinit var speechOutput: SpeechOutput
     private lateinit var speaker: BestMoveSpeaker
     private lateinit var pocketController: PocketModeController
@@ -55,15 +61,25 @@ class MainActivity : ComponentActivity() {
             val colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
             MaterialTheme(colorScheme = colors) {
                 AppRoot(
+                    phase = phase,
                     buffer = moveBuffer,
                     pocketMode = pocketMode,
                     history = moveHistory,
                     engineStatus = engineStatus,
+                    gameMode = gameMode,
                     onEnterPocketMode = ::enterPocketMode,
                     onExitPocketMode = ::exitPocketMode,
                     onTestStockfish = ::testStockfish,
                 )
             }
+        }
+        // Cold-start announcement: speak the menu intro + first option so
+        // the user gets verbal feedback before any keypress.
+        val startMenu = phase as? AppPhase.StartMenu
+        if (startMenu != null) {
+            speaker.speakMenuOption(
+                "Start menu. ${START_MENU_OPTIONS[startMenu.selectedIndex]}",
+            )
         }
     }
 
@@ -82,21 +98,114 @@ class MainActivity : ComponentActivity() {
         if (event.action == KeyEvent.ACTION_DOWN) {
             val key = HardwareKeyboardHandler.toChessKey(event.keyCode)
             if (key != ChessKey.IGNORED) {
-                val action = KeyboardGrammar.translate(key)
-                if (action == GrammarAction.Commit && engineJob?.isActive == true) {
-                    // Engine is mid-think; ignore the press entirely so the
-                    // current buffer stays visible and TTS isn't double-fired.
+                when (val p = phase) {
+                    is AppPhase.StartMenu -> handleMenuKey(p, key)
+                    AppPhase.InGame -> handleGameKey(key)
+                }
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    // --- Start menu navigation ---------------------------------------------
+
+    private fun handleMenuKey(state: AppPhase.StartMenu, key: ChessKey) {
+        val size = START_MENU_OPTIONS.size
+        when (key) {
+            ChessKey.F -> {
+                // Up. Wrap from index 0 back to the last option.
+                val next = (state.selectedIndex - 1 + size) % size
+                phase = AppPhase.StartMenu(next)
+                speaker.speakMenuOption(START_MENU_OPTIONS[next])
+            }
+            ChessKey.J -> {
+                val next = (state.selectedIndex + 1) % size
+                phase = AppPhase.StartMenu(next)
+                speaker.speakMenuOption(START_MENU_OPTIONS[next])
+            }
+            ChessKey.SPACE -> selectMenuOption(state.selectedIndex)
+            // D / K / UNDO / TOGGLE_MANUAL / NEW_GAME are no-ops in menu.
+            else -> Unit
+        }
+    }
+
+    private fun selectMenuOption(idx: Int) {
+        val asWhite = (idx == START_MENU_PLAY_WHITE)
+        inactivityJob?.cancel(); inactivityJob = null
+        engineJob?.cancel(); engineJob = null
+        moveHistory = MoveHistory.EMPTY
+        moveBuffer = MoveBuffer.DEFAULT
+        phase = AppPhase.InGame
+        engineStatus = if (asWhite) "Engine: opening as white..." else "Engine: idle"
+        speaker.speakGameStart(asWhite)
+        if (asWhite) {
+            bootstrapEngineMove()
+        }
+    }
+
+    /**
+     * Play-as-white bootstrap: query Stockfish on an empty position so it
+     * speaks white's opening move. In AutoAdvance mode the move is also
+     * appended to [moveHistory] so the loop is already "ahead by one" when
+     * the user types black's response. In Manual mode the suggestion is
+     * spoken only — the user still types their own first move.
+     */
+    private fun bootstrapEngineMove() {
+        engineJob = lifecycleScope.launch {
+            try {
+                engine.boot()
+                val best = engine.bestMove(
+                    uciMoves = emptyList(),
+                    movetimeMs = ENGINE_MOVETIME_MS,
+                )
+                if (gameMode == GameMode.AutoAdvance) {
+                    speaker.speakBestMove(best)
+                    moveHistory = MoveHistory.EMPTY.append(best)
+                    engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
+                } else {
+                    speaker.speakSuggestion(best)
+                    engineStatus = "Bootstrap (manual): suggested $best"
+                }
+                Log.d(TAG, "Bootstrap engine move: $best (mode=$gameMode)")
+            } catch (t: Throwable) {
+                engineStatus = "Engine error on bootstrap: ${t.message}"
+                Log.e(TAG, "bootstrap failed", t)
+            }
+        }
+    }
+
+    // --- In-game dispatch --------------------------------------------------
+
+    private fun handleGameKey(key: ChessKey) {
+        val action = KeyboardGrammar.translate(key)
+        when (action) {
+            GrammarAction.Undo -> handleUndo()
+            GrammarAction.ToggleManual -> handleToggleManual()
+            GrammarAction.NewGame -> handleNewGame()
+            GrammarAction.Commit -> {
+                if (engineJob?.isActive == true) {
+                    // Engine is mid-think; ignore so the current buffer
+                    // stays visible and TTS isn't double-fired.
                     Log.d(TAG, "Commit ignored — engine still calculating")
-                    return true
+                    return
                 }
                 val before = moveBuffer
                 val after = KeyboardGrammar.apply(action, before)
                 moveBuffer = after
                 handleAction(action, before, after)
-                return true
             }
+            GrammarAction.CycleFromFile,
+            GrammarAction.CycleFromRank,
+            GrammarAction.CycleToFile,
+            GrammarAction.CycleToRank -> {
+                val before = moveBuffer
+                val after = KeyboardGrammar.apply(action, before)
+                moveBuffer = after
+                handleAction(action, before, after)
+            }
+            GrammarAction.Ignored -> Unit
         }
-        return super.dispatchKeyEvent(event)
     }
 
     private fun handleAction(action: GrammarAction, before: MoveBuffer, after: MoveBuffer) {
@@ -126,22 +235,24 @@ class MainActivity : ComponentActivity() {
             GrammarAction.Commit -> {
                 commitMove(before.toUciString())
             }
-            GrammarAction.Ignored -> Unit
+            else -> Unit
         }
     }
 
     /**
-     * Step 4 commit: speak "Calculating", boot the engine if needed, ask
-     * Stockfish for the bestmove given (current history + opponent move),
-     * speak it, and auto-advance both plies into [moveHistory]. On engine
-     * error we surface the message but leave [moveHistory] untouched so the
-     * user can retry without a corrupt move list.
+     * Space commit: speak "Calculating", boot the engine if needed, ask
+     * Stockfish for the bestmove given (history + opponent move), and act
+     * on the reply according to [gameMode]:
+     *   - AutoAdvance: speak as bestmove, append both plies to [moveHistory].
+     *   - Manual:      speak as suggestion, append only the opponent's ply.
+     * On engine error we surface the message but leave [moveHistory]
+     * untouched so the user can retry without a corrupt move list.
      */
     private fun commitMove(opponentMove: String) {
         speaker.speakCommit()
         val historyForEngine = moveHistory.append(opponentMove)
         engineStatus = "Engine: thinking on $opponentMove..."
-        Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves})")
+        Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves}, mode=$gameMode)")
         engineJob = lifecycleScope.launch {
             try {
                 engine.boot()
@@ -149,16 +260,58 @@ class MainActivity : ComponentActivity() {
                     uciMoves = historyForEngine.moves,
                     movetimeMs = ENGINE_MOVETIME_MS,
                 )
-                speaker.speakBestMove(best)
-                moveHistory = historyForEngine.append(best)
-                engineStatus = "Last: opp=$opponentMove → engine=$best (${moveHistory.size} plies)"
-                Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
+                if (gameMode == GameMode.Manual) {
+                    speaker.speakSuggestion(best)
+                    moveHistory = historyForEngine
+                    engineStatus = "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
+                    Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
+                } else {
+                    speaker.speakBestMove(best)
+                    moveHistory = historyForEngine.append(best)
+                    engineStatus = "Last: opp=$opponentMove → engine=$best (${moveHistory.size} plies)"
+                    Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
+                }
             } catch (t: Throwable) {
                 engineStatus = "Engine error after $opponentMove: ${t.message}"
                 Log.e(TAG, "engine bestmove failed", t)
             }
         }
     }
+
+    // --- Chord handlers ----------------------------------------------------
+
+    private fun handleUndo() {
+        inactivityJob?.cancel(); inactivityJob = null
+        // Cancel any in-flight engine query so its delayed result can't
+        // overwrite the rewound state we're about to set below.
+        engineJob?.cancel(); engineJob = null
+        moveHistory = moveHistory.undoLastPair()
+        moveBuffer = MoveBuffer.DEFAULT
+        speaker.speakUndo()
+        engineStatus = "Undo: history=${moveHistory.size} plies"
+        Log.d(TAG, "Undo -> ${moveHistory.moves}")
+    }
+
+    private fun handleToggleManual() {
+        gameMode = if (gameMode == GameMode.AutoAdvance) GameMode.Manual else GameMode.AutoAdvance
+        val on = (gameMode == GameMode.Manual)
+        speaker.speakManualMode(on)
+        engineStatus = "Mode: ${if (on) "Manual" else "AutoAdvance"} (history=${moveHistory.size} plies)"
+        Log.d(TAG, "Manual mode toggled -> $gameMode")
+    }
+
+    private fun handleNewGame() {
+        inactivityJob?.cancel(); inactivityJob = null
+        engineJob?.cancel(); engineJob = null
+        moveHistory = MoveHistory.EMPTY
+        moveBuffer = MoveBuffer.DEFAULT
+        phase = AppPhase.StartMenu(0)
+        engineStatus = "Engine: idle"
+        speaker.speakMenuOption("New game. ${START_MENU_OPTIONS[0]}")
+        Log.d(TAG, "New game -> StartMenu")
+    }
+
+    // --- Misc --------------------------------------------------------------
 
     private fun scheduleInactivityPrompt(buffer: MoveBuffer) {
         inactivityJob = lifecycleScope.launch {

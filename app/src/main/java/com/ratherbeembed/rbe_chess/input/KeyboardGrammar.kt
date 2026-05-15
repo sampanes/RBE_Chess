@@ -1,6 +1,19 @@
 package com.ratherbeembed.rbe_chess.input
 
-enum class ChessKey { D, F, J, K, SPACE, IGNORED }
+/**
+ * Every physical/virtual key the app reacts to. The first five map 1:1
+ * to the v1 cycler keys on the BT keypad (HID codes D/F/J/K/SPACE). The
+ * next three are firmware-v2 chord emissions — the Bluefruit sends a
+ * distinct HID letter when Space is held and a cycler is tapped:
+ *
+ *   Space+D -> 'U' (UNDO)
+ *   Space+F -> 'M' (TOGGLE_MANUAL)
+ *   Space+K -> 'N' (NEW_GAME)
+ *   Space+J -> reserved (no emission yet)
+ *
+ * See firmware/RBE_32u4_chess/README.md §"Space-as-modifier chords".
+ */
+enum class ChessKey { D, F, J, K, SPACE, UNDO, TOGGLE_MANUAL, NEW_GAME, IGNORED }
 
 sealed interface GrammarAction {
     data object CycleFromFile : GrammarAction
@@ -8,6 +21,9 @@ sealed interface GrammarAction {
     data object CycleToFile : GrammarAction
     data object CycleToRank : GrammarAction
     data object Commit : GrammarAction
+    data object Undo : GrammarAction
+    data object ToggleManual : GrammarAction
+    data object NewGame : GrammarAction
     data object Ignored : GrammarAction
 }
 
@@ -18,6 +34,9 @@ object KeyboardGrammar {
         ChessKey.J -> GrammarAction.CycleToFile
         ChessKey.K -> GrammarAction.CycleToRank
         ChessKey.SPACE -> GrammarAction.Commit
+        ChessKey.UNDO -> GrammarAction.Undo
+        ChessKey.TOGGLE_MANUAL -> GrammarAction.ToggleManual
+        ChessKey.NEW_GAME -> GrammarAction.NewGame
         ChessKey.IGNORED -> GrammarAction.Ignored
     }
 
@@ -27,6 +46,12 @@ object KeyboardGrammar {
         GrammarAction.CycleToFile -> buffer.cycleToFile()
         GrammarAction.CycleToRank -> buffer.cycleToRank()
         GrammarAction.Commit -> MoveBuffer.DEFAULT
+        // Chord actions wipe any in-progress cycler input: after Undo or
+        // NewGame the half-typed move is no longer meaningful. Manual
+        // toggle leaves the buffer alone since it's just a settings flip.
+        GrammarAction.Undo -> MoveBuffer.DEFAULT
+        GrammarAction.ToggleManual -> buffer
+        GrammarAction.NewGame -> MoveBuffer.DEFAULT
         GrammarAction.Ignored -> buffer
     }
 }

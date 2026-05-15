@@ -32,8 +32,8 @@ above installed.
 
 ## Runtime behavior
 
-On each debounced button-down transition, the sketch pushes the
-corresponding character (`D`, `F`, `J`, `K`, ` `) onto a press FIFO. A
+On each debounced cycler button-down transition (D / F / J / K), the
+sketch pushes the corresponding character onto a press FIFO. A
 non-blocking BLE state machine drains the FIFO and sends batches via
 `AT+BleKeyboard=<chars>`. Crucially, button scanning continues every loop
 iteration even while a BLE send is awaiting its `OK` response — so fast
@@ -43,6 +43,26 @@ The receiving phone sees discrete HID keystrokes. The Android app
 (`../../app/`) interprets each character per the 4-coordinate cycler
 grammar — see the project's `AGENT_NOTES.md` §"Keyboard grammar —
 hardware-aware V1".
+
+### Space-as-modifier chords (v2)
+
+Space is special. It does **not** emit on press; it emits on release
+only if no chord fired during the hold:
+
+| Gesture | Emitted character | App meaning |
+|---|---|---|
+| Space tap (press + release, no other key) | `' '` (space) | Commit move (cycler grammar's existing meaning). |
+| Hold Space + press D | `'U'` | Undo last move pair. |
+| Hold Space + press F | `'M'` | Toggle manual mode. |
+| Hold Space + press J | (nothing) | Reserved chord slot — held for a future action. |
+| Hold Space + press K | `'N'` | New game (back to start menu). |
+
+Once a chord has fired during a Space hold, the trailing Space release
+is silent and any further cycler presses during the same hold are
+ignored — release Space and start over to fire another chord.
+
+Cycler keys (D / F / J / K) still emit immediately on press when Space
+is **not** held, so move input feels as snappy as v1.
 
 Debounce is a "stable for N ms" model (signal must hold the new state
 continuously for `DOWN_DB_MS` / `UP_DB_MS` before the transition commits).

@@ -364,17 +364,68 @@ finalizing on Space. Mapping (best-guess from user's note "k, b, r, q
 | **J**     | Rook |
 
 **Not in M1, deferred to a later milestone:**
-- Undo last committed move.
-- Cancel/clear current input buffer.
+- ~~Undo last committed move.~~ Shipped in M2 as **Space+D** chord
+  (drops the last pair of plies, or one if odd).
+- Cancel/clear current input buffer. Still deferred — Undo + retype
+  is the workaround.
 - "Exit Pocket Mode" gesture (M1: tap the touchscreen anywhere — Activity
   is foregrounded so touch still works).
-- A toggleable *"I type my own moves too"* mode (working title:
-  **manual mode**) where the user enters their own moves on the cycler
-  in addition to the opponent's, instead of auto-advancing the engine's
-  pick. Stockfish still speaks its bestmove, but the user is free to
-  play something else. Use case: deliberately deviate from the engine
-  — e.g. pretend to blunder against a friend, then play out the
-  recovery — while still hearing what Stockfish would have played as
-  a hidden advisor. Gated on whether real-world M1 testing shows the
-  cycler is intuitive enough that doubling input per move is worth
-  it. M1 ships only the auto-advance flow above.
+- ~~A toggleable *manual mode*~~. Shipped in M2 as **Space+F** chord.
+  AutoAdvance stays the default; Manual keeps the engine's pick
+  advisory ("Suggestion: ...") and only appends the user's typed move
+  to history, so the user types every ply themselves. Toggle is sticky
+  across moves but resets nothing (history survives the flip).
+
+---
+
+## M2 chord additions (firmware v2)
+
+The v0 single-key emit-on-press model is preserved for the cycler keys
+(D / F / J / K) so move input stays snappy. **Space** is reworked into
+a modifier:
+
+- **Space alone (press + release with no other key held)** still emits
+  `' '` → commit (no behavior change).
+- **Hold Space, tap a cycler** emits a distinct HID letter instead of
+  the cycler's normal char *and* suppresses the trailing Space release.
+
+Chord assignments (firmware → HID → app action):
+
+| Chord | Emitted | `ChessKey` | `GrammarAction` | Effect |
+|---|---|---|---|---|
+| Space + D | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
+| Space + F | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance ⇄ Manual; speak the new state. |
+| Space + J | (none) | — | — | Reserved. Firmware detects + consumes the chord but emits nothing. |
+| Space + K | `N` | `NEW_GAME` | `NewGame` | Cancel engine, clear history + buffer, return to StartMenu. |
+
+Once any chord fires during a Space hold, further cycler presses during
+the same hold are silently ignored (prevents double-fires from
+slightly-rolling chord gestures). Release Space and re-hold to fire
+another chord.
+
+App routing: see `MainActivity.handleGameKey` / `handleMenuKey`. In
+StartMenu state, chord keys are no-ops — only F/J (navigate) and Space
+(select) do anything.
+
+---
+
+## M2 verbal start menu
+
+`AppPhase.StartMenu(selectedIndex)` is the cold-launch state and the
+state `Space+K` returns to mid-game. `StartMenuScreen` is verbal-first:
+the TTS layer is the primary feedback channel, and the visible Compose
+surface is decorative. Two options today:
+
+1. **Play as white** — selecting this immediately triggers a bootstrap
+   engine query on empty history so Stockfish speaks white's opening
+   move (and, in AutoAdvance mode, auto-appends it to `MoveHistory`).
+2. **Play as black** — selecting this leaves history empty and waits
+   for the user to type white's first move on the cycler.
+
+Navigation: **F = up, J = down, Space = select**, D / K / chord keys
+are ignored. Wraps at the ends.
+
+Bootstrap implementation: `MainActivity.bootstrapEngineMove()`. Manual
+mode + Play-as-white still triggers the bootstrap query but speaks the
+result as "Suggestion: …" and does **not** append — the user is
+expected to type their own first move regardless.

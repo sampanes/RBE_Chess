@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M1 step 4 wired: Space → engine → bestmove + auto-advance history. Code-complete, JVM-green; awaiting on-device verification).
+Last updated: 2026-05-15 (M2 in flight: firmware v2 chords + verbal start menu + manual mode toggle + undo + new-game flow. Code-complete, JVM-green; hardware verification pending for both M1 step 4 and M2).
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -9,23 +9,35 @@ as session-priority cleanup before doing other work.
 
 ## Where we are
 
-- **Milestone:** M1 — Pocket Mode loop (keyboard → UCI → bestmove → TTS).
-- **In flight:** M1 step 4 on-device verification (code-complete, awaiting
-  hardware run).
-- **Last completed (code):** M1 step 4 — Space commit wired to engine.
-  New `chess/MoveHistory.kt` (immutable UCI ply list, Compose-stable).
-  `MainActivity.commitMove(opponentMove)` speaks "Calculating", boots the
-  engine (idempotent), calls `engine.bestMove(history + opp, movetime=1000)`,
-  speaks the bestmove via `SpokenMoveFormatter`, and on success appends
-  both plies to `moveHistory` (engine error leaves history unchanged so the
-  user can retry without a corrupt move list). Concurrent-Space guard
-  drops re-entered commits while `engineJob.isActive`. `NormalScreen`
-  surfaces the running history line. JVM: 42 / 42 tests green;
-  `assembleDebug` green. The Stockfish PoC button still works against
-  startpos as an independent diagnostic.
-- **Next:** verify step 4 end-to-end on the S22 Ultra (type a move on
-  the Bluefruit keypad → engine bestmove spoken via BT earbuds →
-  history advances → next move continues from advanced state).
+- **Milestone:** M2 — Game Lifecycle. M1 step 4 was committed as
+  code-complete-but-untested (`ecbeb6b`); M2 builds on top to make the
+  app dogfoodable as a real game loop (start a game, undo, switch modes,
+  start over) instead of "one game forever from the implicit opening."
+- **In flight:** hardware verification of both M1 step 4 AND M2 — both
+  layers ship together since M2 keys the firmware-v2 chords through the
+  same Space-commit path step 4 introduced.
+- **Last completed (code):** M2 — Space-as-modifier chord support
+  (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
+  `RBE Keypad v2`). Held Space + cycler emits a distinct HID letter:
+  Space+D → `U` (undo), Space+F → `M` (manual toggle), Space+K → `N`
+  (new game), Space+J reserved (no emission). Space tap alone still
+  emits ` ` as commit. App side: `AppPhase` (StartMenu / InGame) +
+  `GameMode` (AutoAdvance / Manual). New `StartMenuScreen` is verbal-
+  first (F up, J down, Space select; D/K no-op in menu); two options
+  Play-as-white / Play-as-black. Play-as-white bootstraps with an
+  immediate engine query on empty history so Stockfish speaks white's
+  opener; AutoAdvance also appends it. Manual mode keeps the engine's
+  reply advisory ("Suggestion: ...") and only appends the user's typed
+  move. Undo cancels in-flight engine work, drops the last pair of
+  plies (or one if odd), clears the buffer, says "Undid last move."
+  New-game chord cancels engine work, clears history, returns to the
+  start menu. JVM: 52 / 52 tests green; `assembleDebug` green.
+- **Next:** flash firmware v2 (`RBE_32u4_chess.ino`), confirm 2 LED
+  blinks on boot + BLE name `v2`, re-pair phone if needed. Then on the
+  S22 Ultra: verify M1 step 4 (commit → engine → bestmove + auto-
+  advance) AND M2 (chord paths actually deliver `U`/`M`/`N` HID keys;
+  start menu navigates; undo/manual/new-game all do the right thing
+  end-to-end).
 
 ## M1 implementation checklist
 
@@ -51,44 +63,62 @@ as steps land:
 - [~] **4** Wire `Space` commit to engine; speak bestmove; auto-advance
       the bestmove into board state. `chess/MoveHistory.kt` + new
       `MainActivity.commitMove(...)` ship the wiring. JVM-green;
-      hardware verification pending.
+      hardware verification pending. Bundled into the M2 hardware
+      test rather than verified standalone.
 - [ ] **5** Test BT keyboard in Pocket Mode on the S22 Ultra.
 - [ ] **post-M1** `AccessibilityService` spike for true screen-off
       (optional; revisit AGP/SDK 36 first per AGENT_NOTES).
 
-## Beyond M1 — roadmap
+## M2 implementation checklist
 
-M1 is deliberately a "one game, you play white, no exit" loop — it
-proves the *move* loop works. The next milestone covers everything M1
-punts on around the *game* itself.
+- [x] **F1** Firmware v2: Space-as-modifier chord detection. Bumped
+      `FIRMWARE_VERSION` to 2; new `BtnEdge` tri-state replaces the
+      v1 press-only `is_changed`. Space defers emission until release
+      (and only emits if no chord fired); held Space + cycler emits
+      `U`/`M`/`N` (Space+J reserved). README updated with the chord
+      table.
+- [x] **A1** App: `ChessKey.UNDO/TOGGLE_MANUAL/NEW_GAME` + grammar
+      actions; `HardwareKeyboardHandler` routes `KEYCODE_U/M/N`.
+- [x] **A2** `MoveHistory.undoLastPair()` (drops up to two plies);
+      Undo handler cancels engine work, clears buffer, speaks "Undid
+      last move."
+- [x] **A3** `GameMode` toggle. AutoAdvance appends engine reply;
+      Manual leaves it advisory (`speakSuggestion`).
+- [x] **A4** `AppPhase.StartMenu` + `StartMenuScreen`. F/J cycle,
+      Space selects. Play-as-white triggers a bootstrap engine query;
+      Play-as-black waits for user input. Cold launch speaks the menu
+      intro.
+- [x] **A5** New-game chord returns to StartMenu, cancels engine,
+      clears history + buffer.
+- [ ] **HW1** Flash firmware v2 to the Bluefruit Feather; verify
+      2-blink boot, `RBE Keypad v2` BLE name, re-pair if Android keys
+      pairings by name.
+- [ ] **HW2** S22 Ultra end-to-end: cold launch lands in start menu
+      with TTS; F/J navigate; Space picks a side; play-as-white hears
+      engine opener; play-as-black waits for input; commit cycle still
+      works (M1 step 4); each chord does its thing.
 
-### M2 — Game Lifecycle
+## Beyond M2 — roadmap
 
-No design decisions locked in yet; captured here so these stop being
-invisible follow-ups:
+M1 proved the move loop; M2 makes the *game* operable from the keypad.
+What's still deferred:
 
-- **Side select.** Tell the app which colour you're playing before the
-  first move. M1's implicit default is **user + engine play as black**:
-  `MainActivity.commitMove(opponentMove)` treats every typed move as
-  the *opponent's*, so the first ply typed is white's opener and the
-  engine answers for black. To play white instead, the engine has to
-  move first off an empty history before the user types anything, and
-  the user then enters the opponent's replies — same loop after the
-  bootstrap. Likely a startup screen toggle or a dedicated keystroke
-  before any moves are typed.
-- **New game / reset.** Keyboard-driven way to clear `MoveHistory` and
-  start over without relaunching the app. Today the only escape hatch
-  is force-stop + reopen.
 - **Resign / end-of-game state.** Explicit "this game is over" signal
   so the engine stops being asked for moves on a finished position,
   and TTS can say something useful ("you resigned" / "checkmate" /
-  "stalemate").
+  "stalemate"). Per the user's mental model, this is currently
+  redundant with New Game — the app doesn't track win/loss, and
+  ending a game means starting another. Revisit if/when scoring or
+  game-history persistence shows up.
 - **Terminal-position detection.** Notice checkmate, stalemate, and
   forced draws automatically. Stockfish already reports mate in its
   `info` lines; cheapest path is probably to consume those rather
   than ship our own rules engine.
+- **Reserved Space+J chord.** Firmware v2 detects the chord but emits
+  nothing for it. No assignment yet — candidates: undo a single ply
+  rather than a pair, exit Pocket Mode, repeat-last-utterance.
 
-Not in M2 (further out): clock / time control, draw offers, takebacks,
+Further out: clock / time control, draw offers, takebacks,
 PGN/FEN export, opening book.
 
 ## Verification status
@@ -109,6 +139,11 @@ PGN/FEN export, opening book.
 | Pocket Mode entry/exit on-device | green | enter dims + keeps awake; BT keypad still drives TTS through earbuds; tap-anywhere exits and restores brightness 2026-05-15 |
 | Stockfish UCI loop on-device | green | "Test Stockfish" button: boot → uci/uciok → isready/readyok → position startpos → go movetime 1000 → bestmove returned and spoken via TTS 2026-05-15 |
 | Space → engine → bestmove on-device | pending | step-4 commit path: type a move on the Bluefruit, press Space, "Calculating" + bestmove spoken, history advances by two plies. Not yet run on hardware. |
+| Firmware v2 chord detection | pending | Hold Space + tap D/F/K, expect HID `U`/`M`/`N` instead of Space-then-letter. Space tap alone still emits ` `. Not yet flashed. |
+| Start menu navigation on-device | pending | Cold launch lands in StartMenu, TTS speaks the intro; F/J cycle options; Space selects. |
+| Manual mode toggle on-device | pending | Space+F flips mode; engine reply is advisory, history advances by one ply per Space. |
+| Undo on-device | pending | Space+D drops the last pair of plies; TTS confirms. |
+| New game on-device | pending | Space+K returns to StartMenu mid-game; history clears. |
 
 ## Open follow-ups (scheduled, not blockers)
 
