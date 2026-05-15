@@ -11,36 +11,51 @@ import com.ratherbeembed.rbe_chess.input.MoveBuffer
  * also covers the per-press and inactivity-prompt phrases per the
  * AGENT_NOTES grammar.
  */
-class BestMoveSpeaker(private val output: SpeechOutput) {
+class BestMoveSpeaker(private val output: SpeechSink) {
+
+    private var lastReplayable: String? = null
+
+    private fun speak(text: String) {
+        output.speak(text)
+    }
+
+    private fun speakReplayable(text: String) {
+        lastReplayable = text
+        output.speak(text)
+    }
+
+    fun repeatLast() {
+        output.speak(lastReplayable ?: "Nothing to repeat.")
+    }
 
     fun speakFilePress(file: Char) {
-        output.speak(SpokenMoveFormatter.spokenFile(file))
+        speak(SpokenMoveFormatter.spokenFile(file))
     }
 
     fun speakRankPress(rank: Int) {
-        output.speak(SpokenMoveFormatter.spokenRank(rank))
+        speak(SpokenMoveFormatter.spokenRank(rank))
     }
 
     fun speakInactivityPrompt(buffer: MoveBuffer) {
-        output.speak(SpokenMoveFormatter.spokenInactivityPrompt(buffer))
+        speakReplayable(SpokenMoveFormatter.spokenInactivityPrompt(buffer))
     }
 
     fun speakMovePrompt(mover: String, buffer: MoveBuffer) {
         val move = SpokenMoveFormatter.spokenUciMove(buffer.toUciString())
-        output.speak("$mover move: $move?")
+        speakReplayable("$mover move: $move?")
     }
 
     fun speakCommit() {
-        output.speak("Calculating")
+        speakReplayable("Calculating")
     }
 
     fun speakBestMove(uci: String) {
-        output.speak(SpokenMoveFormatter.spokenBestMove(uci))
+        speakReplayable(SpokenMoveFormatter.spokenBestMove(uci))
     }
 
     fun speakPlayedMove(mover: String, uci: String, waiting: String) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
-        output.speak("$mover played $move. $waiting")
+        speakReplayable("$mover played $move. $waiting")
     }
 
     /** Spoken in manual mode where the engine's pick is advisory only. */
@@ -50,21 +65,21 @@ class BestMoveSpeaker(private val output: SpeechOutput) {
         val spoken = SpokenMoveFormatter.spokenBestMove(uci)
             .removePrefix("Best move:")
             .trim()
-        output.speak("Suggestion: $spoken")
+        speakReplayable("Suggestion: $spoken")
     }
 
     fun speakSuggestionFor(mover: String, uci: String) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
-        output.speak("Suggestion for $mover: $move.")
+        speakReplayable("Suggestion for $mover: $move.")
     }
 
     fun speakCalculatingFor(mover: String) {
-        output.speak("Calculating $mover reply")
+        speakReplayable("Calculating $mover reply")
     }
 
     fun speakPlayedThenCalculating(mover: String, uci: String, nextMover: String) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
-        output.speak("$mover played $move. Calculating $nextMover reply")
+        speakReplayable("$mover played $move. Calculating $nextMover reply")
     }
 
     fun speakPlayedAndSuggestion(
@@ -75,38 +90,38 @@ class BestMoveSpeaker(private val output: SpeechOutput) {
     ) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
         val suggestion = SpokenMoveFormatter.spokenUciMove(suggestionUci)
-        output.speak(
+        speakReplayable(
             "$mover played $move. Suggestion for $suggestionMover: $suggestion. " +
                 "Waiting for $suggestionMover.",
         )
     }
 
     fun speakUndo() {
-        output.speak("Undid last move")
+        speakReplayable("Undid last move")
     }
 
     fun speakUndo(waiting: String) {
-        output.speak("Undid last move. $waiting")
+        speakReplayable("Undid last move. $waiting")
     }
 
     fun speakManualMode(on: Boolean) {
-        output.speak(if (on) "Manual mode on" else "Manual mode off")
+        speakReplayable(if (on) "Manual mode on" else "Manual mode off")
     }
 
     fun speakManualMode(on: Boolean, waiting: String) {
-        output.speak("${if (on) "Manual mode on" else "Manual mode off"}. $waiting")
+        speakReplayable("${if (on) "Manual mode on" else "Manual mode off"}. $waiting")
     }
 
     fun speakMenuOption(text: String) {
-        output.speak(text)
+        speakReplayable(text)
     }
 
     fun speakGameStart(asWhite: Boolean) {
-        output.speak(if (asWhite) "Playing as white" else "Playing as black")
+        speakReplayable(if (asWhite) "Playing as white" else "Playing as black")
     }
 
     fun speakBatteryWarning(critical: Boolean) {
-        output.speak(
+        speak(
             if (critical) "Keypad battery critical" else "Keypad battery low",
         )
     }

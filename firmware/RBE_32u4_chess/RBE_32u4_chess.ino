@@ -2,7 +2,7 @@
 // many times on boot, and setup_helper.h appends "v<N>" to the BLE device
 // name. Together they let you verify *from outside* whether the chip is
 // running the bits you think it is, no USB cable required.
-#define FIRMWARE_VERSION 5
+#define FIRMWARE_VERSION 6
 
 #include "setup_helper.h"
 
@@ -77,8 +77,8 @@ char buttonCharacter[5]               = {   'D',   'F',   'J',   'K',       ' ' 
 // Space no longer emits on press. Instead:
 //   - on Space PRESS: arm chord state (spaceHeld=true, chordConsumed=false)
 //   - cycler press while spaceHeld: emit the mapped chord char
-//     (Space+D='U' undo, Space+F='M' manual, Space+K='N' new-game,
-//     Space+J reserved => no emission). Mark chordConsumed so the
+//     (Space+D='U' undo, Space+F='M' manual, Space+J='R' repeat,
+//     Space+K='N' new-game). Mark chordConsumed so the
 //     trailing Space release stays silent and further cycler presses
 //     during the same hold are ignored (prevents accidental double-fire).
 //   - on Space RELEASE: emit ' ' only if no chord was consumed.
@@ -215,7 +215,7 @@ BtnEdge get_edge(int buttonID)
 }
 
 // Map a cycler index pressed while Space is held to its chord HID
-// character. Returns 0 for unmapped / reserved slots so the caller can
+// character. Returns 0 for unmapped slots so the caller can
 // skip the enqueue without emitting anything.
 char chord_char_for(int buttonID)
 {
@@ -223,7 +223,7 @@ char chord_char_for(int buttonID)
   {
     case BTN_D: return 'U'; // undo last pair
     case BTN_F: return 'M'; // toggle manual mode
-    case BTN_J: return 0;   // reserved
+    case BTN_J: return 'R'; // repeat last spoken output
     case BTN_K: return 'N'; // new game (return to start menu)
     default:    return 0;
   }
@@ -381,9 +381,8 @@ void loop(void)
       {
         char c = chord_char_for(ii);
         if (c != 0) enqueueKey(c);
-        // Mark consumed even on the reserved slot, so a follow-up
-        // cycler press during the same hold stays silent rather than
-        // double-firing a chord.
+        // Mark consumed so a follow-up cycler press during the same
+        // hold stays silent rather than double-firing a chord.
         chordConsumed = true;
       }
       else if (!spaceHeld)

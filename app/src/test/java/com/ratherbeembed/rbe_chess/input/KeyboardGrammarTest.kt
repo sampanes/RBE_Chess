@@ -70,6 +70,11 @@ class KeyboardGrammarTest {
     }
 
     @Test
+    fun `REPEAT_LAST maps to RepeatLast`() {
+        assertEquals(GrammarAction.RepeatLast, KeyboardGrammar.translate(ChessKey.REPEAT_LAST))
+    }
+
+    @Test
     fun `NEW_GAME maps to NewGame`() {
         assertEquals(GrammarAction.NewGame, KeyboardGrammar.translate(ChessKey.NEW_GAME))
     }
@@ -90,5 +95,11 @@ class KeyboardGrammarTest {
     fun `apply ToggleManual preserves the buffer`() {
         val populated = MoveBuffer.DEFAULT.cycleFromFile().cycleToRank()
         assertEquals(populated, KeyboardGrammar.apply(GrammarAction.ToggleManual, populated))
+    }
+
+    @Test
+    fun `apply RepeatLast preserves the buffer`() {
+        val populated = MoveBuffer.DEFAULT.cycleFromFile().cycleToRank()
+        assertEquals(populated, KeyboardGrammar.apply(GrammarAction.RepeatLast, populated))
     }
 }
