@@ -1,3 +1,9 @@
+// Bump this on every meaningful flash. setup() blinks LED_BUILTIN this
+// many times on boot, and setup_helper.h appends "v<N>" to the BLE device
+// name. Together they let you verify *from outside* whether the chip is
+// running the bits you think it is, no USB cable required.
+#define FIRMWARE_VERSION 1
+
 #include "setup_helper.h"
 
 /*
@@ -28,33 +34,57 @@
 
 #define DELAY_MS  1
 
-// Debounce thresholds (ms). is_changed() now requires the signal to be
-// stable at the new state for at least this long before the transition is
-// committed (was: rate-limit-since-last-accepted-transition). With clean
-// switches a bounce envelope is typically <5 ms, so values of 10-15 ms
-// give near-zero perceived latency. The 50/25 split below is conservative
-// and adds ~50 ms of press latency; lower if input feels sluggish.
+// Debounce thresholds (ms). is_changed() requires the signal to be stable
+// at the new state for at least this long before the transition commits.
+// With clean switches a bounce envelope is typically <5 ms, so values of
+// 10-15 ms give near-zero perceived latency. The 50/25 split below is
+// conservative; lower if input feels sluggish.
 #define DOWN_DB_MS 50
 #define UP_DB_MS   25
 
-// Max chars buffered between BLE flushes. retBuf only grows when multiple
-// buttons commit in the same loop iteration, which is rare; 8 is plenty.
-#define RET_BUF_CAP 8
+// Press FIFO. The loop pushes each detected press here; tickBle() drains
+// it asynchronously, so button scanning is never blocked by a BLE send.
+#define KEY_FIFO_SIZE 32
+char keyFifo[KEY_FIFO_SIZE];
+uint8_t keyFifoHead = 0;
+uint8_t keyFifoTail = 0;
 
-int buttonPins[5]                    = { D_PIN, F_PIN, J_PIN, K_PIN, Space_PIN };
-int buttonStableState[5]             = {  HIGH,  HIGH,  HIGH,  HIGH,      HIGH };
-int buttonCandidateState[5]          = {  HIGH,  HIGH,  HIGH,  HIGH,      HIGH };
+// Non-blocking BLE send state machine.
+// IDLE         -> ready to send the next batch
+// AWAITING_OK  -> command sent, waiting for "OK" or "ERROR" response bytes
+enum BleSendState { BLE_IDLE, BLE_AWAITING_OK };
+BleSendState bleState = BLE_IDLE;
+unsigned long bleStateStartMs = 0;
+char bleRespBuf[16];
+uint8_t bleRespLen = 0;
+#define BLE_RESP_TIMEOUT_MS 1000
+
+int buttonPins[5]                     = { D_PIN, F_PIN, J_PIN, K_PIN, Space_PIN };
+int buttonStableState[5]              = {  HIGH,  HIGH,  HIGH,  HIGH,      HIGH };
+int buttonCandidateState[5]           = {  HIGH,  HIGH,  HIGH,  HIGH,      HIGH };
 unsigned long buttonCandidateSince[5] = {    0,     0,     0,     0,         0 };
-char buttonCharacter[5]              = {   'D',   'F',   'J',   'K',       ' ' };
+char buttonCharacter[5]               = {   'D',   'F',   'J',   'K',       ' ' };
 
-char retBuf[RET_BUF_CAP] = "";
-uint8_t retLen = 0;
+void blinkVersion(void)
+{
+  pinMode(LED_BUILTIN, OUTPUT);
+  for (int i = 0; i < FIRMWARE_VERSION; i++)
+  {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(120);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(180);
+  }
+}
 
 void setup(void)
 {
+  // Blink first, before BLE init can fail. Confirms the upload landed
+  // even if the Bluefruit module isn't responding.
+  blinkVersion();
+
   setup_helper();
 
-  // Set up input pins
   unsigned long now = millis();
   for (int i = 0; i < 5; i++)
   {
@@ -64,7 +94,7 @@ void setup(void)
 }
 
 // Reachable only when SERIAL_OUTPUT is enabled (used inside the
-// #if SERIAL_OUTPUT block in loop()). Kept for diagnostic re-enable.
+// #if SERIAL_OUTPUT block in tickBle()). Kept for diagnostic re-enable.
 float battery_voltage()
 {
   float measuredvbat = analogRead(VBATPIN);
@@ -81,7 +111,6 @@ bool is_changed(int buttonID)
 {
   int reading = digitalRead(buttonPins[buttonID]);
 
-  // Reading differs from the current candidate -> new candidate, reset timer.
   if (reading != buttonCandidateState[buttonID])
   {
     buttonCandidateState[buttonID] = reading;
@@ -89,16 +118,120 @@ bool is_changed(int buttonID)
     return false;
   }
 
-  // Reading matches candidate; if candidate already matches stable, nothing to do.
   if (reading == buttonStableState[buttonID]) return false;
 
-  // Candidate differs from stable -- has it been stable long enough?
   int db_ms = (buttonStableState[buttonID] == HIGH) ? DOWN_DB_MS : UP_DB_MS;
   if (millis() - buttonCandidateSince[buttonID] < (unsigned long)db_ms) return false;
 
-  // Commit the new stable state; report only the press (LOW) transition.
   buttonStableState[buttonID] = reading;
   return reading == LOW;
+}
+
+// --- Press FIFO ---------------------------------------------------------
+
+bool keyFifoEmpty(void) { return keyFifoHead == keyFifoTail; }
+
+void enqueueKey(char c)
+{
+  uint8_t next = (uint8_t)((keyFifoTail + 1) % KEY_FIFO_SIZE);
+  if (next == keyFifoHead)
+  {
+    // FIFO full -- drop oldest to keep current input responsive.
+    keyFifoHead = (uint8_t)((keyFifoHead + 1) % KEY_FIFO_SIZE);
+  }
+  keyFifo[keyFifoTail] = c;
+  keyFifoTail = next;
+}
+
+// Pop up to (maxLen-1) chars into dest, NUL-terminated. Returns count.
+uint8_t drainKeysToBatch(char* dest, uint8_t maxLen)
+{
+  uint8_t n = 0;
+  while (n < (uint8_t)(maxLen - 1) && !keyFifoEmpty())
+  {
+    dest[n++] = keyFifo[keyFifoHead];
+    keyFifoHead = (uint8_t)((keyFifoHead + 1) % KEY_FIFO_SIZE);
+  }
+  dest[n] = '\0';
+  return n;
+}
+
+// --- Non-blocking BLE state machine ------------------------------------
+
+void tickBle(void)
+{
+  switch (bleState)
+  {
+    case BLE_IDLE:
+    {
+      if (keyFifoEmpty()) return;
+
+      char batch[KEY_FIFO_SIZE + 1];
+      uint8_t n = drainKeysToBatch(batch, sizeof(batch));
+      if (n == 0) return;
+
+      ble.print("AT+BleKeyboard=");
+      ble.println(batch);
+
+      bleState = BLE_AWAITING_OK;
+      bleStateStartMs = millis();
+      bleRespLen = 0;
+
+      #if SERIAL_OUTPUT
+      Serial.print(F("BLE> ")); Serial.println(batch);
+      #endif
+      break;
+    }
+
+    case BLE_AWAITING_OK:
+    {
+      // Drain any response bytes the module has ready, looking for the
+      // "OK\r\n" or "ERROR\r\n" reply line. ble.available() is non-blocking.
+      while (ble.available())
+      {
+        char c = (char)ble.read();
+        if (c == '\r' || c == '\n')
+        {
+          bleRespBuf[bleRespLen] = '\0';
+          if (strstr(bleRespBuf, "OK"))
+          {
+            #if SERIAL_OUTPUT
+            Serial.println(F("OK!"));
+            Serial.println(battery_voltage());
+            #endif
+            bleState = BLE_IDLE;
+            bleRespLen = 0;
+            return;
+          }
+          if (strstr(bleRespBuf, "ERROR"))
+          {
+            #if SERIAL_OUTPUT
+            Serial.println(F("FAILED!"));
+            #endif
+            bleState = BLE_IDLE;
+            bleRespLen = 0;
+            return;
+          }
+          bleRespLen = 0;  // discard line, keep waiting
+        }
+        else if (bleRespLen < (uint8_t)(sizeof(bleRespBuf) - 1))
+        {
+          bleRespBuf[bleRespLen++] = c;
+        }
+      }
+
+      // Hard timeout fallback so a lost ack can't wedge the queue.
+      if (millis() - bleStateStartMs > BLE_RESP_TIMEOUT_MS)
+      {
+        #if SERIAL_OUTPUT
+        Serial.println(F("BLE ack timeout"));
+        #endif
+        bleState = BLE_IDLE;
+        bleRespLen = 0;
+      }
+      break;
+    }
+  }
 }
 
 /**************************************************************************/
@@ -108,40 +241,17 @@ bool is_changed(int buttonID)
 /**************************************************************************/
 void loop(void)
 {
+  // Scan every loop iteration -- never blocked on BLE.
   for (int ii = 0; ii < 5; ii++)
   {
-    if (is_changed(ii) && retLen < RET_BUF_CAP - 1)
+    if (is_changed(ii))
     {
-      retBuf[retLen++] = buttonCharacter[ii];
-      retBuf[retLen] = '\0';
+      enqueueKey(buttonCharacter[ii]);
     }
   }
 
-  if (retLen > 0)
-  {
-    #if SERIAL_OUTPUT
-    Serial.println(retBuf);
-    #endif
-    ble.print("AT+BleKeyboard=");
-    ble.println(retBuf);
-
-    if (ble.waitForOK())
-    {
-      #if SERIAL_OUTPUT
-      Serial.println(F("OK!"));
-      Serial.println(battery_voltage());
-      #endif
-    }
-    else
-    {
-      #if SERIAL_OUTPUT
-      Serial.println(F("FAILED!"));
-      #endif
-    }
-
-    retBuf[0] = '\0';
-    retLen = 0;
-  }
+  // Advance the BLE state machine; sends only when in IDLE with queued keys.
+  tickBle();
 
   delay(DELAY_MS);
 }
