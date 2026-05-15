@@ -331,12 +331,12 @@ It only emits the HID keystrokes `D`, `F`, `J`, `K`, `Space`. The addendum's
 **Four-coordinate cycler.** Each cycle button owns one coordinate of a
 from-to move and advances it by one on every press, wrapping around:
 
-| Button | Coordinate | Cycle | TTS on press |
-|---|---|---|---|
-| **D** | from-file | a → b → c → … → h → a | speak the new letter |
-| **F** | from-rank | 1 → 2 → 3 → … → 8 → 1 | speak the new digit |
-| **J** | to-file   | a → … → h → a         | speak the new letter |
-| **K** | to-rank   | 1 → … → 8 → 1         | speak the new digit |
+| Physical button | HID | Coordinate | Cycle | TTS on press |
+|---|---|---|---|---|
+| **Pinky** | `D` | from-file | a → b → c → … → h → a | speak the new letter |
+| **Ring** | `F` | from-rank | 1 → 2 → 3 → … → 8 → 1 | speak the new digit |
+| **Middle** | `J` | to-file | a → … → h → a         | speak the new letter |
+| **Index** | `K` | to-rank | 1 → … → 8 → 1         | speak the new digit |
 
 **Default state at the start of each move:** all four coordinates start
 **unset**. For display (inactivity prompt, on-screen text), unset renders
@@ -344,21 +344,21 @@ as `'a'` or `'1'`, so an untouched move appears as `a1a1`. **The first
 press of a cycle button selects the first value rather than advancing
 past it**, so press N lands on the Nth letter / digit:
 
-- 1st D press → 'A' (idx 0)
-- 2nd D press → 'B' (idx 1)
-- 3rd D press → 'C' (idx 2)
-- 8th D press → 'H' (idx 7)
-- 9th D press → 'A' (wraps)
+- 1st Pinky press → 'A' (idx 0)
+- 2nd Pinky press → 'B' (idx 1)
+- 3rd Pinky press → 'C' (idx 2)
+- 8th Pinky press → 'H' (idx 7)
+- 9th Pinky press → 'A' (wraps)
 
 A coord the user never touches stays unset and renders as `'a'` / `'1'`
-in the prompt. After Commit (Space), all four coords return to unset so
+in the prompt. After Commit (Thumb/Space), all four coords return to unset so
 the next move starts fresh.
 
 **Inactivity prompt:** after **2.5 s** of no presses, TTS speaks the
 assembled move as a question: *"Move C1 to A1?"*. The timer resets on every
 press.
 
-**Space (single tap) — commit and advance:**
+**Thumb/Space (single tap) — commit and advance:**
 
 1. Apply the entered move to the board state as the opponent's move.
 2. Run Stockfish `go movetime 1000`.
@@ -367,29 +367,29 @@ press.
    on the physical board next, so the model advances with it.
 5. Reset the buffer to `(a, 1, a, 1)`.
 
-**Space (double tap):** reserved.
+**Thumb/Space (double tap):** reserved.
 
 **Promotion handling.** When the committed move places a pawn on its
 promotion rank, the app enters a brief *promotion-pick* state instead of
-finalizing on Space. Mapping (best-guess from user's note "k, b, r, q
+finalizing on Thumb/Space. Mapping (best-guess from user's note "k, b, r, q
 (two btns are queen)"; confirm before committing code if it matters):
 
 | Input  | Promotion piece |
 |---|---|
-| **Space** | Queen (default; ~all real games) |
-| **K**     | Queen (redundant fast path; right hand) |
-| **D**     | Knight |
-| **F**     | Bishop |
-| **J**     | Rook |
+| **Thumb / Space** | Queen (default; ~all real games) |
+| **Index / K**     | Queen (redundant fast path; right hand) |
+| **Pinky / D**     | Knight |
+| **Ring / F**      | Bishop |
+| **Middle / J**    | Rook |
 
 **Not in M1, deferred to a later milestone:**
-- ~~Undo last committed move.~~ Shipped in M2 as **Space+D** chord
+- ~~Undo last committed move.~~ Shipped in M2 as **Thumb+Pinky** chord
   (drops the last pair of plies, or one if odd).
 - Cancel/clear current input buffer. Still deferred — Undo + retype
   is the workaround.
 - "Exit Pocket Mode" gesture (M1: tap the touchscreen anywhere — Activity
   is foregrounded so touch still works).
-- ~~A toggleable *manual mode*~~. Shipped in M2 as **Space+F** chord.
+- ~~A toggleable *manual mode*~~. Shipped in M2 as **Thumb+Ring** chord.
   AutoAdvance stays the default; Manual keeps the engine's pick
   advisory ("Suggestion: ...") and only appends the user's typed move
   to history, so the user types every ply themselves. Toggle is sticky
@@ -400,30 +400,30 @@ finalizing on Space. Mapping (best-guess from user's note "k, b, r, q
 ## M2 chord additions (firmware v2)
 
 The v0 single-key emit-on-press model is preserved for the cycler keys
-(D / F / J / K) so move input stays snappy. **Space** is reworked into
-a modifier:
+(Pinky / Ring / Middle / Index, emitted as HID `D` / `F` / `J` / `K`)
+so move input stays snappy. **Thumb/Space** is reworked into a modifier:
 
-- **Space alone (press + release with no other key held)** still emits
+- **Thumb/Space alone (press + release with no other key held)** still emits
   `' '` → commit (no behavior change).
-- **Hold Space, tap a cycler** emits a distinct HID letter instead of
-  the cycler's normal char *and* suppresses the trailing Space release.
+- **Hold Thumb/Space, tap a cycler** emits a distinct HID letter instead of
+  the cycler's normal char *and* suppresses the trailing Thumb/Space release.
 
 Chord assignments (firmware → HID → app action):
 
 | Chord | Emitted | `ChessKey` | `GrammarAction` | Effect |
 |---|---|---|---|---|
-| Space + D | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
-| Space + F | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance ⇄ Manual; speak the new state. |
-| Space + J | (none) | — | — | Reserved. Firmware detects + consumes the chord but emits nothing. Candidate assignments: single-ply undo (vs. Space+D's pair undo), exit Pocket Mode, repeat-last-utterance, or pause/resume engine. Pick when a real need arises. |
-| Space + K | `N` | `NEW_GAME` | `NewGame` | Cancel engine, clear history + buffer, return to StartMenu. |
+| Thumb + Pinky | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
+| Thumb + Ring | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance ⇄ Manual; speak the new state. |
+| Thumb + Middle | (none) | — | — | Reserved. Firmware detects + consumes the chord but emits nothing. Candidate assignments: single-ply undo (vs. Thumb+Pinky's pair undo), exit Pocket Mode, repeat-last-utterance, or pause/resume engine. Pick when a real need arises. |
+| Thumb + Index | `N` | `NEW_GAME` | `NewGame` | Cancel engine, clear history + buffer, return to StartMenu. |
 
-Once any chord fires during a Space hold, further cycler presses during
+Once any chord fires during a Thumb/Space hold, further cycler presses during
 the same hold are silently ignored (prevents double-fires from
-slightly-rolling chord gestures). Release Space and re-hold to fire
+slightly-rolling chord gestures). Release Thumb/Space and re-hold to fire
 another chord.
 
 App routing: see `MainActivity.handleGameKey` / `handleMenuKey`. In
-StartMenu state, chord keys are no-ops — only F/J (navigate) and Space
+StartMenu state, chord keys are no-ops — only Ring/Middle (navigate) and Thumb/Space
 (select) do anything.
 
 ---
@@ -463,7 +463,7 @@ the user it'll appear until it does on their device.
 ## M2 verbal start menu
 
 `AppPhase.StartMenu(selectedIndex)` is the cold-launch state and the
-state `Space+K` returns to mid-game. `StartMenuScreen` is verbal-first:
+state `Thumb+Index` returns to mid-game. `StartMenuScreen` is verbal-first:
 the TTS layer is the primary feedback channel, and the visible Compose
 surface is decorative. Two options today:
 
@@ -473,8 +473,8 @@ surface is decorative. Two options today:
 2. **Play as black** — selecting this leaves history empty and waits
    for the user to type white's first move on the cycler.
 
-Navigation: **F = up, J = down, Space = select**, D / K / chord keys
-are ignored. Wraps at the ends.
+Navigation: **Ring = up, Middle = down, Thumb = select**; Pinky, Index,
+and chord keys are ignored. Wraps at the ends.
 
 Bootstrap implementation: `MainActivity.bootstrapEngineMove()`. Manual
 mode + Play-as-white still triggers the bootstrap query but speaks the

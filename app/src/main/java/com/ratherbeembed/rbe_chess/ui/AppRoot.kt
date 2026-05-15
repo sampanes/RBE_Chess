@@ -37,7 +37,6 @@ fun AppRoot(
     batteryPct: Int?,
     onEnterPocketMode: () -> Unit,
     onExitPocketMode: () -> Unit,
-    onTestStockfish: () -> Unit,
 ) {
     when (phase) {
         is AppPhase.StartMenu -> StartMenuScreen(
@@ -54,7 +53,6 @@ fun AppRoot(
                 playerSide = playerSide,
                 batteryPct = batteryPct,
                 onEnterPocketMode = onEnterPocketMode,
-                onTestStockfish = onTestStockfish,
             )
         }
     }
@@ -69,7 +67,6 @@ private fun NormalScreen(
     playerSide: ChessSide,
     batteryPct: Int?,
     onEnterPocketMode: () -> Unit,
-    onTestStockfish: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -105,20 +102,20 @@ private fun NormalScreen(
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "D = from-file   F = from-rank",
+                text = "Pinky = from-file   Ring = from-rank",
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
-                text = "J = to-file     K = to-rank",
+                text = "Middle = to-file   Index = to-rank",
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
-                text = "Space = commit + ask engine",
+                text = "Thumb = commit + ask engine",
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Hold Space + D = undo, + F = manual toggle, + K = new game",
+                text = "Hold Thumb + Pinky = undo, + Ring = manual, + Index = new game",
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(16.dp))
@@ -136,10 +133,6 @@ private fun NormalScreen(
                 text = "Tap anywhere on the black screen to exit.",
                 style = MaterialTheme.typography.bodySmall
             )
-            Spacer(Modifier.height(24.dp))
-            Button(onClick = onTestStockfish) {
-                Text("Test Stockfish (startpos)")
-            }
             Spacer(Modifier.height(8.dp))
             Text(
                 text = engineStatus,
@@ -164,7 +157,6 @@ private fun AppRootInGamePreview() {
             batteryPct = 87,
             onEnterPocketMode = {},
             onExitPocketMode = {},
-            onTestStockfish = {},
         )
     }
 }
@@ -184,7 +176,6 @@ private fun AppRootStartMenuPreview() {
             batteryPct = 87,
             onEnterPocketMode = {},
             onExitPocketMode = {},
-            onTestStockfish = {},
         )
     }
 }
