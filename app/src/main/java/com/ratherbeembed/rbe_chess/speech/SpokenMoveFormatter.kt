@@ -37,14 +37,16 @@ object SpokenMoveFormatter {
         "${spokenFile(file)} ${spokenRank(rank)}"
 
     /**
-     * Inactivity prompt for the partially-entered move buffer.
+     * Inactivity prompt for the partially-entered move buffer. Phrased as
+     * "Saw <from> to <to>?" so it reads as confirmation of the opponent's
+     * move the app detected, not a command directed at the user.
      * Untouched coords surface as 'a' / 1 per [MoveBuffer]'s display rules,
-     * so an untouched buffer reads as "Move A one to A one?".
+     * so an untouched buffer reads as "Saw A one to A one?".
      */
     fun spokenInactivityPrompt(buffer: MoveBuffer): String {
         val from = spokenSquare(buffer.fromFile, buffer.fromRank)
         val to = spokenSquare(buffer.toFile, buffer.toRank)
-        return "Move $from to $to?"
+        return "Saw $from to $to?"
     }
 
     /**
