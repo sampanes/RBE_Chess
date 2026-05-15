@@ -137,9 +137,17 @@ from pin to ground using internal pull-ups:
 | K      | index  | 11          |
 | Space  | thumb  | 12          |
 
-Firmware v2 blinks `FIRMWARE_VERSION` on boot and advertises as
+Firmware blinks `FIRMWARE_VERSION` on boot and advertises as
 `RBE Keypad v<N>`, making it possible to confirm which sketch is flashed
-without a USB serial session.
+without a USB serial session. (Current version is 5.)
+
+Battery is sampled from the A9 voltage divider, converted to a 0–100 %
+piecewise-linear Li-Po estimate, and pushed once per minute as four HID
+keystrokes — the literal characters `B` + three zero-padded ASCII
+digits (e.g. `B025`). The app's `BatteryReportParser` intercepts the
+sequence before the chess grammar sees it, so the keystream stays
+clean. See the firmware README's "Battery reporting via the HID stream"
+section.
 
 ## Android Architecture
 
@@ -208,12 +216,24 @@ Firmware build notes and upload troubleshooting are in
 
 - Pocket Mode black screen, brightness dimming, and Activity-scoped
   keyboard capture are implemented.
-- Firmware v2 chord behavior is implemented in code.
-- The local Stockfish UCI proof has been verified on-device.
-- M1 Space-commit hardware verification and M2 chord verification are
-  still tracked as pending in [`STATUS.md`](STATUS.md).
+- Firmware v5: cycler keys, Space-as-modifier chords (Space+D/F/K
+  emit `U`/`M`/`N` HID), and battery reports via the HID stream
+  (`B` + 3 zero-padded ASCII digits, once per minute). The app
+  parses the reports out of the keystream and shows
+  `Keypad battery: NN%` on the normal screen; TTS warns below 20 %
+  / 5 % with hysteresis above 30 %.
+- M2 chord paths + start menu + manual toggle + undo + new game are
+  hardware-confirmed. Battery reporting is hardware-confirmed.
+- **Remaining hardware gap**: full-game loop (multiple commit cycles
+  in a row) has not been exercised end-to-end. Single commits are
+  JVM-green and the M2 control paths around them work; nobody has
+  played a real game through the loop yet. Tracked in
+  [`STATUS.md`](STATUS.md).
 - Promotion input and true screen-off/background keyboard capture are
-  deferred.
+  deferred. The standard BLE Battery Service path (Android Settings
+  battery %) is also deferred — this nRF51 module's AT firmware
+  doesn't expose `AT+BLEBATTEN`, so reaching it would need the manual
+  `AT+GATTADDSERVICE` route.
 
 For detailed project history and design constraints, read:
 

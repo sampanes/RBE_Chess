@@ -395,7 +395,7 @@ Chord assignments (firmware → HID → app action):
 |---|---|---|---|---|
 | Space + D | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
 | Space + F | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance ⇄ Manual; speak the new state. |
-| Space + J | (none) | — | — | Reserved. Firmware detects + consumes the chord but emits nothing. |
+| Space + J | (none) | — | — | Reserved. Firmware detects + consumes the chord but emits nothing. Candidate assignments: single-ply undo (vs. Space+D's pair undo), exit Pocket Mode, repeat-last-utterance, or pause/resume engine. Pick when a real need arises. |
 | Space + K | `N` | `NEW_GAME` | `NewGame` | Cancel engine, clear history + buffer, return to StartMenu. |
 
 Once any chord fires during a Space hold, further cycler presses during
@@ -406,6 +406,38 @@ another chord.
 App routing: see `MainActivity.handleGameKey` / `handleMenuKey`. In
 StartMenu state, chord keys are no-ops — only F/J (navigate) and Space
 (select) do anything.
+
+---
+
+## Battery telemetry (firmware v5)
+
+Battery percentage rides the HID keystream, not a BLE service. Every
+minute the firmware enqueues `'B'` + 3 zero-padded ASCII digits
+(`B000`–`B100`) into the same FIFO that carries cycler/chord input.
+`input/BatteryReportParser` strips the sequence before
+`HardwareKeyboardHandler` runs, surfaces `batteryPct` to the UI, and
+fires one-shot TTS warnings on threshold crossings (<20 % low,
+<5 % critical, re-armed ≥30 %).
+
+Why not the standard BLE Battery Service: v3 tried `AT+BLEBATTEN=on`
+and v4 confirmed via serial log that this nRF51 SPI Friend's AT
+firmware returns ERROR for that command — it isn't supported on this
+module revision. The HID-stream path was the workaround.
+
+**If a future change wants Android Settings to show the keypad
+battery too** (the BAS UI affordance), the next-level fallback is the
+manual GATT route in `setup_helper.h`:
+
+```
+AT+GATTADDSERVICE=UUID=0x180F          # Battery Service
+AT+GATTADDCHAR=UUID=0x2A19,PROPERTIES=0x12,MIN_LEN=1,VALUE=100
+```
+
+…then `AT+GATTCHAR=<charId>,<pct>` on the same minute cadence instead
+of (or alongside) the HID-stream push. Note that Android's Settings
+battery display for BLE HID peripherals is OEM-inconsistent — even a
+correctly-formed BAS may not render on Samsung One UI. Don't promise
+the user it'll appear until it does on their device.
 
 ---
 
