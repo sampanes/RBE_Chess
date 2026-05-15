@@ -4,8 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ratherbeembed.rbe_chess.chess.ChessSide
 import com.ratherbeembed.rbe_chess.chess.MoveHistory
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
 import com.ratherbeembed.rbe_chess.pocket.PocketModeScreen
@@ -28,6 +33,7 @@ fun AppRoot(
     history: MoveHistory,
     engineStatus: String,
     gameMode: GameMode,
+    playerSide: ChessSide,
     batteryPct: Int?,
     onEnterPocketMode: () -> Unit,
     onExitPocketMode: () -> Unit,
@@ -45,6 +51,7 @@ fun AppRoot(
                 history = history,
                 engineStatus = engineStatus,
                 gameMode = gameMode,
+                playerSide = playerSide,
                 batteryPct = batteryPct,
                 onEnterPocketMode = onEnterPocketMode,
                 onTestStockfish = onTestStockfish,
@@ -59,6 +66,7 @@ private fun NormalScreen(
     history: MoveHistory,
     engineStatus: String,
     gameMode: GameMode,
+    playerSide: ChessSide,
     batteryPct: Int?,
     onEnterPocketMode: () -> Unit,
     onTestStockfish: () -> Unit,
@@ -67,8 +75,9 @@ private fun NormalScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -80,6 +89,14 @@ private fun NormalScreen(
                 text = "Mode: ${if (gameMode == GameMode.Manual) "Manual" else "AutoAdvance"}    " +
                     "Keypad battery: ${batteryPct?.let { "$it%" } ?: "unknown"}",
                 style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(16.dp))
+            ChessBoard(
+                history = history,
+                bottomSide = playerSide,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 380.dp),
             )
             Spacer(Modifier.height(16.dp))
             Text(
@@ -143,6 +160,7 @@ private fun AppRootInGamePreview() {
             history = MoveHistory.EMPTY,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
+            playerSide = ChessSide.WHITE,
             batteryPct = 87,
             onEnterPocketMode = {},
             onExitPocketMode = {},
@@ -162,6 +180,7 @@ private fun AppRootStartMenuPreview() {
             history = MoveHistory.EMPTY,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
+            playerSide = ChessSide.WHITE,
             batteryPct = 87,
             onEnterPocketMode = {},
             onExitPocketMode = {},
