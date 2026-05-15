@@ -32,7 +32,7 @@ fun AppRoot(buffer: MoveBuffer) {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "M1 step 2a — cycler logs only",
+                text = "M1 step 2b — cycler + TTS feedback",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(16.dp))
@@ -50,7 +50,12 @@ fun AppRoot(buffer: MoveBuffer) {
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
-                text = "Space = commit (logged, no engine yet)",
+                text = "Space = commit (logged, engine wiring is step 4)",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "TTS speaks each press; pause 2.5 s for the prompt.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
