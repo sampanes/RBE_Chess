@@ -59,6 +59,9 @@ Development assumptions:
 - Android Studio for SDK/device/debugging support
 - Terminal-first workflow for builds and LLM agent work
 - Physical-device testing prioritized over emulator testing
+- Wireless debugging over Wi-Fi is possible and preferred for normal
+  S22 Ultra app dogfooding; use USB mainly for initial pairing/recovery
+  and firmware work.
 
 ## Non-Goals
 
