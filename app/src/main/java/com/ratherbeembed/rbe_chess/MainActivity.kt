@@ -18,6 +18,8 @@ import com.ratherbeembed.rbe_chess.input.GrammarAction
 import com.ratherbeembed.rbe_chess.input.HardwareKeyboardHandler
 import com.ratherbeembed.rbe_chess.input.KeyboardGrammar
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
+import com.ratherbeembed.rbe_chess.pocket.PocketModeController
+import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 import com.ratherbeembed.rbe_chess.speech.BestMoveSpeaker
 import com.ratherbeembed.rbe_chess.speech.SpeechOutput
 import com.ratherbeembed.rbe_chess.ui.AppRoot
@@ -30,18 +32,26 @@ private const val INACTIVITY_PROMPT_MS = 2_500L
 
 class MainActivity : ComponentActivity() {
     private var moveBuffer by mutableStateOf(MoveBuffer.DEFAULT)
+    private var pocketMode by mutableStateOf(PocketModeState.Normal)
     private lateinit var speechOutput: SpeechOutput
     private lateinit var speaker: BestMoveSpeaker
+    private lateinit var pocketController: PocketModeController
     private var inactivityJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         speechOutput = SpeechOutput(this)
         speaker = BestMoveSpeaker(speechOutput)
+        pocketController = PocketModeController(this)
         setContent {
             val colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
             MaterialTheme(colorScheme = colors) {
-                AppRoot(buffer = moveBuffer)
+                AppRoot(
+                    buffer = moveBuffer,
+                    pocketMode = pocketMode,
+                    onEnterPocketMode = ::enterPocketMode,
+                    onExitPocketMode = ::exitPocketMode,
+                )
             }
         }
     }
@@ -49,6 +59,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         inactivityJob?.cancel()
         inactivityJob = null
+        pocketController.exit()
         speechOutput.shutdown()
         super.onDestroy()
     }
@@ -93,6 +104,7 @@ class MainActivity : ComponentActivity() {
                 scheduleInactivityPrompt(after)
             }
             GrammarAction.Commit -> {
+                speaker.speakCommit()
                 Log.d(TAG, "Commit ${before.toUciString()} (engine wiring is step 4)")
             }
             GrammarAction.Ignored -> Unit
@@ -104,5 +116,17 @@ class MainActivity : ComponentActivity() {
             delay(INACTIVITY_PROMPT_MS)
             speaker.speakInactivityPrompt(buffer)
         }
+    }
+
+    private fun enterPocketMode() {
+        pocketController.enter()
+        pocketMode = PocketModeState.Pocket
+        Log.d(TAG, "Pocket Mode ON")
+    }
+
+    private fun exitPocketMode() {
+        pocketController.exit()
+        pocketMode = PocketModeState.Normal
+        Log.d(TAG, "Pocket Mode OFF")
     }
 }
