@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-14 (after on-device verification of M1 step 2a).
+Last updated: 2026-05-14 (after firmware v1 verified end-to-end on hardware — input is "buttery smooth" per user).
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -13,9 +13,10 @@ as session-priority cleanup before doing other work.
 - **In flight:** nothing — last sub-step shipped clean.
 - **Last completed:** M1 step 2a — 4-coordinate cycler grammar with
   Logcat feedback (commit `e5e51c0`, pushed). Side track: Arduino keypad
-  firmware was vendored into `firmware/RBE_32u4_chess/` and cleaned up
-  (char-buffer instead of `String`, stable-for-N-ms debounce, LED-blink
-  error indicator, BluefruitConfig.h pin-collision note, README).
+  firmware vendored, cleaned up, and rewritten as **firmware v1**
+  (`b30215b`) — non-blocking BLE send queue, press FIFO, FIRMWARE_VERSION
+  fingerprint via boot LED blink + "RBE Keypad v1" advertised name.
+  Verified on hardware: input feels buttery smooth, no missed presses.
 - **Next:** M1 step 2b — TTS scaffold + 2.5 s inactivity prompt.
 
 ## M1 implementation checklist
@@ -48,8 +49,9 @@ as steps land:
 | `:app:testDebugUnitTest` | 17 / 17 green | `MoveBufferTest` + `KeyboardGrammarTest` |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
 | App launch on S22 Ultra | green | confirmed 2026-05-14 |
-| BT keyboard input on-device | green | Bluefruit paired, all 5 keycodes received and dispatched correctly 2026-05-14 |
+| BT keyboard input on-device | green | Bluefruit paired as "RBE Keypad v1", all 5 keycodes received and dispatched correctly 2026-05-14 |
 | Compose recomposition on state change | green | required `@Immutable` on `MoveBuffer` to defeat strong-skipping |
+| Firmware v1 input latency | green | non-blocking BLE state machine; user reports "buttery smooth" 2026-05-14 |
 | TTS over BT speakers | not implemented | step 2b |
 | Stockfish UCI loop | not implemented | step 3 |
 
