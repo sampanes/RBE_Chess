@@ -208,11 +208,11 @@ class MainActivity : ComponentActivity() {
                     movetimeMs = ENGINE_MOVETIME_MS,
                 )
                 if (gameMode == GameMode.AutoAdvance) {
-                    speaker.speakBestMove(best)
                     moveHistory = MoveHistory.EMPTY.append(best)
+                    speaker.speakPlayedMove(moverLabel(playerSide), best, waitingPhrase())
                     engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
                 } else {
-                    speaker.speakSuggestion(best)
+                    speaker.speakSuggestionFor(moverLabel(playerSide), best)
                     engineStatus = "Bootstrap (manual): suggested $best"
                 }
                 Log.d(TAG, "Bootstrap engine move: $best (mode=$gameMode)")
@@ -297,8 +297,11 @@ class MainActivity : ComponentActivity() {
      * untouched so the user can retry without a corrupt move list.
      */
     private fun commitMove(opponentMove: String) {
-        speaker.speakCommit()
+        val mover = sideToMove()
         val historyForEngine = moveHistory.append(opponentMove)
+        val nextMover = sideToMove(historyForEngine)
+        val typedMoverLabel = moverLabel(mover)
+        speaker.speakPlayedThenCalculating(typedMoverLabel, opponentMove, moverLabel(nextMover))
         engineStatus = "Engine: thinking on $opponentMove..."
         Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves}, mode=$gameMode)")
         engineJob = lifecycleScope.launch {
@@ -309,13 +312,18 @@ class MainActivity : ComponentActivity() {
                     movetimeMs = ENGINE_MOVETIME_MS,
                 )
                 if (gameMode == GameMode.Manual) {
-                    speaker.speakSuggestion(best)
                     moveHistory = historyForEngine
+                    speaker.speakPlayedAndSuggestion(
+                        typedMoverLabel,
+                        opponentMove,
+                        moverLabel(sideToMove()),
+                        best,
+                    )
                     engineStatus = "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
                     Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
                 } else {
-                    speaker.speakBestMove(best)
                     moveHistory = historyForEngine.append(best)
+                    speaker.speakPlayedMove(moverLabel(nextMover), best, waitingPhrase())
                     engineStatus = "Last: opp=$opponentMove → engine=$best (${moveHistory.size} plies)"
                     Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
                 }
@@ -335,7 +343,7 @@ class MainActivity : ComponentActivity() {
         engineJob?.cancel(); engineJob = null
         moveHistory = moveHistory.undoLastPair()
         moveBuffer = MoveBuffer.DEFAULT
-        speaker.speakUndo()
+        speaker.speakUndo(waitingPhrase())
         engineStatus = "Undo: history=${moveHistory.size} plies"
         Log.d(TAG, "Undo -> ${moveHistory.moves}")
     }
@@ -343,7 +351,7 @@ class MainActivity : ComponentActivity() {
     private fun handleToggleManual() {
         gameMode = if (gameMode == GameMode.AutoAdvance) GameMode.Manual else GameMode.AutoAdvance
         val on = (gameMode == GameMode.Manual)
-        speaker.speakManualMode(on)
+        speaker.speakManualMode(on, waitingPhrase())
         engineStatus = "Mode: ${if (on) "Manual" else "AutoAdvance"} (history=${moveHistory.size} plies)"
         Log.d(TAG, "Manual mode toggled -> $gameMode")
     }
@@ -364,9 +372,19 @@ class MainActivity : ComponentActivity() {
     private fun scheduleInactivityPrompt(buffer: MoveBuffer) {
         inactivityJob = lifecycleScope.launch {
             delay(INACTIVITY_PROMPT_MS)
-            speaker.speakInactivityPrompt(buffer)
+            speaker.speakMovePrompt(moverLabel(sideToMove()), buffer)
         }
     }
+
+    private fun sideToMove(history: MoveHistory = moveHistory): ChessSide =
+        if (history.size % 2 == 0) ChessSide.WHITE else ChessSide.BLACK
+
+    private fun moverLabel(side: ChessSide): String {
+        val color = if (side == ChessSide.WHITE) "White" else "Black"
+        return if (side == playerSide) "Your $color" else "Opponent $color"
+    }
+
+    private fun waitingPhrase(): String = "Waiting for ${moverLabel(sideToMove())}."
 
     private fun enterPocketMode() {
         pocketController.enter()

@@ -49,6 +49,22 @@ object SpokenMoveFormatter {
         return "Saw $from to $to?"
     }
 
+    fun spokenUciMove(uci: String): String {
+        require(uci.length == 4 || uci.length == 5) {
+            "expected 4- or 5-char UCI, got '$uci'"
+        }
+        val from = spokenSquare(uci[0], uci[1].digitToInt())
+        val to = spokenSquare(uci[2], uci[3].digitToInt())
+        val core = "$from to $to"
+        return if (uci.length == 5) {
+            val piece = PROMO_WORDS[uci[4].lowercaseChar()]
+                ?: throw IllegalArgumentException("unknown promotion piece in '$uci'")
+            "$core, $piece"
+        } else {
+            core
+        }
+    }
+
     /**
      * Bestmove phrase. UCI is 4 chars (e.g. "b8c6") or 5 with a promotion
      * piece suffix (e.g. "e7e8q"). Examples from the addendum:
@@ -59,15 +75,6 @@ object SpokenMoveFormatter {
         require(uci.length == 4 || uci.length == 5) {
             "expected 4- or 5-char UCI, got '$uci'"
         }
-        val from = spokenSquare(uci[0], uci[1].digitToInt())
-        val to = spokenSquare(uci[2], uci[3].digitToInt())
-        val core = "Best move: $from to $to"
-        return if (uci.length == 5) {
-            val piece = PROMO_WORDS[uci[4].lowercaseChar()]
-                ?: throw IllegalArgumentException("unknown promotion piece in '$uci'")
-            "$core, $piece."
-        } else {
-            "$core."
-        }
+        return "Best move: ${spokenUciMove(uci)}."
     }
 }
