@@ -32,19 +32,38 @@ above installed.
 
 ## Runtime behavior
 
-On each debounced button-down transition, the sketch appends the
-corresponding character (`D`, `F`, `J`, `K`, ` `) to a small buffer and
-flushes it to the BLE module via `AT+BleKeyboard=<chars>`. The receiving
-phone sees discrete HID keystrokes.
+On each debounced button-down transition, the sketch pushes the
+corresponding character (`D`, `F`, `J`, `K`, ` `) onto a press FIFO. A
+non-blocking BLE state machine drains the FIFO and sends batches via
+`AT+BleKeyboard=<chars>`. Crucially, button scanning continues every loop
+iteration even while a BLE send is awaiting its `OK` response — so fast
+input bursts are no longer dropped by the AT-command roundtrip.
 
-The Android app (`../../app/`) interprets each character per the
-4-coordinate cycler grammar — see the project's `AGENT_NOTES.md`
-§"Keyboard grammar — hardware-aware V1".
+The receiving phone sees discrete HID keystrokes. The Android app
+(`../../app/`) interprets each character per the 4-coordinate cycler
+grammar — see the project's `AGENT_NOTES.md` §"Keyboard grammar —
+hardware-aware V1".
 
 Debounce is a "stable for N ms" model (signal must hold the new state
 continuously for `DOWN_DB_MS` / `UP_DB_MS` before the transition commits).
 Defaults are conservative at 50 ms / 25 ms; lower if presses feel
 sluggish.
+
+## Verifying which firmware is on the chip
+
+Two independent fingerprints, both driven by `FIRMWARE_VERSION` at the
+top of `RBE_32u4_chess.ino`. Bump the constant on every meaningful flash.
+
+1. **Boot LED blink.** On power-up, the onboard LED blinks
+   `FIRMWARE_VERSION` times (120 ms on, 180 ms off) before BLE init.
+   Power-cycle the keypad and count the flashes — you don't need a phone
+   or USB cable.
+2. **Versioned BLE device name.** The keypad advertises as
+   `RBE Keypad v<N>`. Visible in Android's Bluetooth settings, in the
+   pairing prompt, and in any BT scanner app.
+
+After bumping `FIRMWARE_VERSION` and reflashing, you may need to forget
+and re-pair on Android (some phones key pairings by device name).
 
 ## Debugging
 

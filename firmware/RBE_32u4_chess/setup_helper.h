@@ -139,9 +139,17 @@ void setup_helper()
   /* Print Bluefruit information */
   ble.info();
 
-  /* Change the device name to make it easier to find */
-  Serial.println(F("Setting device name to 'Bluefruit Keyboard': "));
-  if (! ble.sendCommandCheckOK(F( "AT+GAPDEVNAME=Bluefruit Keyboard" )) ) {
+  /* Change the device name to a versioned form so a flash bump is
+     visible from Android's Bluetooth settings without any other tools.
+     FIRMWARE_VERSION must be defined in the .ino before this header is
+     included. */
+  #ifndef FIRMWARE_VERSION
+  #define FIRMWARE_VERSION 0
+  #endif
+  char devNameCmd[48];
+  snprintf(devNameCmd, sizeof(devNameCmd), "AT+GAPDEVNAME=RBE Keypad v%d", FIRMWARE_VERSION);
+  Serial.print(F("Setting device name to: ")); Serial.println(devNameCmd);
+  if (! ble.sendCommandCheckOK(devNameCmd) ) {
     error(F("Could not set device name?"));
   }
 
