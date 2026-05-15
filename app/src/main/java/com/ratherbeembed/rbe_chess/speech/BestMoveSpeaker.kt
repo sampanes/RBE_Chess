@@ -25,12 +25,22 @@ class BestMoveSpeaker(private val output: SpeechOutput) {
         output.speak(SpokenMoveFormatter.spokenInactivityPrompt(buffer))
     }
 
+    fun speakMovePrompt(mover: String, buffer: MoveBuffer) {
+        val move = SpokenMoveFormatter.spokenUciMove(buffer.toUciString())
+        output.speak("$mover move: $move?")
+    }
+
     fun speakCommit() {
         output.speak("Calculating")
     }
 
     fun speakBestMove(uci: String) {
         output.speak(SpokenMoveFormatter.spokenBestMove(uci))
+    }
+
+    fun speakPlayedMove(mover: String, uci: String, waiting: String) {
+        val move = SpokenMoveFormatter.spokenUciMove(uci)
+        output.speak("$mover played $move. $waiting")
     }
 
     /** Spoken in manual mode where the engine's pick is advisory only. */
@@ -43,12 +53,48 @@ class BestMoveSpeaker(private val output: SpeechOutput) {
         output.speak("Suggestion: $spoken")
     }
 
+    fun speakSuggestionFor(mover: String, uci: String) {
+        val move = SpokenMoveFormatter.spokenUciMove(uci)
+        output.speak("Suggestion for $mover: $move.")
+    }
+
+    fun speakCalculatingFor(mover: String) {
+        output.speak("Calculating $mover reply")
+    }
+
+    fun speakPlayedThenCalculating(mover: String, uci: String, nextMover: String) {
+        val move = SpokenMoveFormatter.spokenUciMove(uci)
+        output.speak("$mover played $move. Calculating $nextMover reply")
+    }
+
+    fun speakPlayedAndSuggestion(
+        mover: String,
+        uci: String,
+        suggestionMover: String,
+        suggestionUci: String,
+    ) {
+        val move = SpokenMoveFormatter.spokenUciMove(uci)
+        val suggestion = SpokenMoveFormatter.spokenUciMove(suggestionUci)
+        output.speak(
+            "$mover played $move. Suggestion for $suggestionMover: $suggestion. " +
+                "Waiting for $suggestionMover.",
+        )
+    }
+
     fun speakUndo() {
         output.speak("Undid last move")
     }
 
+    fun speakUndo(waiting: String) {
+        output.speak("Undid last move. $waiting")
+    }
+
     fun speakManualMode(on: Boolean) {
         output.speak(if (on) "Manual mode on" else "Manual mode off")
+    }
+
+    fun speakManualMode(on: Boolean, waiting: String) {
+        output.speak("${if (on) "Manual mode on" else "Manual mode off"}. $waiting")
     }
 
     fun speakMenuOption(text: String) {
