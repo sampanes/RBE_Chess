@@ -428,6 +428,51 @@ StartMenu state, chord keys are no-ops — only Ring/Middle (navigate) and Thumb
 
 ---
 
+## Post-M2 state milestones
+
+### M3 - terminal-state handling
+
+The app must recognize finished games instead of treating every Stockfish
+reply as a normal UCI move. `bestmove (none)` is not a move; it means no
+legal move exists in the current position. M3 should make the engine bridge
+return a structured result that can represent a terminal state, speak a
+useful phrase such as "checkmate", "stalemate", or "game over", and stop
+auto-advance/engine queries until Undo or New Game.
+
+Prefer consuming Stockfish `info ... score mate ...` lines when they are
+available, but do not make mate-info parsing the only path. The minimum
+safe behavior is: if `bestmove (none)` arrives, do not append it to
+`MoveHistory`, do not ask `SpokenMoveFormatter` to pronounce it, and mark
+the game terminal in Activity state.
+
+### M4 - keypad move legality guard
+
+The app should reject impossible or illegal keypad-entered moves before
+they reach `MoveHistory` or the next `position startpos moves ...` command.
+On rejection, history must remain unchanged and TTS should say a short
+correction such as "Illegal move." The UI can leave the buffer visible so
+the user can correct it, unless real dogfooding shows that clearing is
+less frustrating.
+
+Implementation options:
+
+- Preferred if clean on Android/JVM: a small chess rules library that can
+  load startpos + UCI history, generate legal UCI moves, and classify
+  checkmate/stalemate.
+- Fallback: ask Stockfish for legal moves from the current position and
+  validate the typed UCI against that set.
+
+### Repeat-last spoken output
+
+Pocket Mode needs a recovery path for "I missed the move." The current best
+assignment is the reserved Thumb+Middle chord. It should replay the last
+spoken engine move/status without querying Stockfish and without mutating
+history. Avoid periodic automatic repeat as the default; it is likely to
+interrupt thought or physical-board handling. If auto-repeat is ever added,
+make it a single delayed reminder after no input, not an infinite interval.
+
+---
+
 ## Battery telemetry (firmware v5)
 
 Battery percentage rides the HID keystream, not a BLE service. Every
@@ -437,6 +482,12 @@ minute the firmware enqueues `'B'` + 3 zero-padded ASCII digits
 `HardwareKeyboardHandler` runs, surfaces `batteryPct` to the UI, and
 fires one-shot TTS warnings on threshold crossings (<20 % low,
 <5 % critical, re-armed ≥30 %).
+
+Dogfooding note: one transient `B000` followed by a plausible normal value
+has been observed. Treat this as a false low sample unless it repeats.
+Future smoothing should either average/median multiple firmware ADC reads
+(discarding the first read after wake/boot) or require two consecutive low
+reports before the app speaks low/critical battery.
 
 Why not the standard BLE Battery Service: v3 tried `AT+BLEBATTEN=on`
 and v4 confirmed via serial log that this nRF51 SPI Friend's AT
