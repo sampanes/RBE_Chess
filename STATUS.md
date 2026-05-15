@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-14 (after firmware vendoring + cleanup).
+Last updated: 2026-05-14 (after on-device verification of M1 step 2a).
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -47,8 +47,9 @@ as steps land:
 | `./gradlew assembleDebug` | green | confirmed in AS terminal 2026-05-14 |
 | `:app:testDebugUnitTest` | 17 / 17 green | `MoveBufferTest` + `KeyboardGrammarTest` |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
-| App launch on S22 Ultra | **NOT VERIFIED** | not run on-device since M1 step 1; risk grows each step |
-| BT keyboard input on-device | **NOT VERIFIED** | pair-and-test pending — pairs with 2b/2c |
+| App launch on S22 Ultra | green | confirmed 2026-05-14 |
+| BT keyboard input on-device | green | Bluefruit paired, all 5 keycodes received and dispatched correctly 2026-05-14 |
+| Compose recomposition on state change | green | required `@Immutable` on `MoveBuffer` to defeat strong-skipping |
 | TTS over BT speakers | not implemented | step 2b |
 | Stockfish UCI loop | not implemented | step 3 |
 

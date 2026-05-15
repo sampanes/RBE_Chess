@@ -1,12 +1,21 @@
 package com.ratherbeembed.rbe_chess.input
 
+import androidx.compose.runtime.Immutable
+
 /**
  * The four under-construction coordinates of a from-to move. Each index is
  * null until the user first presses its cycle button, then 0..7. Display
  * treats null as 0 (so an untouched coord shows as 'a' or '1' in the
  * inactivity prompt), but pressing distinguishes the two so the first press
  * lands on 'a' / '1' instead of advancing past it.
+ *
+ * @Immutable so Compose treats this as a stable parameter and recomposes
+ * AppRoot when a new instance is passed in. Without the annotation, Kotlin
+ * 2.x stability inference doesn't always classify data classes with
+ * nullable primitive fields as stable, and strong-skipping can suppress
+ * recomposition.
  */
+@Immutable
 data class MoveBuffer(
     val fromFileIdx: Int? = null,
     val fromRankIdx: Int? = null,
