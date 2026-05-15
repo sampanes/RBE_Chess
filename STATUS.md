@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M2 hardware-confirmed for chord paths + menu + manual + undo + new-game; full-game loop still unexercised. Firmware v5 reports battery via the HID stream — 'B' + 3 ASCII digits per minute — after v3's BAS-via-AT path turned out to be unsupported on this nRF51 module. App parses, displays, and TTS-warns below thresholds.)
+Last updated: 2026-05-15 (M2 + firmware v5 battery reporting hardware-confirmed. In-app "Keypad battery: 90%" populated after pairing v5. TTS low/critical thresholds not yet hit at real low battery. Full-game loop still unexercised.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -180,7 +180,7 @@ PGN/FEN export, opening book.
 | Space → engine → bestmove on-device | partial | Chord paths verified, but no full game played yet — leaving the commit/engine/auto-advance cycle as not-yet-validated end-to-end. |
 | Firmware v3 BAS battery percentage | broken | v3 made `AT+BLEBATTEN=on` failure fatal; the nRF51 module's AT firmware doesn't support that command, so the keypad bricked into `error()`. |
 | Firmware v4 BAS init non-fatal | green | Confirmed via serial: `AT+BLEBATTEN=on` returns ERROR on this module, warning logged, boot continues. Keypad works as keyboard, no BAS visible to Android. |
-| Firmware v5 HID-stream battery report | pending | Reflash v5 (5-blink boot, `RBE Keypad v5`). About 5 s after pairing, the in-app "Keypad battery: NN%" line should populate; thereafter refreshes once a minute. TTS speaks "Keypad battery low" below 20 %, "critical" below 5 %, re-armed above 30 %. |
+| Firmware v5 HID-stream battery report | green | User-confirmed 2026-05-15: in-app "Keypad battery: 90%" populated shortly after pairing. TTS warning thresholds not yet exercised at low battery. |
 
 ## Open follow-ups (scheduled, not blockers)
 
