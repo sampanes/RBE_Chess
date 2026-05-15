@@ -64,24 +64,38 @@ ignored — release Space and start over to fire another chord.
 Cycler keys (D / F / J / K) still emit immediately on press when Space
 is **not** held, so move input feels as snappy as v1.
 
-### Battery reporting over BLE (v3)
+### Battery reporting over BLE (v3+, best-effort)
 
-The keypad exposes the standard BLE Battery Service. Android reads it
-automatically — once the device is paired, the percentage shows up next
-to its name in **Settings → Connected devices → Bluetooth → RBE Keypad
-v3**. No app code required.
+The firmware *tries* to expose the standard BLE Battery Service so
+Android's BT settings can show a battery % next to the device name
+with no app code involved.
 
-Implementation detail:
+Whether this actually works depends on the nRF51 SPI Friend's AT
+firmware revision. The `AT+BLEBATTEN=on` command is **not documented
+on all revisions** — on at least some modules it returns ERROR. The
+v3 firmware treated that as fatal and bricked the keypad (looped in
+`error()` blinking `LED_BUILTIN` forever). **v4 is the fix**:
+`setup_helper.h` now logs the outcome and continues regardless,
+setting a global `batteryServiceAvailable` flag the main loop reads
+before issuing any `AT+BLEBATTVAL` push.
 
-- `setup_helper.h` issues `AT+BLEBATTEN=on` before the BLE SW reset so
-  the service is part of the advertisement.
-- The main sketch samples `battery_voltage()` once per `BATTERY_UPDATE_MS`
-  (default 60 s), converts via a piecewise-linear single-cell Li-Po
-  curve in `voltage_to_percent()`, and sends `AT+BLEBATTVAL=<0..100>`
-  through the existing non-blocking BLE state machine. Keys always
-  preempt battery sends — the heartbeat can never delay a chord.
-- First push fires shortly after boot (`batteryPending = true` initial
-  value), so the percentage populates within seconds of pairing.
+If BAS init succeeds:
+
+- `voltage_to_percent()` converts via a piecewise-linear single-cell
+  Li-Po curve.
+- Main loop samples once per `BATTERY_UPDATE_MS` (default 60 s) and
+  pushes `AT+BLEBATTVAL=<0..100>` through the existing non-blocking
+  BLE state machine. Keys always preempt battery sends.
+- First push fires shortly after boot.
+
+If BAS init fails:
+
+- The keypad still functions as a keyboard.
+- The periodic battery sampling is skipped entirely (no wasted BLE
+  roundtrips on an unsupported command).
+- Serial monitor prints a `WARN: AT+BLEBATTEN not supported` line at
+  boot. We can swap in the manual `AT+GATTADDSERVICE` approach later
+  if a properly-formed custom BAS turns out to be necessary.
 
 The conversion curve is approximate; treat the percentage as a coarse
 fuel gauge ("plenty / getting low / charge soon"), not a calibrated

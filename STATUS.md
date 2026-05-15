@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M2 hardware-confirmed for chord paths + menu + manual + undo + new-game; full-game loop still unexercised. Firmware v3 ships BAS battery reporting — code-complete, awaiting flash.)
+Last updated: 2026-05-15 (M2 hardware-confirmed for chord paths + menu + manual + undo + new-game; full-game loop still unexercised. Firmware v3 BAS attempt bricked into `error()` on this module; v4 makes BAS init non-fatal so the keypad keeps working as a keyboard even if the AT command isn't supported.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -101,22 +101,35 @@ as steps land:
       menu + manual + undo + new-game confirmed; full game loop
       (multiple commit cycles in a row) not yet exercised.
 
-## Firmware v3 — BLE Battery Service
+## Firmware v3 / v4 — BLE Battery Service (best-effort)
 
-Single new piece of work post-M2: keypad now reports its own battery
-over the standard BLE Battery Service (BAS). Android shows the
-percentage in **Settings → Bluetooth → RBE Keypad v3** with no app
-code required.
+Single new piece of work post-M2: keypad tries to expose the standard
+BLE Battery Service (BAS) so Android's BT settings displays a battery
+% next to the device name with no app code involved.
 
-- `setup_helper.h` enables BAS (`AT+BLEBATTEN=on`) before the SW reset.
-- `RBE_32u4_chess.ino` samples `battery_voltage()` every 60 s,
-  converts via `voltage_to_percent()` (piecewise-linear Li-Po curve),
-  and pushes `AT+BLEBATTVAL=<0..100>` through the existing
-  non-blocking BLE state machine. Keys always preempt the battery
-  push so chord bursts can't be delayed.
-- `FIRMWARE_VERSION` bumped 2 → 3 (3-blink boot, `RBE Keypad v3` BLE
-  name). Re-pair on Android if the pairing key by name doesn't carry
-  over.
+**v3 was broken**: `setup_helper.h` treated `AT+BLEBATTEN=on` as
+mandatory and `error()`-blocked on its failure, but at least some
+revisions of the nRF51 SPI Friend AT firmware don't support that
+command. Effect: keypad bricked (LED steady fast blink, never
+advertises as v3, serial monitor catches the one-shot error message
+only if it was already open).
+
+**v4 is the fix**:
+
+- `setup_helper.h` issues `AT+BLEBATTEN=on` and logs the outcome but
+  doesn't `error()` on failure. Sets a global
+  `batteryServiceAvailable` flag.
+- Main loop's periodic sample + `AT+BLEBATTVAL=<n>` push are gated on
+  that flag, so an unsupported module just acts like v2 + the v3
+  blink/name.
+- `FIRMWARE_VERSION` bumped 3 → 4 (4-blink boot, `RBE Keypad v4` BLE
+  name). Re-pair on Android if Android keys pairings by name.
+
+If `AT+BLEBATTEN` turns out to be unsupported, the BAS goal isn't
+abandoned — the manual `AT+GATTADDSERVICE` + `AT+GATTADDCHAR` path
+can still expose a custom BAS-shaped service. Punted until v4 boot
+serial output tells us whether the simple command path works on this
+specific module.
 
 ## Beyond M2 — roadmap
 
@@ -165,7 +178,8 @@ PGN/FEN export, opening book.
 | Undo on-device | green | User-confirmed 2026-05-15: Space+D drops the last pair, TTS confirms. |
 | New game on-device | green | User-confirmed 2026-05-15: Space+K returns to StartMenu mid-game. |
 | Space → engine → bestmove on-device | partial | Chord paths verified, but no full game played yet — leaving the commit/engine/auto-advance cycle as not-yet-validated end-to-end. |
-| Firmware v3 BAS battery percentage | pending | After flashing v3: pair the keypad, then check Settings → Bluetooth → RBE Keypad v3 for a battery % next to the name. First push happens within ~seconds of pairing; refreshes every 60 s. |
+| Firmware v3 BAS battery percentage | broken | v3 made `AT+BLEBATTEN=on` failure fatal; the nRF51 module's AT firmware likely doesn't support that command, so the keypad bricked into `error()` (LED_BUILTIN steady fast blink, never advertised as v3). |
+| Firmware v4 BAS init non-fatal | pending | Reflash v4: if serial monitor shows `BAS enabled.` then BAS works on this module — pair and check Android's BT settings for %. If it shows `WARN: AT+BLEBATTEN not supported`, the keypad still works as a keyboard; we just won't get a battery % from BAS this way. |
 
 ## Open follow-ups (scheduled, not blockers)
 

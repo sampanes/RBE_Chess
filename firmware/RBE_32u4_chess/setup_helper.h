@@ -167,14 +167,22 @@ void setup_helper()
     }
   }
 
-  /* Enable BLE Battery Service (BAS). Android's BT settings screen
-     reads BAS automatically once it's advertised, so no app code is
-     needed for the percentage to show up next to the device name.
-     Like HID, BAS only takes effect after the SW reset below, so it
-     must be enabled before ble.reset(). */
-  Serial.println(F("Enable BLE Battery Service: "));
-  if (! ble.sendCommandCheckOK(F( "AT+BLEBATTEN=on" ))) {
-    error(F("Could not enable Battery Service"));
+  /* Try to enable the BLE Battery Service (BAS). Whether this AT
+     command is supported depends on the nRF51 module's AT firmware
+     revision -- on at least some versions it returns ERROR. Make it
+     non-fatal so a missing BAS doesn't brick the keypad as a
+     keyboard: log the outcome and set batteryServiceAvailable
+     accordingly. The main sketch gates AT+BLEBATTVAL pushes on the
+     same flag. */
+  extern bool batteryServiceAvailable;
+  Serial.println(F("Enable BLE Battery Service (best-effort): "));
+  if (ble.sendCommandCheckOK(F( "AT+BLEBATTEN=on" ))) {
+    batteryServiceAvailable = true;
+    Serial.println(F("  BAS enabled."));
+  } else {
+    batteryServiceAvailable = false;
+    Serial.println(F("  WARN: AT+BLEBATTEN not supported by this module."));
+    Serial.println(F("  Continuing without BAS; keypad will work as a keyboard only."));
   }
 
   /* Add or remove service requires a reset */
