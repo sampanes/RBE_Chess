@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ratherbeembed.rbe_chess.chess.MoveHistory
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
 import com.ratherbeembed.rbe_chess.pocket.PocketModeScreen
 import com.ratherbeembed.rbe_chess.pocket.PocketModeState
@@ -23,6 +24,7 @@ import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 fun AppRoot(
     buffer: MoveBuffer,
     pocketMode: PocketModeState,
+    history: MoveHistory,
     engineStatus: String,
     onEnterPocketMode: () -> Unit,
     onExitPocketMode: () -> Unit,
@@ -32,6 +34,7 @@ fun AppRoot(
         PocketModeState.Pocket -> PocketModeScreen(onExit = onExitPocketMode)
         PocketModeState.Normal -> NormalScreen(
             buffer = buffer,
+            history = history,
             engineStatus = engineStatus,
             onEnterPocketMode = onEnterPocketMode,
             onTestStockfish = onTestStockfish,
@@ -42,6 +45,7 @@ fun AppRoot(
 @Composable
 private fun NormalScreen(
     buffer: MoveBuffer,
+    history: MoveHistory,
     engineStatus: String,
     onEnterPocketMode: () -> Unit,
     onTestStockfish: () -> Unit,
@@ -60,7 +64,7 @@ private fun NormalScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "M1 step 3 — Stockfish PoC",
+                text = "M1 step 4 — Space → engine → bestmove",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(16.dp))
@@ -78,12 +82,18 @@ private fun NormalScreen(
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
-                text = "Space = commit (logged, engine wiring is step 4)",
+                text = "Space = commit + ask engine (auto-advances both plies)",
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "TTS speaks each press; pause 2.5 s for the prompt.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = if (history.size == 0) "History: (empty)"
+                       else "History (${history.size}): ${history.moves.joinToString(" ")}",
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(24.dp))
@@ -115,7 +125,8 @@ private fun AppRootPreview() {
         AppRoot(
             buffer = MoveBuffer.DEFAULT,
             pocketMode = PocketModeState.Normal,
-            engineStatus = "Engine: not yet tested",
+            history = MoveHistory.EMPTY,
+            engineStatus = "Engine: idle",
             onEnterPocketMode = {},
             onExitPocketMode = {},
             onTestStockfish = {},
