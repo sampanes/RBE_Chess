@@ -73,7 +73,7 @@ fun StartMenuScreen(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Mid-game: hold Thumb + Pinky = undo, + Ring = manual, + Index = new game",
+                text = "Mid-game, hold Thumb:\n(+ Pinky = undo) (+ Ring = manual) (+ Index = new game)",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
