@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M2 in flight: firmware v2 chords + verbal start menu + manual mode toggle + undo + new-game flow. Code-complete, JVM-green; hardware verification pending for both M1 step 4 and M2).
+Last updated: 2026-05-15 (M2 hardware-confirmed for chord paths + menu + manual + undo + new-game; full-game loop still unexercised. Firmware v3 ships BAS battery reporting — code-complete, awaiting flash.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -90,13 +90,33 @@ as steps land:
       intro.
 - [x] **A5** New-game chord returns to StartMenu, cancels engine,
       clears history + buffer.
-- [ ] **HW1** Flash firmware v2 to the Bluefruit Feather; verify
+- [x] **HW1** Flash firmware v2 to the Bluefruit Feather; verify
       2-blink boot, `RBE Keypad v2` BLE name, re-pair if Android keys
-      pairings by name.
-- [ ] **HW2** S22 Ultra end-to-end: cold launch lands in start menu
+      pairings by name. (User-confirmed chord emissions reach the app
+      as expected, 2026-05-15.)
+- [~] **HW2** S22 Ultra end-to-end: cold launch lands in start menu
       with TTS; F/J navigate; Space picks a side; play-as-white hears
       engine opener; play-as-black waits for input; commit cycle still
-      works (M1 step 4); each chord does its thing.
+      works (M1 step 4); each chord does its thing. Chord paths +
+      menu + manual + undo + new-game confirmed; full game loop
+      (multiple commit cycles in a row) not yet exercised.
+
+## Firmware v3 — BLE Battery Service
+
+Single new piece of work post-M2: keypad now reports its own battery
+over the standard BLE Battery Service (BAS). Android shows the
+percentage in **Settings → Bluetooth → RBE Keypad v3** with no app
+code required.
+
+- `setup_helper.h` enables BAS (`AT+BLEBATTEN=on`) before the SW reset.
+- `RBE_32u4_chess.ino` samples `battery_voltage()` every 60 s,
+  converts via `voltage_to_percent()` (piecewise-linear Li-Po curve),
+  and pushes `AT+BLEBATTVAL=<0..100>` through the existing
+  non-blocking BLE state machine. Keys always preempt the battery
+  push so chord bursts can't be delayed.
+- `FIRMWARE_VERSION` bumped 2 → 3 (3-blink boot, `RBE Keypad v3` BLE
+  name). Re-pair on Android if the pairing key by name doesn't carry
+  over.
 
 ## Beyond M2 — roadmap
 
@@ -139,11 +159,13 @@ PGN/FEN export, opening book.
 | Pocket Mode entry/exit on-device | green | enter dims + keeps awake; BT keypad still drives TTS through earbuds; tap-anywhere exits and restores brightness 2026-05-15 |
 | Stockfish UCI loop on-device | green | "Test Stockfish" button: boot → uci/uciok → isready/readyok → position startpos → go movetime 1000 → bestmove returned and spoken via TTS 2026-05-15 |
 | Space → engine → bestmove on-device | pending | step-4 commit path: type a move on the Bluefruit, press Space, "Calculating" + bestmove spoken, history advances by two plies. Not yet run on hardware. |
-| Firmware v2 chord detection | pending | Hold Space + tap D/F/K, expect HID `U`/`M`/`N` instead of Space-then-letter. Space tap alone still emits ` `. Not yet flashed. |
-| Start menu navigation on-device | pending | Cold launch lands in StartMenu, TTS speaks the intro; F/J cycle options; Space selects. |
-| Manual mode toggle on-device | pending | Space+F flips mode; engine reply is advisory, history advances by one ply per Space. |
-| Undo on-device | pending | Space+D drops the last pair of plies; TTS confirms. |
-| New game on-device | pending | Space+K returns to StartMenu mid-game; history clears. |
+| Firmware v2 chord detection | green | User-confirmed 2026-05-15: hold Space + tap D/F/K emits the right HID codes. |
+| Start menu navigation on-device | green | User-confirmed 2026-05-15: cold launch lands in StartMenu, TTS speaks the intro, F/J cycle, Space selects. |
+| Manual mode toggle on-device | green | User-confirmed 2026-05-15: Space+F flips mode and TTS announces. |
+| Undo on-device | green | User-confirmed 2026-05-15: Space+D drops the last pair, TTS confirms. |
+| New game on-device | green | User-confirmed 2026-05-15: Space+K returns to StartMenu mid-game. |
+| Space → engine → bestmove on-device | partial | Chord paths verified, but no full game played yet — leaving the commit/engine/auto-advance cycle as not-yet-validated end-to-end. |
+| Firmware v3 BAS battery percentage | pending | After flashing v3: pair the keypad, then check Settings → Bluetooth → RBE Keypad v3 for a battery % next to the name. First push happens within ~seconds of pairing; refreshes every 60 s. |
 
 ## Open follow-ups (scheduled, not blockers)
 

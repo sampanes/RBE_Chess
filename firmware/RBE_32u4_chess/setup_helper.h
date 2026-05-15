@@ -167,6 +167,16 @@ void setup_helper()
     }
   }
 
+  /* Enable BLE Battery Service (BAS). Android's BT settings screen
+     reads BAS automatically once it's advertised, so no app code is
+     needed for the percentage to show up next to the device name.
+     Like HID, BAS only takes effect after the SW reset below, so it
+     must be enabled before ble.reset(). */
+  Serial.println(F("Enable BLE Battery Service: "));
+  if (! ble.sendCommandCheckOK(F( "AT+BLEBATTEN=on" ))) {
+    error(F("Could not enable Battery Service"));
+  }
+
   /* Add or remove service requires a reset */
   Serial.println(F("Performing a SW reset (service changes require a reset): "));
   if (! ble.reset() ) {
