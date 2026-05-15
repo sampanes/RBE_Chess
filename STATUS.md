@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M2 hardware-confirmed for chord paths + menu + manual + undo + new-game; full-game loop still unexercised. Firmware v3 BAS attempt bricked into `error()` on this module; v4 makes BAS init non-fatal so the keypad keeps working as a keyboard even if the AT command isn't supported.)
+Last updated: 2026-05-15 (M2 hardware-confirmed for chord paths + menu + manual + undo + new-game; full-game loop still unexercised. Firmware v5 reports battery via the HID stream — 'B' + 3 ASCII digits per minute — after v3's BAS-via-AT path turned out to be unsupported on this nRF51 module. App parses, displays, and TTS-warns below thresholds.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -101,35 +101,35 @@ as steps land:
       menu + manual + undo + new-game confirmed; full game loop
       (multiple commit cycles in a row) not yet exercised.
 
-## Firmware v3 / v4 — BLE Battery Service (best-effort)
+## Firmware v3 → v4 → v5 — battery reporting saga
 
-Single new piece of work post-M2: keypad tries to expose the standard
-BLE Battery Service (BAS) so Android's BT settings displays a battery
-% next to the device name with no app code involved.
+Single new piece of work post-M2. Three attempts:
 
-**v3 was broken**: `setup_helper.h` treated `AT+BLEBATTEN=on` as
-mandatory and `error()`-blocked on its failure, but at least some
-revisions of the nRF51 SPI Friend AT firmware don't support that
-command. Effect: keypad bricked (LED steady fast blink, never
-advertises as v3, serial monitor catches the one-shot error message
-only if it was already open).
+- **v3 (broken)**: tried the standard BLE Battery Service via
+  `AT+BLEBATTEN=on`. On this module's AT firmware that command returns
+  ERROR, and `setup_helper.h` treated the failure as fatal via
+  `error()` — so the keypad bricked (LED steady fast blink, never
+  advertised, serial monitor caught the one error message only if it
+  was already open before boot).
+- **v4 (diagnosis)**: made the BAS attempt non-fatal. Serial log
+  confirmed `AT+BLEBATTEN=on` returns ERROR on this nRF51 SPI Friend.
+  The BAS-via-AT path is dead on this module. Keypad still works as a
+  keyboard.
+- **v5 (current)**: report battery through the existing HID stream
+  instead. Firmware enqueues `'B'` + 3 zero-padded ASCII digits (e.g.
+  `B025`) into the same FIFO chords/chess input use, every 60 s, first
+  push 5 s after boot. App-side `BatteryReportParser` intercepts the
+  sequence before the chess grammar sees it, updates a `batteryPct`
+  state shown on the normal screen, and issues one-shot TTS warnings
+  on crossing 20 % (low) and 5 % (critical), re-armed when % climbs
+  back above 30 %. `FIRMWARE_VERSION` 4 → 5 (5-blink boot,
+  `RBE Keypad v5` BLE name).
 
-**v4 is the fix**:
-
-- `setup_helper.h` issues `AT+BLEBATTEN=on` and logs the outcome but
-  doesn't `error()` on failure. Sets a global
-  `batteryServiceAvailable` flag.
-- Main loop's periodic sample + `AT+BLEBATTVAL=<n>` push are gated on
-  that flag, so an unsupported module just acts like v2 + the v3
-  blink/name.
-- `FIRMWARE_VERSION` bumped 3 → 4 (4-blink boot, `RBE Keypad v4` BLE
-  name). Re-pair on Android if Android keys pairings by name.
-
-If `AT+BLEBATTEN` turns out to be unsupported, the BAS goal isn't
-abandoned — the manual `AT+GATTADDSERVICE` + `AT+GATTADDCHAR` path
-can still expose a custom BAS-shaped service. Punted until v4 boot
-serial output tells us whether the simple command path works on this
-specific module.
+The custom-GATT BAS path (`AT+GATTADDSERVICE` + `AT+GATTADDCHAR`)
+remains an option if we ever want Android's Settings UI to show the
+percentage too. Punted unless something explicitly needs it — the
+HID-stream path covers the in-app + TTS requirements end-to-end with
+no Android Settings dependency.
 
 ## Beyond M2 — roadmap
 
@@ -178,8 +178,9 @@ PGN/FEN export, opening book.
 | Undo on-device | green | User-confirmed 2026-05-15: Space+D drops the last pair, TTS confirms. |
 | New game on-device | green | User-confirmed 2026-05-15: Space+K returns to StartMenu mid-game. |
 | Space → engine → bestmove on-device | partial | Chord paths verified, but no full game played yet — leaving the commit/engine/auto-advance cycle as not-yet-validated end-to-end. |
-| Firmware v3 BAS battery percentage | broken | v3 made `AT+BLEBATTEN=on` failure fatal; the nRF51 module's AT firmware likely doesn't support that command, so the keypad bricked into `error()` (LED_BUILTIN steady fast blink, never advertised as v3). |
-| Firmware v4 BAS init non-fatal | pending | Reflash v4: if serial monitor shows `BAS enabled.` then BAS works on this module — pair and check Android's BT settings for %. If it shows `WARN: AT+BLEBATTEN not supported`, the keypad still works as a keyboard; we just won't get a battery % from BAS this way. |
+| Firmware v3 BAS battery percentage | broken | v3 made `AT+BLEBATTEN=on` failure fatal; the nRF51 module's AT firmware doesn't support that command, so the keypad bricked into `error()`. |
+| Firmware v4 BAS init non-fatal | green | Confirmed via serial: `AT+BLEBATTEN=on` returns ERROR on this module, warning logged, boot continues. Keypad works as keyboard, no BAS visible to Android. |
+| Firmware v5 HID-stream battery report | pending | Reflash v5 (5-blink boot, `RBE Keypad v5`). About 5 s after pairing, the in-app "Keypad battery: NN%" line should populate; thereafter refreshes once a minute. TTS speaks "Keypad battery low" below 20 %, "critical" below 5 %, re-armed above 30 %. |
 
 ## Open follow-ups (scheduled, not blockers)
 

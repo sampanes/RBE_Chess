@@ -167,23 +167,12 @@ void setup_helper()
     }
   }
 
-  /* Try to enable the BLE Battery Service (BAS). Whether this AT
-     command is supported depends on the nRF51 module's AT firmware
-     revision -- on at least some versions it returns ERROR. Make it
-     non-fatal so a missing BAS doesn't brick the keypad as a
-     keyboard: log the outcome and set batteryServiceAvailable
-     accordingly. The main sketch gates AT+BLEBATTVAL pushes on the
-     same flag. */
-  extern bool batteryServiceAvailable;
-  Serial.println(F("Enable BLE Battery Service (best-effort): "));
-  if (ble.sendCommandCheckOK(F( "AT+BLEBATTEN=on" ))) {
-    batteryServiceAvailable = true;
-    Serial.println(F("  BAS enabled."));
-  } else {
-    batteryServiceAvailable = false;
-    Serial.println(F("  WARN: AT+BLEBATTEN not supported by this module."));
-    Serial.println(F("  Continuing without BAS; keypad will work as a keyboard only."));
-  }
+  /* Battery reporting note: v3 tried AT+BLEBATTEN=on here to expose a
+     standard BLE Battery Service; v4 confirmed via serial log that
+     this module's AT firmware does NOT support that command (returns
+     ERROR). v5 reports battery through the HID keyboard stream
+     instead (firmware/RBE_32u4_chess.ino maybePushBattery + the app
+     side BatteryReportParser). No BLE service init needed here. */
 
   /* Add or remove service requires a reset */
   Serial.println(F("Performing a SW reset (service changes require a reset): "));

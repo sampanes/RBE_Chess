@@ -2,7 +2,7 @@
 // many times on boot, and setup_helper.h appends "v<N>" to the BLE device
 // name. Together they let you verify *from outside* whether the chip is
 // running the bits you think it is, no USB cable required.
-#define FIRMWARE_VERSION 4
+#define FIRMWARE_VERSION 5
 
 #include "setup_helper.h"
 
@@ -93,23 +93,26 @@ bool chordConsumed = false;
 // now returns a tri-state.
 enum BtnEdge { EDGE_NONE, EDGE_PRESS, EDGE_RELEASE };
 
-// --- Battery telemetry (firmware v3+) ---------------------------------
+// --- Battery telemetry (firmware v5) ----------------------------------
 //
-// We try to enable the standard BLE Battery Service in setup_helper.h
-// via AT+BLEBATTEN=on. That command isn't documented on every revision
-// of the nRF51 SPI Friend AT firmware, so the call is *non-fatal*:
-// setup_helper sets batteryServiceAvailable=true only if the command
-// returned OK. When it's false we skip the periodic AT+BLEBATTVAL push
-// entirely -- spamming an unsupported command would just waste BLE
-// roundtrips. The keypad still works as a keyboard either way.
+// History: v3 tried the standard BLE Battery Service via
+// AT+BLEBATTEN=on, but that command isn't supported by this module's
+// AT firmware (returns ERROR). v4 made the attempt non-fatal; v5 drops
+// the attempt entirely and reports battery via the HID keyboard stream
+// instead.
 //
-// v3 made the AT+BLEBATTEN failure fatal (error() blink-forever) which
-// bricked the keypad if the module didn't support the command; v4 is
-// the warn-and-continue fix.
+// Encoding: every BATTERY_UPDATE_MS we enqueue the literal characters
+// 'B' + three zero-padded ASCII digits (e.g. "B025" for 25%, "B100"
+// for 100%) into the same FIFO chords and chess input use. The app's
+// BatteryReportParser detects the leading 'B' and consumes the next
+// three digit keystrokes, surfacing the percentage to the UI + TTS
+// warnings without leaking into the chess grammar.
+//
+// First push fires ~5s after boot so Android has time to settle the
+// HID connection; thereafter once per minute.
 #define BATTERY_UPDATE_MS 60000UL
-unsigned long lastBatteryMs = 0;
-bool batteryPending = false;
-bool batteryServiceAvailable = false;  // set in setup_helper
+#define BATTERY_FIRST_PUSH_MS 5000UL
+unsigned long nextBatteryAtMs = BATTERY_FIRST_PUSH_MS;
 
 void blinkVersion(void)
 {
@@ -137,14 +140,30 @@ void setup(void)
     pinMode(buttonPins[i], INPUT_PULLUP);
     buttonCandidateSince[i] = now;
   }
+}
 
-  // If BAS is supported, push the first battery reading shortly after
-  // boot so Android's BT settings populate the % quickly rather than
-  // waiting a full BATTERY_UPDATE_MS interval.
-  if (batteryServiceAvailable)
-  {
-    batteryPending = true;
-  }
+// Enqueue the current battery percentage as "B<NNN>" (always 4 chars,
+// 3-digit zero-padded percentage). Runs at most once per
+// BATTERY_UPDATE_MS via the nextBatteryAtMs gate, with the first push
+// BATTERY_FIRST_PUSH_MS after boot. Lives in the same FIFO as chord
+// and chess input, so the existing non-blocking BLE state machine
+// batches it naturally.
+void maybePushBattery(void)
+{
+  if (millis() < nextBatteryAtMs) return;
+  nextBatteryAtMs = millis() + BATTERY_UPDATE_MS;
+
+  int pct = voltage_to_percent(battery_voltage());
+  if (pct < 0)   pct = 0;
+  if (pct > 100) pct = 100;
+
+  char buf[5];
+  snprintf(buf, sizeof(buf), "B%03d", pct);
+  for (uint8_t i = 0; i < 4; i++) enqueueKey(buf[i]);
+
+  #if SERIAL_OUTPUT
+  Serial.print(F("Battery report queued: ")); Serial.println(buf);
+  #endif
 }
 
 float battery_voltage()
@@ -266,24 +285,6 @@ void tickBle(void)
         Serial.print(F("BLE> ")); Serial.println(batch);
         #endif
       }
-      else if (batteryPending && batteryServiceAvailable)
-      {
-        int pct = voltage_to_percent(battery_voltage());
-        if (pct < 0)   pct = 0;
-        if (pct > 100) pct = 100;
-
-        ble.print(F("AT+BLEBATTVAL="));
-        ble.println(pct);
-
-        batteryPending = false;
-        bleState = BLE_AWAITING_OK;
-        bleStateStartMs = millis();
-        bleRespLen = 0;
-
-        #if SERIAL_OUTPUT
-        Serial.print(F("BLE> AT+BLEBATTVAL=")); Serial.println(pct);
-        #endif
-      }
       break;
     }
 
@@ -393,18 +394,13 @@ void loop(void)
     }
   }
 
-  // Periodic battery sample. tickBle() does the actual send when it
-  // sees batteryPending and the FIFO is empty, so a chord burst can't
-  // be delayed by the battery push. Skipped entirely if BAS init failed
-  // at boot -- spamming unsupported commands is just wasted bandwidth.
-  if (batteryServiceAvailable && millis() - lastBatteryMs > BATTERY_UPDATE_MS)
-  {
-    lastBatteryMs = millis();
-    batteryPending = true;
-  }
+  // Enqueue the periodic battery report (4 chars: "B<NNN>") into the
+  // same FIFO chord/chess input uses. Internally gated by nextBatteryAtMs
+  // so this is a cheap no-op most ticks.
+  maybePushBattery();
 
   // Advance the BLE state machine; sends only when in IDLE with queued
-  // keys or a pending battery update.
+  // keys.
   tickBle();
 
   delay(DELAY_MS);
