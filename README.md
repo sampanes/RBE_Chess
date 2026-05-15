@@ -209,6 +209,21 @@ Common app commands:
 .\gradlew.bat installDebug
 ```
 
+Wireless debugging over Wi-Fi is supported and preferred for app
+dogfooding on the S22 Ultra. Use USB mainly for initial pairing,
+recovery, or firmware work. On the phone, enable **Developer options →
+Wireless debugging**, then pair/connect from the workstation:
+
+```powershell
+adb pair <phone-ip>:<pairing-port>
+adb connect <phone-ip>:<debug-port>
+.\gradlew.bat installDebug
+```
+
+The pairing port and debug port are usually different; Android shows
+both in the Wireless debugging screen. Keep the phone and workstation on
+the same trusted Wi-Fi network.
+
 Firmware build notes and upload troubleshooting are in
 [`firmware/RBE_32u4_chess/README.md`](firmware/RBE_32u4_chess/README.md).
 

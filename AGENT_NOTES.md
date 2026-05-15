@@ -160,6 +160,24 @@ Build-system context for these decisions is in `BUILD_FIXES_2025_05_14.md`.
 
 ---
 
+## Device debugging workflow
+
+Wireless Android debugging over Wi-Fi is possible and preferred for normal
+S22 Ultra dogfooding. Use USB mainly for the first wireless pairing step,
+device recovery, or Feather/firmware work. The expected app loop is:
+
+```powershell
+adb pair <phone-ip>:<pairing-port>
+adb connect <phone-ip>:<debug-port>
+.\gradlew.bat installDebug
+```
+
+Android's Wireless debugging screen shows the pairing port and the later
+debug/connect port separately; do not assume they are the same. Keep the
+phone and workstation on the same trusted Wi-Fi network.
+
+---
+
 ## Architecture sketch (M1, aligned with addendum)
 
 ```text
