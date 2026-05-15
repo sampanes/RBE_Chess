@@ -58,4 +58,10 @@ class BestMoveSpeaker(private val output: SpeechOutput) {
     fun speakGameStart(asWhite: Boolean) {
         output.speak(if (asWhite) "Playing as white" else "Playing as black")
     }
+
+    fun speakBatteryWarning(critical: Boolean) {
+        output.speak(
+            if (critical) "Keypad battery critical" else "Keypad battery low",
+        )
+    }
 }

@@ -64,38 +64,35 @@ ignored — release Space and start over to fire another chord.
 Cycler keys (D / F / J / K) still emit immediately on press when Space
 is **not** held, so move input feels as snappy as v1.
 
-### Battery reporting over BLE (v3+, best-effort)
+### Battery reporting via the HID stream (v5)
 
-The firmware *tries* to expose the standard BLE Battery Service so
-Android's BT settings can show a battery % next to the device name
-with no app code involved.
+The standard BLE Battery Service path (`AT+BLEBATTEN=on`) is **not
+supported** by this nRF51 SPI Friend's AT firmware revision — v4
+confirmed via serial log that the command returns ERROR. v5 takes a
+different tack: report battery through the HID keyboard stream the
+app is already consuming.
 
-Whether this actually works depends on the nRF51 SPI Friend's AT
-firmware revision. The `AT+BLEBATTEN=on` command is **not documented
-on all revisions** — on at least some modules it returns ERROR. The
-v3 firmware treated that as fatal and bricked the keypad (looped in
-`error()` blinking `LED_BUILTIN` forever). **v4 is the fix**:
-`setup_helper.h` now logs the outcome and continues regardless,
-setting a global `batteryServiceAvailable` flag the main loop reads
-before issuing any `AT+BLEBATTVAL` push.
+How it works:
 
-If BAS init succeeds:
+- `voltage_to_percent()` converts the A9 voltage-divider reading to
+  a 0-100 percentage via a piecewise-linear single-cell Li-Po curve.
+- `maybePushBattery()` runs every loop, gated on `nextBatteryAtMs`.
+  The first push fires `BATTERY_FIRST_PUSH_MS` after boot (default
+  5 s); thereafter once per `BATTERY_UPDATE_MS` (default 60 s).
+- The push enqueues exactly 4 characters into the existing key FIFO:
+  `'B'` followed by 3 zero-padded ASCII digits. Example: `B025`
+  for 25 %, `B100` for 100 %, `B003` for 3 %.
+- The non-blocking BLE state machine drains the FIFO normally, so
+  the battery report rides the same `AT+BleKeyboard=...` batch as
+  any concurrent chord or chess input. No interference with input
+  latency beyond the ~150 ms BLE roundtrip per send (~0.25 % of any
+  given minute).
 
-- `voltage_to_percent()` converts via a piecewise-linear single-cell
-  Li-Po curve.
-- Main loop samples once per `BATTERY_UPDATE_MS` (default 60 s) and
-  pushes `AT+BLEBATTVAL=<0..100>` through the existing non-blocking
-  BLE state machine. Keys always preempt battery sends.
-- First push fires shortly after boot.
-
-If BAS init fails:
-
-- The keypad still functions as a keyboard.
-- The periodic battery sampling is skipped entirely (no wasted BLE
-  roundtrips on an unsupported command).
-- Serial monitor prints a `WARN: AT+BLEBATTEN not supported` line at
-  boot. We can swap in the manual `AT+GATTADDSERVICE` approach later
-  if a properly-formed custom BAS turns out to be necessary.
+The app side (`BatteryReportParser`) intercepts the `B` + 3-digit
+sequence before the chess grammar sees it, updates a `batteryPct`
+state, and issues one-shot TTS warnings on threshold crossings
+("Keypad battery low" below 20 %, "critical" below 5 %), re-armed
+when the level climbs back above 30 % (e.g. after charging).
 
 The conversion curve is approximate; treat the percentage as a coarse
 fuel gauge ("plenty / getting low / charge soon"), not a calibrated

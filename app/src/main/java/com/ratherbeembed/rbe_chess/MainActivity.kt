@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.ratherbeembed.rbe_chess.chess.MoveHistory
 import com.ratherbeembed.rbe_chess.engine.StockfishProcessEngine
+import com.ratherbeembed.rbe_chess.input.BatteryReportParser
 import com.ratherbeembed.rbe_chess.input.ChessKey
 import com.ratherbeembed.rbe_chess.input.GrammarAction
 import com.ratherbeembed.rbe_chess.input.HardwareKeyboardHandler
@@ -37,6 +38,13 @@ private const val TAG = "RBE_CHESS"
 private const val INACTIVITY_PROMPT_MS = 2_500L
 private const val ENGINE_MOVETIME_MS = 1_000L
 
+// Battery TTS-warning thresholds. Falling-edge: speak once when pct
+// first dips below the threshold. Rising-edge: above [BATTERY_REARM_PCT]
+// we re-arm so a recharge re-enables a future warning.
+private const val BATTERY_LOW_PCT = 20
+private const val BATTERY_CRITICAL_PCT = 5
+private const val BATTERY_REARM_PCT = 30
+
 class MainActivity : ComponentActivity() {
     private var moveBuffer by mutableStateOf(MoveBuffer.DEFAULT)
     private var pocketMode by mutableStateOf(PocketModeState.Normal)
@@ -44,10 +52,14 @@ class MainActivity : ComponentActivity() {
     private var engineStatus by mutableStateOf("Engine: idle")
     private var phase by mutableStateOf<AppPhase>(AppPhase.StartMenu(0))
     private var gameMode by mutableStateOf(GameMode.AutoAdvance)
+    private var batteryPct by mutableStateOf<Int?>(null)
+    private var batteryWarnedLow = false
+    private var batteryWarnedCritical = false
     private lateinit var speechOutput: SpeechOutput
     private lateinit var speaker: BestMoveSpeaker
     private lateinit var pocketController: PocketModeController
     private lateinit var engine: StockfishProcessEngine
+    private val batteryParser = BatteryReportParser()
     private var inactivityJob: Job? = null
     private var engineJob: Job? = null
 
@@ -67,6 +79,7 @@ class MainActivity : ComponentActivity() {
                     history = moveHistory,
                     engineStatus = engineStatus,
                     gameMode = gameMode,
+                    batteryPct = batteryPct,
                     onEnterPocketMode = ::enterPocketMode,
                     onExitPocketMode = ::exitPocketMode,
                     onTestStockfish = ::testStockfish,
@@ -96,6 +109,18 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
+            // Battery reports (firmware v5: 'B' + 3 digits) are filtered
+            // out before the chess grammar sees them. The parser bails
+            // gracefully on stray inputs so it can't swallow a chord.
+            when (val r = batteryParser.consume(event.keyCode)) {
+                BatteryReportParser.Result.NotConsumed -> Unit
+                BatteryReportParser.Result.Consumed -> return true
+                is BatteryReportParser.Result.Complete -> {
+                    handleBatteryReport(r.pct)
+                    return true
+                }
+            }
+
             val key = HardwareKeyboardHandler.toChessKey(event.keyCode)
             if (key != ChessKey.IGNORED) {
                 when (val p = phase) {
@@ -106,6 +131,26 @@ class MainActivity : ComponentActivity() {
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun handleBatteryReport(pct: Int) {
+        Log.d(TAG, "Battery report: $pct%%")
+        batteryPct = pct
+        // Re-arm after charging so a later drop can warn again.
+        if (pct >= BATTERY_REARM_PCT) {
+            batteryWarnedLow = false
+            batteryWarnedCritical = false
+            return
+        }
+        if (pct < BATTERY_CRITICAL_PCT && !batteryWarnedCritical) {
+            speaker.speakBatteryWarning(critical = true)
+            batteryWarnedCritical = true
+            return
+        }
+        if (pct < BATTERY_LOW_PCT && !batteryWarnedLow) {
+            speaker.speakBatteryWarning(critical = false)
+            batteryWarnedLow = true
+        }
     }
 
     // --- Start menu navigation ---------------------------------------------

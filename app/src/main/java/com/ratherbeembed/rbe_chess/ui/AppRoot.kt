@@ -28,6 +28,7 @@ fun AppRoot(
     history: MoveHistory,
     engineStatus: String,
     gameMode: GameMode,
+    batteryPct: Int?,
     onEnterPocketMode: () -> Unit,
     onExitPocketMode: () -> Unit,
     onTestStockfish: () -> Unit,
@@ -44,6 +45,7 @@ fun AppRoot(
                 history = history,
                 engineStatus = engineStatus,
                 gameMode = gameMode,
+                batteryPct = batteryPct,
                 onEnterPocketMode = onEnterPocketMode,
                 onTestStockfish = onTestStockfish,
             )
@@ -57,6 +59,7 @@ private fun NormalScreen(
     history: MoveHistory,
     engineStatus: String,
     gameMode: GameMode,
+    batteryPct: Int?,
     onEnterPocketMode: () -> Unit,
     onTestStockfish: () -> Unit,
 ) {
@@ -74,7 +77,8 @@ private fun NormalScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Mode: ${if (gameMode == GameMode.Manual) "Manual" else "AutoAdvance"}",
+                text = "Mode: ${if (gameMode == GameMode.Manual) "Manual" else "AutoAdvance"}    " +
+                    "Keypad battery: ${batteryPct?.let { "$it%" } ?: "unknown"}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(16.dp))
@@ -139,6 +143,7 @@ private fun AppRootInGamePreview() {
             history = MoveHistory.EMPTY,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
+            batteryPct = 87,
             onEnterPocketMode = {},
             onExitPocketMode = {},
             onTestStockfish = {},
@@ -157,6 +162,7 @@ private fun AppRootStartMenuPreview() {
             history = MoveHistory.EMPTY,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
+            batteryPct = 87,
             onEnterPocketMode = {},
             onExitPocketMode = {},
             onTestStockfish = {},
