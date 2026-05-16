@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (Firmware v7 splits adjacent duplicate keypresses across BLE commands so rapid repeated taps count without Android held-key repeats. Hardware flash/verification pending.)
+Last updated: 2026-05-15 (Firmware v7 duplicate-key batching fix hardware-confirmed: rapid repeated taps no longer show keyboard spam after flashing v7.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -16,13 +16,16 @@ as session-priority cleanup before doing other work.
 - **In flight:** hardware verification of both M1 step 4 AND M2 — both
   layers ship together since M2 keys the firmware-v2 chords through the
   same Thumb/Space commit path step 4 introduced.
-- **Current code addition:** firmware v7 repeated-key batching fix.
+- **Last completed (hardware):** firmware v7 repeated-key batching fix.
   Adjacent duplicate queued keypresses are split across BLE commands
   instead of sent as `AT+BleKeyboard=DD...`, which keeps rapid human
   repeated taps countable without Android treating them as a held key.
   The app-side repeat skip was removed because it dropped legitimate
   fast taps. Undo still leaves repeat memory on the current board state
-  rather than the undo action. Hardware flash/verification pending.
+  rather than the undo action. Dogfood note: before v7, phone Notepad
+  reproduced the failure as `B08...` followed by repeated `8` spam until
+  another key interrupted it; after flashing v7, no keyboard problems
+  were observed.
 - **Last completed (code):** M2 — Thumb-as-modifier chord support
   (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
   `RBE Keypad v2`). Held Thumb + cycler emits a distinct HID letter:
@@ -40,12 +43,9 @@ as session-priority cleanup before doing other work.
   plies (or one if odd), clears the buffer, says "Undid last move."
   New-game chord cancels engine work, clears history, returns to the
   start menu. JVM: 76 / 76 tests green; `assembleDebug` green.
-- **Next:** flash firmware v7 (`RBE_32u4_chess.ino`), confirm 7 LED
-  blinks on boot + BLE name `v7`, re-pair phone if needed. Then on the
-  S22 Ultra: verify M1 step 4 (commit → engine → bestmove + auto-
-  advance) AND M2/repeat (chord paths actually deliver `U`/`M`/`R`/`N`
-  HID keys; start menu navigates; undo/manual/repeat/new-game all do the right thing
-  end-to-end).
+- **Next:** app/gameflow dogfood discussion. The keypad transport is
+  stable enough to focus on turn-state sync, commit flow, undo/replay
+  semantics, terminal positions, and illegal-move handling.
 
 ## M1 implementation checklist
 
@@ -137,7 +137,8 @@ Single new piece of work post-M2. Three attempts:
 - **v7 (duplicate-key batching fix)**: keep v6 behavior but split
   adjacent duplicate queued keys across separate `AT+BleKeyboard=...`
   commands. This preserves fast repeated cycler taps while avoiding
-  Android held-key repeat behavior. Hardware flash/verification pending.
+  Android held-key repeat behavior. Hardware-confirmed after flashing
+  v7: no keyboard spam observed in dogfood.
 
 The custom-GATT BAS path (`AT+GATTADDSERVICE` + `AT+GATTADDCHAR`)
 remains an option if we ever want Android's Settings UI to show the
@@ -211,6 +212,7 @@ PGN/FEN export, opening book.
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
 | App launch on S22 Ultra | green | confirmed 2026-05-14 |
 | BT keyboard input on-device | green | Bluefruit paired as "RBE Keypad v1", all 5 keycodes received and dispatched correctly 2026-05-14 |
+| Firmware v7 duplicate-key batching | green | User-confirmed 2026-05-15: pre-v7 Notepad reproduced held-key spam (`B08...` then repeated `8` until another key); after flashing v7, no keyboard problems observed. |
 | Compose recomposition on state change | green | required `@Immutable` on `MoveBuffer` to defeat strong-skipping |
 | Firmware v1 input latency | green | non-blocking BLE state machine; user reports "buttery smooth" 2026-05-14 |
 | Per-press TTS on-device | green (phone speaker) | "loud and clear" on S22 Ultra speaker 2026-05-15 |
