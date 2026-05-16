@@ -24,8 +24,21 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         output.speak(text)
     }
 
+    private fun playedMoveText(mover: String, uci: String, waiting: String): String {
+        val move = SpokenMoveFormatter.spokenUciMove(uci)
+        return "$mover played $move. $waiting"
+    }
+
     fun repeatLast() {
         output.speak(lastReplayable ?: "Nothing to repeat.")
+    }
+
+    fun rememberPlayedMove(mover: String, uci: String, waiting: String) {
+        lastReplayable = playedMoveText(mover, uci, waiting)
+    }
+
+    fun rememberBoardAtStart(waiting: String) {
+        lastReplayable = "Board at start. $waiting"
     }
 
     fun speakFilePress(file: Char) {
@@ -54,8 +67,7 @@ class BestMoveSpeaker(private val output: SpeechSink) {
     }
 
     fun speakPlayedMove(mover: String, uci: String, waiting: String) {
-        val move = SpokenMoveFormatter.spokenUciMove(uci)
-        speakReplayable("$mover played $move. $waiting")
+        speakReplayable(playedMoveText(mover, uci, waiting))
     }
 
     /** Spoken in manual mode where the engine's pick is advisory only. */
@@ -97,11 +109,11 @@ class BestMoveSpeaker(private val output: SpeechSink) {
     }
 
     fun speakUndo() {
-        speakReplayable("Undid last move")
+        speak("Undid last move")
     }
 
     fun speakUndo(waiting: String) {
-        speakReplayable("Undid last move. $waiting")
+        speak("Undid last move. $waiting")
     }
 
     fun speakManualMode(on: Boolean) {

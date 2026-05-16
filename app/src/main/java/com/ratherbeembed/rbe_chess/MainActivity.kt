@@ -111,6 +111,12 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
+            val key = HardwareKeyboardHandler.toChessKey(event.keyCode)
+            if (HardwareKeyboardHandler.shouldIgnoreRepeat(event.keyCode, event.repeatCount)) {
+                Log.d(TAG, "Ignored repeated keyDown: keyCode=${event.keyCode}")
+                return true
+            }
+
             // Battery reports (firmware v5: 'B' + 3 digits) are filtered
             // out before the chess grammar sees them. The parser bails
             // gracefully on stray inputs so it can't swallow a chord.
@@ -123,7 +129,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            val key = HardwareKeyboardHandler.toChessKey(event.keyCode)
             if (key != ChessKey.IGNORED) {
                 when (val p = phase) {
                     is AppPhase.StartMenu -> handleMenuKey(p, key)
@@ -346,6 +351,7 @@ class MainActivity : ComponentActivity() {
         moveHistory = moveHistory.undoLastPair()
         moveBuffer = MoveBuffer.DEFAULT
         speaker.speakUndo(waitingPhrase())
+        rememberCurrentPositionForRepeat()
         engineStatus = "Undo: history=${moveHistory.size} plies"
         Log.d(TAG, "Undo -> ${moveHistory.moves}")
     }
@@ -376,6 +382,17 @@ class MainActivity : ComponentActivity() {
     }
 
     // --- Misc --------------------------------------------------------------
+
+    private fun rememberCurrentPositionForRepeat() {
+        val lastMove = moveHistory.moves.lastOrNull()
+        if (lastMove == null) {
+            speaker.rememberBoardAtStart(waitingPhrase())
+            return
+        }
+
+        val lastMover = if ((moveHistory.size - 1) % 2 == 0) ChessSide.WHITE else ChessSide.BLACK
+        speaker.rememberPlayedMove(moverLabel(lastMover), lastMove, waitingPhrase())
+    }
 
     private fun scheduleInactivityPrompt(buffer: MoveBuffer) {
         inactivityJob = lifecycleScope.launch {

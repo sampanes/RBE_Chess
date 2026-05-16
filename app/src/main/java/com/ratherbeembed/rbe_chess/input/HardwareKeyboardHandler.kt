@@ -3,6 +3,9 @@ package com.ratherbeembed.rbe_chess.input
 import android.view.KeyEvent
 
 object HardwareKeyboardHandler {
+    fun shouldIgnoreRepeat(keyCode: Int, repeatCount: Int): Boolean =
+        repeatCount > 0 && toChessKey(keyCode) != ChessKey.IGNORED
+
     fun toChessKey(keyCode: Int): ChessKey = when (keyCode) {
         KeyEvent.KEYCODE_D -> ChessKey.D
         KeyEvent.KEYCODE_F -> ChessKey.F

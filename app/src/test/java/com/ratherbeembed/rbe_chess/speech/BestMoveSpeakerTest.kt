@@ -77,4 +77,59 @@ class BestMoveSpeakerTest {
             sink.spoken,
         )
     }
+
+    @Test
+    fun `undo speech does not replace replayable output`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedMove("Opponent Black", "e7e5", "Waiting for Your White.")
+        speaker.speakUndo("Waiting for Opponent Black.")
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Opponent Black played E seven to E five. Waiting for Your White.",
+                "Undid last move. Waiting for Opponent Black.",
+                "Opponent Black played E seven to E five. Waiting for Your White.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
+    fun `rememberPlayedMove updates replay without speaking`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakUndo("Waiting for Opponent Black.")
+        speaker.rememberPlayedMove("Your White", "e2e4", "Waiting for Opponent Black.")
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Undid last move. Waiting for Opponent Black.",
+                "Your White played E two to E four. Waiting for Opponent Black.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
+    fun `rememberBoardAtStart updates replay without speaking`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakUndo("Waiting for Your White.")
+        speaker.rememberBoardAtStart("Waiting for Your White.")
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Undid last move. Waiting for Your White.",
+                "Board at start. Waiting for Your White.",
+            ),
+            sink.spoken,
+        )
+    }
 }
