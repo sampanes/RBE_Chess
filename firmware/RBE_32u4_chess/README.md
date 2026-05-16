@@ -84,17 +84,19 @@ How it works:
 
 - `voltage_to_percent()` converts the A9 voltage-divider reading to
   a 0-100 percentage via a piecewise-linear single-cell Li-Po curve.
-- `maybePushBattery()` runs every loop, gated on `nextBatteryAtMs`.
-  The first push fires `BATTERY_FIRST_PUSH_MS` after boot (default
-  5 s); thereafter once per `BATTERY_UPDATE_MS` (default 60 s).
-- The push enqueues exactly 4 characters into the existing key FIFO:
+- `maybePushBattery()` runs every loop, gated on `nextBatteryAtMs` and
+  on real keypad activity. The first report becomes eligible
+  `BATTERY_FIRST_PUSH_MS` after boot (default 5 s); thereafter at most
+  once per `BATTERY_UPDATE_MS` (default 60 s). Firmware v8 sends an
+  eligible report only immediately after a real button/chord input, so
+  the keypad does not type idle battery strings into unrelated apps.
+- The report enqueues exactly 4 characters into the existing key FIFO:
   `'B'` followed by 3 zero-padded ASCII digits. Example: `B025`
   for 25 %, `B100` for 100 %, `B003` for 3 %.
 - The non-blocking BLE state machine drains the FIFO normally, so
   the battery report rides the same `AT+BleKeyboard=...` batch as
-  any concurrent chord or chess input. No interference with input
-  latency beyond the ~150 ms BLE roundtrip per send (~0.25 % of any
-  given minute).
+  active chord or chess input. Battery reports are skipped if the FIFO
+  has less than four free slots, so telemetry cannot evict user input.
 
 The app side (`BatteryReportParser`) intercepts the `B` + 3-digit
 sequence before the chess grammar sees it, updates a `batteryPct`

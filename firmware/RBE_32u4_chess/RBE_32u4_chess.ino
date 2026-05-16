@@ -2,7 +2,7 @@
 // many times on boot, and setup_helper.h appends "v<N>" to the BLE device
 // name. Together they let you verify *from outside* whether the chip is
 // running the bits you think it is, no USB cable required.
-#define FIRMWARE_VERSION 7
+#define FIRMWARE_VERSION 8
 
 #include "setup_helper.h"
 
@@ -101,15 +101,18 @@ enum BtnEdge { EDGE_NONE, EDGE_PRESS, EDGE_RELEASE };
 // the attempt entirely and reports battery via the HID keyboard stream
 // instead.
 //
-// Encoding: every BATTERY_UPDATE_MS we enqueue the literal characters
-// 'B' + three zero-padded ASCII digits (e.g. "B025" for 25%, "B100"
-// for 100%) into the same FIFO chords and chess input use. The app's
-// BatteryReportParser detects the leading 'B' and consumes the next
-// three digit keystrokes, surfacing the percentage to the UI + TTS
-// warnings without leaking into the chess grammar.
+// Encoding: once BATTERY_UPDATE_MS has elapsed, the next real keypad
+// input enqueues the literal characters 'B' + three zero-padded ASCII
+// digits (e.g. "B025" for 25%, "B100" for 100%) into the same FIFO chords
+// and chess input use. The app's BatteryReportParser detects the leading
+// 'B' and consumes the next three digit keystrokes, surfacing the
+// percentage to the UI + TTS warnings without leaking into the chess
+// grammar.
 //
-// First push fires ~5s after boot so Android has time to settle the
-// HID connection; thereafter once per minute.
+// v8 deliberately stopped idle timer pushes: if the Android app is closed,
+// the keyboard should not keep typing "B071" into whatever has focus.
+// The first report is eligible ~5s after boot and is sent only after the
+// next user input; thereafter at most once per minute, again input-gated.
 #define BATTERY_UPDATE_MS 60000UL
 #define BATTERY_FIRST_PUSH_MS 5000UL
 unsigned long nextBatteryAtMs = BATTERY_FIRST_PUSH_MS;
@@ -142,15 +145,31 @@ void setup(void)
   }
 }
 
+bool keyFifoHasFreeSlots(uint8_t needed)
+{
+  uint8_t used;
+  if (keyFifoTail >= keyFifoHead)
+  {
+    used = (uint8_t)(keyFifoTail - keyFifoHead);
+  }
+  else
+  {
+    used = (uint8_t)(KEY_FIFO_SIZE - keyFifoHead + keyFifoTail);
+  }
+  return (uint8_t)(KEY_FIFO_SIZE - 1 - used) >= needed;
+}
+
 // Enqueue the current battery percentage as "B<NNN>" (always 4 chars,
-// 3-digit zero-padded percentage). Runs at most once per
-// BATTERY_UPDATE_MS via the nextBatteryAtMs gate, with the first push
-// BATTERY_FIRST_PUSH_MS after boot. Lives in the same FIFO as chord
-// and chess input, so the existing non-blocking BLE state machine
-// batches it naturally.
-void maybePushBattery(void)
+// 3-digit zero-padded percentage). A report becomes eligible via the
+// nextBatteryAtMs gate, but is sent only immediately after real keypad
+// input. This preserves battery visibility during active play while
+// preventing idle text spam when the app is closed.
+void maybePushBattery(bool userInputQueued)
 {
   if (millis() < nextBatteryAtMs) return;
+  if (!userInputQueued) return;
+  if (!keyFifoHasFreeSlots(4)) return;
+
   nextBatteryAtMs = millis() + BATTERY_UPDATE_MS;
 
   int pct = voltage_to_percent(battery_voltage());
@@ -352,6 +371,8 @@ void tickBle(void)
 /**************************************************************************/
 void loop(void)
 {
+  bool userInputQueued = false;
+
   // Scan every loop iteration -- never blocked on BLE.
   for (int ii = 0; ii < 5; ii++)
   {
@@ -373,6 +394,7 @@ void loop(void)
         if (!chordConsumed)
         {
           enqueueKey(' ');
+          userInputQueued = true;
         }
         chordConsumed = false;
       }
@@ -386,7 +408,11 @@ void loop(void)
       if (spaceHeld && !chordConsumed)
       {
         char c = chord_char_for(ii);
-        if (c != 0) enqueueKey(c);
+        if (c != 0)
+        {
+          enqueueKey(c);
+          userInputQueued = true;
+        }
         // Mark consumed so a follow-up cycler press during the same
         // hold stays silent rather than double-firing a chord.
         chordConsumed = true;
@@ -394,15 +420,16 @@ void loop(void)
       else if (!spaceHeld)
       {
         enqueueKey(buttonCharacter[ii]);
+        userInputQueued = true;
       }
       // else: spaceHeld && chordConsumed -- ignore the press silently.
     }
   }
 
-  // Enqueue the periodic battery report (4 chars: "B<NNN>") into the
-  // same FIFO chord/chess input uses. Internally gated by nextBatteryAtMs
-  // so this is a cheap no-op most ticks.
-  maybePushBattery();
+  // Queue the battery report only after real input once its timer is due.
+  // This keeps active-play telemetry without typing idle reports into
+  // unrelated apps.
+  maybePushBattery(userInputQueued);
 
   // Advance the BLE state machine; sends only when in IDLE with queued
   // keys.

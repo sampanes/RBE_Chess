@@ -140,15 +140,16 @@ from pin to ground using internal pull-ups:
 
 Firmware blinks `FIRMWARE_VERSION` on boot and advertises as
 `RBE Keypad v<N>`, making it possible to confirm which sketch is flashed
-without a USB serial session. (Current version is 7.)
+without a USB serial session. (Current version is 8.)
 
 Battery is sampled from the A9 voltage divider, converted to a 0–100 %
-piecewise-linear Li-Po estimate, and pushed once per minute as four HID
-keystrokes — the literal characters `B` + three zero-padded ASCII
-digits (e.g. `B025`). The app's `BatteryReportParser` intercepts the
-sequence before the chess grammar sees it, so the keystream stays
-clean. See the firmware README's "Battery reporting via the HID stream"
-section.
+piecewise-linear Li-Po estimate, and reported as four HID keystrokes:
+the literal characters `B` + three zero-padded ASCII digits (e.g.
+`B025`). Firmware v8 no longer sends idle timer heartbeats; once a report
+is due, the next real keypad input queues the battery packet. The app's
+`BatteryReportParser` intercepts the sequence before the chess grammar
+sees it, so the keystream stays clean. See the firmware README's
+"Battery reporting via the HID stream" section.
 
 ## Android Architecture
 
@@ -232,9 +233,9 @@ Firmware build notes and upload troubleshooting are in
 
 - Pocket Mode black screen, brightness dimming, and Activity-scoped
   keyboard capture are implemented.
-- Firmware v7: finger-labeled cycler keys, Thumb-as-modifier chords
+- Firmware v8: finger-labeled cycler keys, Thumb-as-modifier chords
   (Pinky/Ring/Middle/Index emit `U`/`M`/`R`/`N` HID), and battery reports via the HID stream
-  (`B` + 3 zero-padded ASCII digits, once per minute). The app
+  (`B` + 3 zero-padded ASCII digits, input-gated after the timer is due). The app
   parses the reports out of the keystream and shows
   `Keypad battery: NN%` on the normal screen; TTS warns below 20 %
   / 5 % with hysteresis above 30 %.
