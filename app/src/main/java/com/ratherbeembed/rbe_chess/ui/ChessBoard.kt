@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -19,8 +18,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.ratherbeembed.rbe_chess.chess.BoardProjector
 import com.ratherbeembed.rbe_chess.chess.BoardSnapshot
@@ -84,15 +86,57 @@ fun ChessBoard(
                 )
             }
         }
-        snapshot.lastMove?.let {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "Last move: ${it.uci}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        MoveHistoryLine(history)
+    }
+}
+
+@Composable
+private fun MoveHistoryLine(history: MoveHistory) {
+    val colors = MaterialTheme.colorScheme
+    val text = buildAnnotatedString {
+        withStyle(SpanStyle(color = colors.onSurfaceVariant)) {
+            append("History: ")
+        }
+        if (history.moves.isEmpty()) {
+            withStyle(SpanStyle(color = colors.onSurfaceVariant.copy(alpha = 0.7f))) {
+                append("empty")
+            }
+            return@buildAnnotatedString
+        }
+
+        history.moves.forEachIndexed { idx, move ->
+            if (idx > 0) append("  ")
+            if (idx % 2 == 0) {
+                withStyle(
+                    SpanStyle(color = colors.onSurfaceVariant.copy(alpha = 0.52f)),
+                ) {
+                    append("${idx / 2 + 1}. ")
+                }
+            }
+            val isLast = idx == history.moves.lastIndex
+            val moveColor =
+                if (isLast) colors.onSurface
+                else if (idx % 2 == 0) colors.onSurfaceVariant.copy(alpha = 0.68f)
+                else colors.onSurfaceVariant.copy(alpha = 0.95f)
+            withStyle(
+                SpanStyle(
+                    color = moveColor,
+                    fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
+                ),
+            ) {
+                append(move)
+            }
         }
     }
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+        textAlign = TextAlign.Start,
+    )
 }
 
 @Composable

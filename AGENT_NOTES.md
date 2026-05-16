@@ -426,7 +426,7 @@ Chord assignments (firmware → HID → app action):
 |---|---|---|---|---|
 | Thumb + Pinky | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
 | Thumb + Ring | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance ⇄ Manual; speak the new state. |
-| Thumb + Middle | `R` | `REPEAT_LAST` | `RepeatLast` | Replay the last replayable spoken move/status without changing history. |
+| Thumb + Middle | `R` | `REPEAT_LAST` | `RepeatLast` | Replay the last board-changing spoken event without changing history. |
 | Thumb + Index | `N` | `NEW_GAME` | `NewGame` | Cancel engine, clear history + buffer, return to StartMenu. |
 
 Once any chord fires during a Thumb/Space hold, further cycler presses during
@@ -477,19 +477,44 @@ bestmove query.
 Implementation: `StockfishEngine.legalMoves()` asks Stockfish for `go perft 1`
 from the current history and parses the legal UCI moves from the perft output.
 On rejection, history remains unchanged, the input buffer stays intact so the
-user can correct it, and TTS says "Illegal move." The correction is replayable
-through Thumb+Middle.
+user can correct it, and TTS says "Illegal move." This transient warning does
+not replace the Thumb+Middle repeat target.
 
 Remaining related work: ordinary non-terminal "check" announcements. Terminal
 checkmate/stalemate speech is now handled by M3.
+
+### M5 - conservative autocomplete
+
+Landed first slice: the app uses `legalMoves()` only, not engine preference
+scores. It autofills the buffer when the whole position has exactly one legal
+move, or when the source square the user entered has exactly one legal move.
+Autofilled coordinates are marked read-pending, so the first D/F/J/K press
+reads the preset value without advancing it and the second press advances.
+Autocomplete never commits; Thumb is still required in both AutoAdvance and
+Manual mode.
+
+Still deferred: the "basically one good move any child would see" behavior.
+Implement that with explicit Stockfish score comparison (`searchmoves`,
+MultiPV, or candidate scoring) instead of inferring from legal move shape.
+
+### Mini 5-button keyboard simulator
+
+No-hardware dogfood aid. A small `Mini off` / `Mini on` toggle is shown on the
+start menu and normal in-game screen. When enabled, the on-screen P/R/M/I/T
+buttons inject the same `ChessKey`s as the Bluetooth keypad through the
+Activity's existing menu/game handlers. `Hold` latches Thumb for one chord,
+so the four finger buttons become U/M/R/N and then clear the latch. `B%`
+cycles mock battery percentages through `handleBatteryReport()` so UI and TTS
+threshold behavior can be tested with the physical keypad powered off.
 
 ### Repeat-last spoken output
 
 Pocket Mode needs a recovery path for "I missed the move." Implemented
 assignment: Thumb+Middle emits `R`, which the app maps to `RepeatLast`.
-It replays the last replayable spoken move/status without querying
-Stockfish and without mutating history. Per-button cycler speech and
-battery warnings do not replace the replay memory. Avoid periodic
+It replays the last board-changing event when one exists, with status/menu
+speech as fallback before any board event exists. Per-button cycler speech,
+illegal-move warnings, autocomplete announcements, and battery warnings do
+not replace the replay memory. Avoid periodic
 automatic repeat as the default; it is likely to interrupt thought or
 physical-board handling. If auto-repeat is ever added, make it a single
 delayed reminder after no input, not an infinite interval.

@@ -5,18 +5,26 @@ Use this file first after a context reset, then read `STATUS.md` and
 
 ## Current State
 
-- User is dogfooding the legality guard now. The trigger case was:
-  `e2e4 d7d5 e4d5 e8d7 g1f3 e7e5 d5e6 a7a5`.
-  After `d5e6`, black is in check, so `a7a5` is illegal. Expected current
-  behavior: app says "Illegal move", does not mutate history, and keeps the
-  entered buffer available for correction.
-- Firmware v8 is committed but not hardware-verified. It keeps the same
-  HID `Bnnn` battery report format, but stops idle timer pushes; battery
-  reports are queued only after real keypad input once the timer is due.
-- M3 terminal handling is committed. Stockfish `bestmove (none)` now maps
-  to replayable "Checkmate." or "Stalemate." and blocks normal move input
-  until Undo or New Game.
-- Ordinary non-terminal "check" announcements are still future work.
+- User has semi-thoroughly dogfooded firmware v8 input-gated battery
+  reports and the repeated physical-piece game loop; both are good enough
+  to move on.
+- Conservative M5 autocomplete is implemented in the working tree. It uses
+  Stockfish legal moves only: autofill the whole buffer if there is exactly
+  one legal move in the position, or autofill after source-square entry if
+  exactly one legal move starts from that source.
+- A no-hardware mini 5-button keyboard simulator is implemented. The tiny
+  `Mini off` / `Mini on` toggle appears on both the start menu and normal
+  in-game screen. When enabled, P/R/M/I/T inject the same app keys as the
+  physical keypad. `Hold` latches Thumb for one chord, remapping the four
+  finger buttons to U/M/R/N. `B%` cycles mock battery reports through the
+  normal battery handler.
+- Autofilled coordinates are marked read-pending, so the first D/F/J/K
+  press reads the preset value without advancing it. The second press
+  advances normally.
+- Repeat-last now prefers the last board-changing event. Illegal-move
+  warnings and autocomplete announcements do not replace the repeat target.
+- Ordinary non-terminal "check" announcements and evaluation-based
+  "basically one good move" autocomplete are still future work.
 
 ## Recent Commits
 
@@ -30,20 +38,26 @@ Use this file first after a context reset, then read `STATUS.md` and
 
 - After terminal handling: `.\gradlew.bat test` passed.
 - After terminal handling: `.\gradlew.bat assembleDebug` passed.
+- After M5 conservative autocomplete: `.\gradlew.bat test` passed.
+- After M5 conservative autocomplete: `.\gradlew.bat assembleDebug` passed.
+- After mini keyboard simulator: `.\gradlew.bat test` passed.
+- After mini keyboard simulator: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
 ## Next Recommended Work
 
-1. Listen for user results from legality-guard dogfood.
-2. Prioritize board readability over Pocket Mode polish. The user may be
-   playing without a cooperative human or real pieces, so the board needs
-   to carry more of the state:
-   - more realistic/legible pieces,
-   - stronger last/current move highlights,
-   - pending entered-move arrow during the short Thumb commit -> legality /
-     Stockfish -> history update interval.
-3. Treat Pocket Mode soft-lock as fallback polish if true screen-off remains
+1. Install/dogfood M5 conservative autocomplete with the mini keyboard first,
+   then repeat with hardware. Check:
+   forced whole-move autofill, source-square-only-move autofill, first tap
+   reads preset values, second tap advances, and Thumb still must commit.
+2. If the conservative behavior feels right, design the evaluation-based
+   "basically one good move" path. Keep it score-based and explicit rather
+   than guessing from legal move shape alone.
+3. Board readability is no longer the top blocker because the user now has
+   actual pieces, but keep it available if dogfood still requires frequent
+   phone checks.
+4. Treat Pocket Mode soft-lock as fallback polish if true screen-off remains
    infeasible. Candidate unlock/exit gestures: double tap, long press or tap
    in a specific area, or volume up/down. This is less important than board
    improvements.
