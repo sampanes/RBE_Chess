@@ -483,12 +483,15 @@ delayed reminder after no input, not an infinite interval.
 
 ---
 
-## Battery telemetry (firmware v5)
+## Battery telemetry (firmware v5, input-gated in v8)
 
-Battery percentage rides the HID keystream, not a BLE service. Every
-minute the firmware enqueues `'B'` + 3 zero-padded ASCII digits
-(`B000`–`B100`) into the same FIFO that carries cycler/chord input.
-`input/BatteryReportParser` strips the sequence before
+Battery percentage rides the HID keystream, not a BLE service. The
+firmware enqueues `'B'` + 3 zero-padded ASCII digits (`B000`–`B100`)
+into the same FIFO that carries cycler/chord input. Firmware v8 stopped
+idle timer pushes: once the battery interval is due, the next real
+button/chord input queues the report. This preserves in-app telemetry
+while preventing the keypad from typing `B071` into unrelated apps after
+RBE Chess is closed. `input/BatteryReportParser` strips the sequence before
 `HardwareKeyboardHandler` runs, surfaces `batteryPct` to the UI, and
 fires one-shot TTS warnings on threshold crossings (<20 % low,
 <5 % critical, re-armed ≥30 %).

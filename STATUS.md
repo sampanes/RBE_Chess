@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (M4 legality guard implemented after dogfood exposed Stockfish/app history desync from an illegal move while in check.)
+Last updated: 2026-05-15 (firmware v8 changes battery HID telemetry from idle timer pushes to input-gated reports.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -26,6 +26,11 @@ as session-priority cleanup before doing other work.
   reproduced the failure as `B08...` followed by repeated `8` spam until
   another key interrupted it; after flashing v7, no keyboard problems
   were observed.
+- **Current firmware code:** firmware v8 input-gated battery reports.
+  The app still parses `B` + 3 digits, but the keypad no longer sends
+  idle timer heartbeats. Once the battery interval is due, the next real
+  button/chord queues the report behind that input. Pending flash and
+  hardware verification.
 - **Last completed (code):** M2 — Thumb-as-modifier chord support
   (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
   `RBE Keypad v2`). Held Thumb + cycler emits a distinct HID letter:
@@ -117,7 +122,7 @@ as steps land:
 
 ## Firmware v3 → v4 → v5 — battery reporting saga
 
-Single new piece of work post-M2. Three attempts:
+Single new piece of work post-M2, later adjusted after dogfood:
 
 - **v3 (broken)**: tried the standard BLE Battery Service via
   `AT+BLEBATTEN=on`. On this module's AT firmware that command returns
@@ -145,6 +150,11 @@ Single new piece of work post-M2. Three attempts:
   commands. This preserves fast repeated cycler taps while avoiding
   Android held-key repeat behavior. Hardware-confirmed after flashing
   v7: no keyboard spam observed in dogfood.
+- **v8 (input-gated battery reports)**: keep the same HID `Bnnn`
+  report format, but stop idle timer pushes. When the report timer is
+  due, the next real button/chord queues the battery packet. This avoids
+  typing `B071` into unrelated apps after RBE Chess is closed. Pending
+  flash/hardware verification.
 
 The custom-GATT BAS path (`AT+GATTADDSERVICE` + `AT+GATTADDCHAR`)
 remains an option if we ever want Android's Settings UI to show the
@@ -217,6 +227,7 @@ PGN/FEN export, opening book.
 | App launch on S22 Ultra | green | confirmed 2026-05-14 |
 | BT keyboard input on-device | green | Bluefruit paired as "RBE Keypad v1", all 5 keycodes received and dispatched correctly 2026-05-14 |
 | Firmware v7 duplicate-key batching | green | User-confirmed 2026-05-15: pre-v7 Notepad reproduced held-key spam (`B08...` then repeated `8` until another key); after flashing v7, no keyboard problems observed. |
+| Firmware v8 input-gated battery reports | pending flash | Code changes stop idle `Bnnn` timer pushes; battery packet queues only after real input once the timer is due. |
 | Compose recomposition on state change | green | required `@Immutable` on `MoveBuffer` to defeat strong-skipping |
 | Firmware v1 input latency | green | non-blocking BLE state machine; user reports "buttery smooth" 2026-05-14 |
 | Per-press TTS on-device | green (phone speaker) | "loud and clear" on S22 Ultra speaker 2026-05-15 |
