@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-16 (M3 terminal handling landed: Stockfish `bestmove (none)` now speaks checkmate/stalemate instead of mutating history.)
+Last updated: 2026-05-16 (session handoff prepared; board readability/pending-move visualization should outrank Pocket Mode soft-lock polish.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -247,6 +247,18 @@ PGN/FEN export, opening book.
 
 ## Open follow-ups (scheduled, not blockers)
 
+- Board readability is the next higher-value gameplay direction. The
+  display-only board works, but it should become easier to parse when the
+  user is effectively playing without a cooperative human/real pieces in
+  front of them. Candidate improvements: more realistic/legible pieces,
+  stronger last/current move affordances, and an arrow showing the entered
+  move during the brief Thumb-commit -> legality/Stockfish -> history-update
+  interval.
+- If true screen-off input remains infeasible and we stay with Pocket Mode
+  as "black/backlight-low screen still technically on", replace tap-anywhere
+  exit with a deliberate soft-lock/unlock gesture. Candidates to test:
+  double tap, long press or tap in a specific area, or volume up/down. This
+  is nice-to-have compared with board improvements.
 - Bump AGP and `compileSdk` back to 36 before the post-M1 screen-off
   spike. (AGENT_NOTES §"Build configuration — deviations".)
 - *Manual mode* (working title: "user types their own moves too") —
@@ -264,6 +276,8 @@ PGN/FEN export, opening book.
 
 ## Where to read next (precedence: high → low)
 
+0. `SESSION_HANDOFF.md` — compact resume point for the current dogfood
+   state, recent commits, and next recommended work.
 1. `AGENT_NOTES.md` — routing layer + every architectural deviation from
    the addendum. Hardware-aware keyboard grammar lives here.
 2. `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` — M1 spec for everything not
