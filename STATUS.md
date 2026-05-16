@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (Firmware v7 duplicate-key batching fix hardware-confirmed: rapid repeated taps no longer show keyboard spam after flashing v7.)
+Last updated: 2026-05-15 (M4 legality guard implemented after dogfood exposed Stockfish/app history desync from an illegal move while in check.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -46,6 +46,12 @@ as session-priority cleanup before doing other work.
 - **Next:** app/gameflow dogfood discussion. The keypad transport is
   stable enough to focus on turn-state sync, commit flow, undo/replay
   semantics, terminal positions, and illegal-move handling.
+- **Current code addition:** M4 legality guard. Before appending a typed
+  move, the app asks Stockfish for legal moves from the current history
+  via `go perft 1`. Illegal moves leave history unchanged, keep the
+  typed buffer intact, speak "Illegal move", and are replayable via
+  Thumb+Middle. Engine think time is now 3 s instead of 1 s to reduce
+  TTS cutoffs between "played..." and the engine reply.
 
 ## M1 implementation checklist
 
@@ -164,6 +170,11 @@ Landed after M2:
 - **Duplicate-key batching fix.** Firmware v7 splits adjacent duplicate
   keypresses across BLE commands so rapid repeated cycler taps count
   without app-side repeat suppression.
+- **M4 legality guard.** Stockfish `go perft 1` now validates
+  keypad-entered moves before history mutation. This prevents illegal
+  waiting moves from desyncing app history from Stockfish's actual
+  position; the dogfood trigger was `e2e4 d7d5 e4d5 e8d7 g1f3 e7e5
+  d5e6 a7a5`, where black was in check and `a7a5` was illegal.
 
 What's still deferred:
 
@@ -175,13 +186,6 @@ What's still deferred:
   first pass: make the engine bridge return a structured result that can
   represent `bestmove (none)` and consume Stockfish `info ... mate ...`
   lines where available.
-- **M4 - keypad move legality guard.** Reject impossible/illegal user
-  input before appending it to `MoveHistory` or sending it as the next
-  position. Acceptance: illegal moves leave history unchanged, keep or
-  clear the buffer deliberately, and speak a short correction such as
-  "Illegal move." Candidate implementation: use a small JVM/Android chess
-  rules library if one is clean; otherwise ask Stockfish for legal moves
-  from the current position and validate the typed UCI against that set.
 - **Battery telemetry smoothing.** A transient `0%` followed by a normal
   value should not immediately fire a critical warning. Require repeated
   low samples or firmware-side averaged/median ADC reads before speaking
@@ -205,8 +209,8 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after duplicate-key batching fix |
-| `:app:testDebugUnitTest` | 76 / 76 green | includes `BoardProjectorTest` (7) and `BestMoveSpeakerTest` (7); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after M4 legality guard |
+| `:app:testDebugUnitTest` | 82 / 82 green | includes `BoardProjectorTest` (7), `BestMoveSpeakerTest` (8), and `UciPerftParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

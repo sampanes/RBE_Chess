@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "RBE_CHESS"
 private const val INACTIVITY_PROMPT_MS = 2_500L
-private const val ENGINE_MOVETIME_MS = 1_000L
+private const val ENGINE_MOVETIME_MS = 3_000L
 
 // Battery TTS-warning thresholds. Falling-edge: speak once when pct
 // first dips below the threshold. Rising-edge: above [BATTERY_REARM_PCT]
@@ -241,10 +241,9 @@ class MainActivity : ComponentActivity() {
                     Log.d(TAG, "Commit ignored — engine still calculating")
                     return
                 }
-                val before = moveBuffer
-                val after = KeyboardGrammar.apply(action, before)
-                moveBuffer = after
-                handleAction(action, before, after)
+                inactivityJob?.cancel()
+                inactivityJob = null
+                commitMove(moveBuffer.toUciString())
             }
             GrammarAction.CycleFromFile,
             GrammarAction.CycleFromRank,
@@ -291,49 +290,69 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Space commit: speak "Calculating", boot the engine if needed, ask
-     * Stockfish for the bestmove given (history + opponent move), and act
+     * Space commit: boot the engine if needed, reject illegal typed moves,
+     * ask Stockfish for the bestmove given (history + opponent move), and act
      * on the reply according to [gameMode]:
      *   - AutoAdvance: speak as bestmove, append both plies to [moveHistory].
      *   - Manual:      speak as suggestion, append only the opponent's ply.
-     * On engine error we surface the message but leave [moveHistory]
-     * untouched so the user can retry without a corrupt move list.
+     * Illegal moves and engine errors leave [moveHistory] untouched so
+     * the user can retry without a corrupt move list.
      */
     private fun commitMove(opponentMove: String) {
         val mover = sideToMove()
-        val historyForEngine = moveHistory.append(opponentMove)
-        val nextMover = sideToMove(historyForEngine)
         val typedMoverLabel = moverLabel(mover)
-        speaker.speakPlayedThenCalculating(typedMoverLabel, opponentMove, moverLabel(nextMover))
-        engineStatus = "Engine: thinking on $opponentMove..."
-        Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves}, mode=$gameMode)")
+        engineStatus = "Engine: checking $opponentMove..."
+        Log.d(TAG, "Check $opponentMove legality (history=${moveHistory.moves}, mode=$gameMode)")
         engineJob = lifecycleScope.launch {
             try {
                 engine.boot()
-                val best = engine.bestMove(
-                    uciMoves = historyForEngine.moves,
-                    movetimeMs = ENGINE_MOVETIME_MS,
-                )
-                if (gameMode == GameMode.Manual) {
-                    moveHistory = historyForEngine
-                    speaker.speakPlayedAndSuggestion(
-                        typedMoverLabel,
-                        opponentMove,
-                        moverLabel(sideToMove()),
-                        best,
-                    )
-                    engineStatus = "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
-                    Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
-                } else {
-                    moveHistory = historyForEngine.append(best)
-                    speaker.speakPlayedMove(moverLabel(nextMover), best, waitingPhrase())
-                    engineStatus = "Last: opp=$opponentMove → engine=$best (${moveHistory.size} plies)"
-                    Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
+                val legalMoves = engine.legalMoves(moveHistory.moves)
+                if (opponentMove !in legalMoves) {
+                    speaker.speakIllegalMove(waitingPhrase())
+                    engineStatus = "Illegal move: $opponentMove (history=${moveHistory.size} plies)"
+                    Log.d(TAG, "Illegal move rejected: $opponentMove legal=${legalMoves.sorted()}")
+                    return@launch
                 }
+
+                moveBuffer = MoveBuffer.DEFAULT
+                commitLegalMove(opponentMove, typedMoverLabel)
             } catch (t: Throwable) {
-                engineStatus = "Engine error after $opponentMove: ${t.message}"
-                Log.e(TAG, "engine bestmove failed", t)
+                engineStatus = "Engine error checking $opponentMove: ${t.message}"
+                Log.e(TAG, "engine legal move check failed", t)
             }
+        }
+    }
+
+    private suspend fun commitLegalMove(opponentMove: String, typedMoverLabel: String) {
+        val historyForEngine = moveHistory.append(opponentMove)
+        val nextMover = sideToMove(historyForEngine)
+        speaker.speakPlayedThenCalculating(typedMoverLabel, opponentMove, moverLabel(nextMover))
+        engineStatus = "Engine: thinking on $opponentMove..."
+        Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves}, mode=$gameMode)")
+        try {
+            val best = engine.bestMove(
+                uciMoves = historyForEngine.moves,
+                movetimeMs = ENGINE_MOVETIME_MS,
+            )
+            if (gameMode == GameMode.Manual) {
+                moveHistory = historyForEngine
+                speaker.speakPlayedAndSuggestion(
+                    typedMoverLabel,
+                    opponentMove,
+                    moverLabel(sideToMove()),
+                    best,
+                )
+                engineStatus = "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
+                Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
+            } else {
+                moveHistory = historyForEngine.append(best)
+                speaker.speakPlayedMove(moverLabel(nextMover), best, waitingPhrase())
+                engineStatus = "Last: opp=$opponentMove -> engine=$best (${moveHistory.size} plies)"
+                Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
+            }
+        } catch (t: Throwable) {
+            engineStatus = "Engine error after $opponentMove: ${t.message}"
+            Log.e(TAG, "engine bestmove failed", t)
         }
     }
 

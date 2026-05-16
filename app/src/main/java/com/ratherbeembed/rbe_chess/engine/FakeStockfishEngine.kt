@@ -8,6 +8,8 @@ package com.ratherbeembed.rbe_chess.engine
  */
 class FakeStockfishEngine(
     private val script: List<String> = listOf("e2e4", "g1f3"),
+    private val legalMovesByHistory: Map<List<String>, Set<String>> = emptyMap(),
+    private val defaultLegalMoves: Set<String> = setOf("e2e4", "d2d4", "g1f3"),
 ) : StockfishEngine {
 
     private var booted = false
@@ -22,6 +24,11 @@ class FakeStockfishEngine(
         val move = script.getOrElse(idx) { FALLBACK }
         idx += 1
         return move
+    }
+
+    override suspend fun legalMoves(uciMoves: List<String>): Set<String> {
+        check(booted) { "engine not booted" }
+        return legalMovesByHistory[uciMoves] ?: defaultLegalMoves
     }
 
     override fun shutdown() {

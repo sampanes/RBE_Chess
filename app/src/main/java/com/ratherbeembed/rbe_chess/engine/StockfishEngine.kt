@@ -29,6 +29,12 @@ interface StockfishEngine {
      */
     suspend fun bestMove(uciMoves: List<String>, movetimeMs: Long): String
 
+    /**
+     * Return legal UCI moves from the position reached by [uciMoves].
+     * Used to reject keypad-entered moves before they mutate app history.
+     */
+    suspend fun legalMoves(uciMoves: List<String>): Set<String>
+
     /** Shut down the engine process. Safe to call repeatedly. */
     fun shutdown()
 }
