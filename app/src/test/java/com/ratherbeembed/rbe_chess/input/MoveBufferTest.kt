@@ -2,6 +2,7 @@ package com.ratherbeembed.rbe_chess.input
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class MoveBufferTest {
@@ -86,5 +87,66 @@ class MoveBufferTest {
         assertEquals(1, b.fromRank)
         assertEquals('a', b.toFile)
         assertEquals(1, b.toRank)
+    }
+
+    @Test
+    fun `fromSquareOrNull is only set after both source coordinates are explicit`() {
+        assertNull(MoveBuffer.DEFAULT.fromSquareOrNull)
+        assertNull(MoveBuffer.DEFAULT.cycleFromFile().fromSquareOrNull)
+
+        val b = MoveBuffer.DEFAULT.cycleFromFile().cycleFromRank()
+
+        assertEquals("a1", b.fromSquareOrNull)
+    }
+
+    @Test
+    fun `copyFromEngine prefills coordinates from a UCI move`() {
+        val b = MoveBuffer.DEFAULT.copyFromEngine("e2e4")
+
+        assertEquals("e2e4", b.toUciString())
+    }
+
+    @Test
+    fun `copyFromEngine ignores promotion suffix for coordinate buffer`() {
+        val b = MoveBuffer.DEFAULT.copyFromEngine("e7e8q")
+
+        assertEquals("e7e8", b.toUciString())
+    }
+
+    @Test
+    fun `first press on autofilled coordinates reads without advancing`() {
+        var b = MoveBuffer.DEFAULT.copyFromEngine("e2e4")
+
+        b = b.cycleFromFile()
+        assertEquals("e2e4", b.toUciString())
+        b = b.cycleFromRank()
+        assertEquals("e2e4", b.toUciString())
+        b = b.cycleToFile()
+        assertEquals("e2e4", b.toUciString())
+        b = b.cycleToRank()
+        assertEquals("e2e4", b.toUciString())
+    }
+
+    @Test
+    fun `second press on autofilled coordinate advances`() {
+        val b = MoveBuffer.DEFAULT
+            .copyFromEngine("e2e4")
+            .cycleToRank()
+            .cycleToRank()
+
+        assertEquals("e2e5", b.toUciString())
+    }
+
+    @Test
+    fun `copyFromEngine rejects invalid UCI`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            MoveBuffer.DEFAULT.copyFromEngine("i2e4")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MoveBuffer.DEFAULT.copyFromEngine("e9e4")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MoveBuffer.DEFAULT.copyFromEngine("e2e")
+        }
     }
 }

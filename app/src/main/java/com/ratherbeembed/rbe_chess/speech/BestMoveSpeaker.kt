@@ -14,14 +14,20 @@ import com.ratherbeembed.rbe_chess.engine.TerminalState
  */
 class BestMoveSpeaker(private val output: SpeechSink) {
 
-    private var lastReplayable: String? = null
+    private var lastBoardEvent: String? = null
+    private var lastStatusEvent: String? = null
 
     private fun speak(text: String) {
         output.speak(text)
     }
 
-    private fun speakReplayable(text: String) {
-        lastReplayable = text
+    private fun speakBoardEvent(text: String) {
+        lastBoardEvent = text
+        output.speak(text)
+    }
+
+    private fun speakStatusEvent(text: String) {
+        lastStatusEvent = text
         output.speak(text)
     }
 
@@ -31,11 +37,11 @@ class BestMoveSpeaker(private val output: SpeechSink) {
     }
 
     fun repeatLast() {
-        output.speak(lastReplayable ?: "Nothing to repeat.")
+        output.speak(lastBoardEvent ?: lastStatusEvent ?: "Nothing to repeat.")
     }
 
     fun speakIllegalMove(waiting: String) {
-        speakReplayable("Illegal move. $waiting")
+        speak("Illegal move. $waiting")
     }
 
     fun speakTerminal(state: TerminalState) {
@@ -43,15 +49,15 @@ class BestMoveSpeaker(private val output: SpeechSink) {
             TerminalState.CHECKMATE -> "Checkmate."
             TerminalState.STALEMATE -> "Stalemate."
         }
-        speakReplayable(phrase)
+        speakBoardEvent(phrase)
     }
 
     fun rememberPlayedMove(mover: String, uci: String, waiting: String) {
-        lastReplayable = playedMoveText(mover, uci, waiting)
+        lastBoardEvent = playedMoveText(mover, uci, waiting)
     }
 
     fun rememberBoardAtStart(waiting: String) {
-        lastReplayable = "Board at start. $waiting"
+        lastBoardEvent = "Board at start. $waiting"
     }
 
     fun speakFilePress(file: Char) {
@@ -63,24 +69,24 @@ class BestMoveSpeaker(private val output: SpeechSink) {
     }
 
     fun speakInactivityPrompt(buffer: MoveBuffer) {
-        speakReplayable(SpokenMoveFormatter.spokenInactivityPrompt(buffer))
+        speakStatusEvent(SpokenMoveFormatter.spokenInactivityPrompt(buffer))
     }
 
     fun speakMovePrompt(mover: String, buffer: MoveBuffer) {
         val move = SpokenMoveFormatter.spokenUciMove(buffer.toUciString())
-        speakReplayable("$mover move: $move?")
+        speakStatusEvent("$mover move: $move?")
     }
 
     fun speakCommit() {
-        speakReplayable("Calculating")
+        speakStatusEvent("Calculating")
     }
 
     fun speakBestMove(uci: String) {
-        speakReplayable(SpokenMoveFormatter.spokenBestMove(uci))
+        speakStatusEvent(SpokenMoveFormatter.spokenBestMove(uci))
     }
 
     fun speakPlayedMove(mover: String, uci: String, waiting: String) {
-        speakReplayable(playedMoveText(mover, uci, waiting))
+        speakBoardEvent(playedMoveText(mover, uci, waiting))
     }
 
     /** Spoken in manual mode where the engine's pick is advisory only. */
@@ -90,21 +96,21 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         val spoken = SpokenMoveFormatter.spokenBestMove(uci)
             .removePrefix("Best move:")
             .trim()
-        speakReplayable("Suggestion: $spoken")
+        speakStatusEvent("Suggestion: $spoken")
     }
 
     fun speakSuggestionFor(mover: String, uci: String) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
-        speakReplayable("Suggestion for $mover: $move.")
+        speakStatusEvent("Suggestion for $mover: $move.")
     }
 
     fun speakCalculatingFor(mover: String) {
-        speakReplayable("Calculating $mover reply")
+        speakStatusEvent("Calculating $mover reply")
     }
 
     fun speakPlayedThenCalculating(mover: String, uci: String, nextMover: String) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
-        speakReplayable("$mover played $move. Calculating $nextMover reply")
+        speakBoardEvent("$mover played $move. Calculating $nextMover reply")
     }
 
     fun speakPlayedAndSuggestion(
@@ -115,7 +121,7 @@ class BestMoveSpeaker(private val output: SpeechSink) {
     ) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
         val suggestion = SpokenMoveFormatter.spokenUciMove(suggestionUci)
-        speakReplayable(
+        speakBoardEvent(
             "$mover played $move. Suggestion for $suggestionMover: $suggestion. " +
                 "Waiting for $suggestionMover.",
         )
@@ -130,19 +136,24 @@ class BestMoveSpeaker(private val output: SpeechSink) {
     }
 
     fun speakManualMode(on: Boolean) {
-        speakReplayable(if (on) "Manual mode on" else "Manual mode off")
+        speakStatusEvent(if (on) "Manual mode on" else "Manual mode off")
     }
 
     fun speakManualMode(on: Boolean, waiting: String) {
-        speakReplayable("${if (on) "Manual mode on" else "Manual mode off"}. $waiting")
+        speakStatusEvent("${if (on) "Manual mode on" else "Manual mode off"}. $waiting")
     }
 
     fun speakMenuOption(text: String) {
-        speakReplayable(text)
+        speakStatusEvent(text)
     }
 
     fun speakGameStart(asWhite: Boolean) {
-        speakReplayable(if (asWhite) "Playing as white" else "Playing as black")
+        speakStatusEvent(if (asWhite) "Playing as white" else "Playing as black")
+    }
+
+    fun speakAutofill(uci: String, reason: String) {
+        val move = SpokenMoveFormatter.spokenUciMove(uci)
+        speak("$reason: $move.")
     }
 
     fun speakBatteryWarning(critical: Boolean) {

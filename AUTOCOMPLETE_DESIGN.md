@@ -16,6 +16,19 @@ Instead of defaulting to `a1` when a user starts a move, the app should predict 
     *   If the user agrees with the prediction, they just hit **Thumb (Commit)**.
     *   If they want a different move, they use **Middle (to-file)** or **Index (to-rank)** to override the prediction.
 
+### Landed Conservative Slice
+
+The first implementation deliberately avoids engine preference guesses.
+It autofills only when the legal move set is unambiguous:
+
+*   exactly one legal move exists in the whole position, or
+*   exactly one legal move starts from the source square the user entered.
+
+Autofilled coordinates are "read pending": the first press on D/F/J/K reads
+the preset value without advancing, and the second press advances normally.
+The later "basically one good move" behavior should compare Stockfish scores
+before autofilling non-forced choices.
+
 ## 2. Feature: Forced Move Detection & "Read Autocomplete"
 
 ### Goal

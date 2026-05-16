@@ -80,17 +80,19 @@ class BestMoveSpeakerTest {
     }
 
     @Test
-    fun `illegal move is replayable`() {
+    fun `illegal move does not replace last board event`() {
         val sink = FakeSpeechSink()
         val speaker = BestMoveSpeaker(sink)
 
+        speaker.speakPlayedMove("Your White", "e2e4", "Waiting for Opponent Black.")
         speaker.speakIllegalMove("Waiting for Opponent Black.")
         speaker.repeatLast()
 
         assertEquals(
             listOf(
+                "Your White played E two to E four. Waiting for Opponent Black.",
                 "Illegal move. Waiting for Opponent Black.",
-                "Illegal move. Waiting for Opponent Black.",
+                "Your White played E two to E four. Waiting for Opponent Black.",
             ),
             sink.spoken,
         )
@@ -126,6 +128,44 @@ class BestMoveSpeakerTest {
             listOf(
                 "Opponent Black played E seven to E five. Waiting for Your White.",
                 "Undid last move. Waiting for Opponent Black.",
+                "Opponent Black played E seven to E five. Waiting for Your White.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
+    fun `mode status does not replace last board event`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedMove("Opponent Black", "e7e5", "Waiting for Your White.")
+        speaker.speakManualMode(on = true, waiting = "Waiting for Your White.")
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Opponent Black played E seven to E five. Waiting for Your White.",
+                "Manual mode on. Waiting for Your White.",
+                "Opponent Black played E seven to E five. Waiting for Your White.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
+    fun `autofill announcement does not replace last board event`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedMove("Opponent Black", "e7e5", "Waiting for Your White.")
+        speaker.speakAutofill("g1f3", "Only move from selected piece")
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Opponent Black played E seven to E five. Waiting for Your White.",
+                "Only move from selected piece: G one to F three.",
                 "Opponent Black played E seven to E five. Waiting for Your White.",
             ),
             sink.spoken,

@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ratherbeembed.rbe_chess.input.ChessKey
 
 /**
  * Verbal start menu. The TTS layer is the primary feedback channel — the
@@ -29,6 +30,10 @@ import androidx.compose.ui.unit.dp
 fun StartMenuScreen(
     options: List<String>,
     selectedIndex: Int,
+    miniKeyboardVisible: Boolean,
+    onToggleMiniKeyboard: () -> Unit,
+    onMiniKey: (ChessKey) -> Unit,
+    onMockBattery: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -38,6 +43,11 @@ fun StartMenuScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            MiniKeyboardToggle(
+                enabled = miniKeyboardVisible,
+                onToggle = onToggleMiniKeyboard,
+            )
+            Spacer(Modifier.height(12.dp))
             Text(
                 text = "RBE Chess",
                 style = MaterialTheme.typography.headlineLarge,
@@ -76,6 +86,13 @@ fun StartMenuScreen(
                 text = "Mid-game, hold Thumb:\n(+ Pinky = undo) (+ Ring = manual)\n(+ Middle = repeat) (+ Index = new game)",
                 style = MaterialTheme.typography.bodySmall,
             )
+            if (miniKeyboardVisible) {
+                Spacer(Modifier.height(18.dp))
+                MiniKeyboardPanel(
+                    onKey = onMiniKey,
+                    onMockBattery = onMockBattery,
+                )
+            }
         }
     }
 }

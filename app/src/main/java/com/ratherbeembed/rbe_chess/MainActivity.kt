@@ -23,6 +23,7 @@ import com.ratherbeembed.rbe_chess.input.ChessKey
 import com.ratherbeembed.rbe_chess.input.GrammarAction
 import com.ratherbeembed.rbe_chess.input.HardwareKeyboardHandler
 import com.ratherbeembed.rbe_chess.input.KeyboardGrammar
+import com.ratherbeembed.rbe_chess.input.MoveAutofill
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
 import com.ratherbeembed.rbe_chess.pocket.PocketModeController
 import com.ratherbeembed.rbe_chess.pocket.PocketModeState
@@ -47,6 +48,7 @@ private const val ENGINE_MOVETIME_MS = 3_000L
 private const val BATTERY_LOW_PCT = 20
 private const val BATTERY_CRITICAL_PCT = 5
 private const val BATTERY_REARM_PCT = 30
+private val MOCK_BATTERY_REPORTS = intArrayOf(88, 19, 4, 73)
 
 class MainActivity : ComponentActivity() {
     private var moveBuffer by mutableStateOf(MoveBuffer.DEFAULT)
@@ -58,8 +60,10 @@ class MainActivity : ComponentActivity() {
     private var playerSide by mutableStateOf(ChessSide.WHITE)
     private var terminalState by mutableStateOf<TerminalState?>(null)
     private var batteryPct by mutableStateOf<Int?>(null)
+    private var miniKeyboardVisible by mutableStateOf(false)
     private var batteryWarnedLow = false
     private var batteryWarnedCritical = false
+    private var mockBatteryIndex = 0
     private lateinit var speechOutput: SpeechOutput
     private lateinit var speaker: BestMoveSpeaker
     private lateinit var pocketController: PocketModeController
@@ -67,6 +71,7 @@ class MainActivity : ComponentActivity() {
     private val batteryParser = BatteryReportParser()
     private var inactivityJob: Job? = null
     private var engineJob: Job? = null
+    private var autofillJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,6 +91,10 @@ class MainActivity : ComponentActivity() {
                     gameMode = gameMode,
                     playerSide = playerSide,
                     batteryPct = batteryPct,
+                    miniKeyboardVisible = miniKeyboardVisible,
+                    onToggleMiniKeyboard = { miniKeyboardVisible = !miniKeyboardVisible },
+                    onMiniKey = ::injectMiniKey,
+                    onMockBattery = ::handleMockBatteryReport,
                     onEnterPocketMode = ::enterPocketMode,
                     onExitPocketMode = ::exitPocketMode,
                 )
@@ -106,6 +115,8 @@ class MainActivity : ComponentActivity() {
         inactivityJob = null
         engineJob?.cancel()
         engineJob = null
+        autofillJob?.cancel()
+        autofillJob = null
         engine.shutdown()
         pocketController.exit()
         speechOutput.shutdown()
@@ -159,6 +170,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun handleMockBatteryReport() {
+        val pct = MOCK_BATTERY_REPORTS[mockBatteryIndex % MOCK_BATTERY_REPORTS.size]
+        mockBatteryIndex += 1
+        handleBatteryReport(pct)
+        engineStatus = "Mock battery report: $pct%"
+    }
+
+    private fun injectMiniKey(key: ChessKey) {
+        if (key == ChessKey.IGNORED) return
+        when (val p = phase) {
+            is AppPhase.StartMenu -> handleMenuKey(p, key)
+            AppPhase.InGame -> handleGameKey(key)
+        }
+    }
+
     // --- Start menu navigation ---------------------------------------------
 
     private fun handleMenuKey(state: AppPhase.StartMenu, key: ChessKey) {
@@ -186,6 +212,7 @@ class MainActivity : ComponentActivity() {
         val asWhite = (idx == START_MENU_PLAY_WHITE)
         inactivityJob?.cancel(); inactivityJob = null
         engineJob?.cancel(); engineJob = null
+        autofillJob?.cancel(); autofillJob = null
         moveHistory = MoveHistory.EMPTY
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
@@ -219,6 +246,7 @@ class MainActivity : ComponentActivity() {
                             moveHistory = MoveHistory.EMPTY.append(best)
                             speaker.speakPlayedMove(moverLabel(playerSide), best, waitingPhrase())
                             engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
+                            prefillOnlyLegalMove()
                         } else {
                             speaker.speakSuggestionFor(moverLabel(playerSide), best)
                             engineStatus = "Bootstrap (manual): suggested $best"
@@ -267,6 +295,8 @@ class MainActivity : ComponentActivity() {
                     Log.d(TAG, "Commit ignored — engine still calculating")
                     return
                 }
+                autofillJob?.cancel()
+                autofillJob = null
                 inactivityJob?.cancel()
                 inactivityJob = null
                 commitMove(moveBuffer.toUciString())
@@ -296,18 +326,28 @@ class MainActivity : ComponentActivity() {
                 speaker.speakFilePress(after.fromFile)
                 Log.d(TAG, "from-file -> ${after.fromFile} buffer=${after.toUciString()}")
                 scheduleInactivityPrompt(after)
+                if (before.fromFileIdx != after.fromFileIdx) {
+                    maybeAutofillForSelectedSource(after)
+                }
             }
             GrammarAction.CycleFromRank -> {
                 speaker.speakRankPress(after.fromRank)
                 Log.d(TAG, "from-rank -> ${after.fromRank} buffer=${after.toUciString()}")
                 scheduleInactivityPrompt(after)
+                if (before.fromRankIdx != after.fromRankIdx) {
+                    maybeAutofillForSelectedSource(after)
+                }
             }
             GrammarAction.CycleToFile -> {
+                autofillJob?.cancel()
+                autofillJob = null
                 speaker.speakFilePress(after.toFile)
                 Log.d(TAG, "to-file -> ${after.toFile} buffer=${after.toUciString()}")
                 scheduleInactivityPrompt(after)
             }
             GrammarAction.CycleToRank -> {
+                autofillJob?.cancel()
+                autofillJob = null
                 speaker.speakRankPress(after.toRank)
                 Log.d(TAG, "to-rank -> ${after.toRank} buffer=${after.toUciString()}")
                 scheduleInactivityPrompt(after)
@@ -329,6 +369,8 @@ class MainActivity : ComponentActivity() {
      * the user can retry without a corrupt move list.
      */
     private fun commitMove(opponentMove: String) {
+        autofillJob?.cancel()
+        autofillJob = null
         val mover = sideToMove()
         val typedMoverLabel = moverLabel(mover)
         engineStatus = "Engine: checking $opponentMove..."
@@ -377,12 +419,14 @@ class MainActivity : ComponentActivity() {
                         engineStatus =
                             "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
                         Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
+                        prefillOnlyLegalMove()
                     } else {
                         moveHistory = historyForEngine.append(best)
                         speaker.speakPlayedMove(moverLabel(nextMover), best, waitingPhrase())
                         engineStatus =
                             "Last: opp=$opponentMove -> engine=$best (${moveHistory.size} plies)"
                         Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
+                        prefillOnlyLegalMove()
                     }
                 }
                 is BestMoveResult.Terminal -> {
@@ -400,10 +444,70 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // --- Autocomplete ------------------------------------------------------
+
+    private fun prefillOnlyLegalMove() {
+        val historyAtRequest = moveHistory
+        val bufferAtRequest = moveBuffer
+        autofillJob?.cancel()
+        autofillJob = lifecycleScope.launch {
+            try {
+                engine.boot()
+                val legalMoves = engine.legalMoves(historyAtRequest.moves)
+                val forced = MoveAutofill.onlyLegalMove(legalMoves) ?: return@launch
+                if (
+                    phase == AppPhase.InGame &&
+                    terminalState == null &&
+                    moveHistory == historyAtRequest &&
+                    moveBuffer == bufferAtRequest
+                ) {
+                    applyAutofill(forced, "Only legal move")
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "forced-move autofill failed", t)
+            }
+        }
+    }
+
+    private fun maybeAutofillForSelectedSource(bufferAtRequest: MoveBuffer) {
+        val fromSquare = bufferAtRequest.fromSquareOrNull ?: return
+        val historyAtRequest = moveHistory
+        autofillJob?.cancel()
+        autofillJob = lifecycleScope.launch {
+            try {
+                engine.boot()
+                val legalMoves = engine.legalMoves(historyAtRequest.moves)
+                val move = MoveAutofill.onlyLegalMoveFrom(legalMoves, fromSquare) ?: return@launch
+                if (
+                    phase == AppPhase.InGame &&
+                    terminalState == null &&
+                    moveHistory == historyAtRequest &&
+                    moveBuffer == bufferAtRequest
+                ) {
+                    applyAutofill(move, "Only move from selected piece")
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "source-move autofill failed", t)
+            }
+        }
+    }
+
+    private fun applyAutofill(uci: String, reason: String) {
+        val after = moveBuffer.copyFromEngine(uci)
+        moveBuffer = after
+        speaker.speakAutofill(uci, reason)
+        inactivityJob?.cancel()
+        inactivityJob = null
+        scheduleInactivityPrompt(after)
+        engineStatus = "$reason: $uci (history=${moveHistory.size} plies)"
+        Log.d(TAG, "Autofill: $reason -> $uci")
+    }
+
     // --- Chord handlers ----------------------------------------------------
 
     private fun handleUndo() {
         inactivityJob?.cancel(); inactivityJob = null
+        autofillJob?.cancel(); autofillJob = null
         // Cancel any in-flight engine query so its delayed result can't
         // overwrite the rewound state we're about to set below.
         engineJob?.cancel(); engineJob = null
@@ -414,6 +518,7 @@ class MainActivity : ComponentActivity() {
         rememberCurrentPositionForRepeat()
         engineStatus = "Undo: history=${moveHistory.size} plies"
         Log.d(TAG, "Undo -> ${moveHistory.moves}")
+        prefillOnlyLegalMove()
     }
 
     private fun handleToggleManual() {
@@ -427,6 +532,7 @@ class MainActivity : ComponentActivity() {
     private fun handleNewGame() {
         inactivityJob?.cancel(); inactivityJob = null
         engineJob?.cancel(); engineJob = null
+        autofillJob?.cancel(); autofillJob = null
         moveHistory = MoveHistory.EMPTY
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
