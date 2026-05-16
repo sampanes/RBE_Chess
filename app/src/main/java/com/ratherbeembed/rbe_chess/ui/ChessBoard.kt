@@ -117,10 +117,10 @@ private fun BoardSquareView(
     ) {
         if (piece != null) {
             Text(
-                text = piece.boardLabel(),
-                style = MaterialTheme.typography.titleLarge,
-                color = pieceTextColor(color),
-                fontWeight = FontWeight.SemiBold,
+                text = piece.boardSymbol(),
+                style = MaterialTheme.typography.headlineSmall,
+                color = pieceTextColor(piece.side),
+                fontWeight = FontWeight.Normal,
                 textAlign = TextAlign.Center,
             )
         }
@@ -145,21 +145,20 @@ private fun BoardLabel(
     }
 }
 
-private fun ChessPiece.boardLabel(): String {
-    val label = when (type) {
-        PieceType.KING -> "K"
-        PieceType.QUEEN -> "Q"
-        PieceType.ROOK -> "R"
-        PieceType.BISHOP -> "B"
-        PieceType.KNIGHT -> "N"
-        PieceType.PAWN -> "P"
+private fun ChessPiece.boardSymbol(): String {
+    return when (type) {
+        PieceType.KING -> "♚"
+        PieceType.QUEEN -> "♛"
+        PieceType.ROOK -> "♜"
+        PieceType.BISHOP -> "♝"
+        PieceType.KNIGHT -> "♞"
+        PieceType.PAWN -> "♟"
     }
-    return if (side == ChessSide.WHITE) label else label.lowercase()
 }
 
-private fun pieceTextColor(squareColor: Color): Color =
-    if (squareColor == DarkSquare || squareColor == LastMoveTo) {
+private fun pieceTextColor(side: ChessSide): Color =
+    if (side == ChessSide.WHITE) {
         Color.White
     } else {
-        Color(0xFF171A1C)
+        Color.Black
     }
