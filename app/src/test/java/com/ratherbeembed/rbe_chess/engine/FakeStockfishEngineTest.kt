@@ -33,6 +33,26 @@ class FakeStockfishEngineTest {
     }
 
     @Test
+    fun `legalMoves returns scripted moves for exact history`() = runBlocking {
+        val history = listOf("e2e4", "d7d5")
+        val engine = FakeStockfishEngine(
+            legalMovesByHistory = mapOf(history to setOf("e4d5", "g1f3")),
+        )
+
+        engine.boot()
+
+        assertEquals(setOf("e4d5", "g1f3"), engine.legalMoves(history))
+    }
+
+    @Test
+    fun `legalMoves before boot throws`() {
+        val engine = FakeStockfishEngine()
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { engine.legalMoves(emptyList()) }
+        }
+    }
+
+    @Test
     fun `shutdown then bestMove throws`() {
         val engine = FakeStockfishEngine()
         runBlocking { engine.boot() }

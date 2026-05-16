@@ -309,7 +309,7 @@ All four open questions this file used to track are answered by
 | Question | Resolved by addendum section | Short answer |
 |---|---|---|
 | Stockfish binary source | §"Stockfish Binary Source" | Stockfish 18 Android ARMv8 Dot Product (`sf_18`); fallback plain ARMv8. Record in `app/src/main/jniLibs/README.md` when the `.so` is added. |
-| Engine settings defaults | §"Engine Settings Defaults" | Threads=3, Hash=64 MB, MultiPV=1, Ponder=false, movetime=1000 ms. Run the 20-analysis thermal test before raising. |
+| Engine settings defaults | §"Engine Settings Defaults" | Threads=3, Hash=64 MB, MultiPV=1, Ponder=false, movetime=3000 ms. Raised from 1000 ms after dogfood showed TTS cutting off "played..." before the engine reply. Run the 20-analysis thermal test before raising further. |
 | AccessibilityService UX | §"AccessibilityService UX" | Not required for M1. When added later: explicit consent screen, two-button choice, opens `Settings.ACTION_ACCESSIBILITY_SETTINGS`. |
 
 (The addendum's original "Keyboard grammar v0" question is no longer
@@ -361,7 +361,7 @@ press.
 **Thumb/Space (single tap) — commit and advance:**
 
 1. Apply the entered move to the board state as the opponent's move.
-2. Run Stockfish `go movetime 1000`.
+2. Run Stockfish `go movetime 3000`.
 3. TTS speaks the bestmove (e.g. *"Best move: D2 to D4"*).
 4. **Auto-apply the bestmove** to the board state — the user will play it
    on the physical board next, so the model advances with it.
@@ -455,20 +455,20 @@ the game terminal in Activity state.
 
 ### M4 - keypad move legality guard
 
-The app should reject impossible or illegal keypad-entered moves before
-they reach `MoveHistory` or the next `position startpos moves ...` command.
-On rejection, history must remain unchanged and TTS should say a short
-correction such as "Illegal move." The UI can leave the buffer visible so
-the user can correct it, unless real dogfooding shows that clearing is
-less frustrating.
+Implemented after dogfood found a desync around an illegal waiting move
+while in check. The app now rejects impossible or illegal keypad-entered
+moves before they reach `MoveHistory` or the next `position startpos moves ...`
+bestmove query.
 
-Implementation options:
+Implementation: `StockfishEngine.legalMoves()` asks Stockfish for `go perft 1`
+from the current history and parses the legal UCI moves from the perft output.
+On rejection, history remains unchanged, the input buffer stays intact so the
+user can correct it, and TTS says "Illegal move." The correction is replayable
+through Thumb+Middle.
 
-- Preferred if clean on Android/JVM: a small chess rules library that can
-  load startpos + UCI history, generate legal UCI moves, and classify
-  checkmate/stalemate.
-- Fallback: ask Stockfish for legal moves from the current position and
-  validate the typed UCI against that set.
+Remaining related work belongs to M3: verbal check/checkmate/stalemate state.
+Stockfish can already expose mate information in `info ... score mate ...`,
+but the app does not yet announce ordinary check or terminal states.
 
 ### Repeat-last spoken output
 

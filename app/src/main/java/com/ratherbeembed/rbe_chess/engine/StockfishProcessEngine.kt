@@ -86,6 +86,27 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
         }
     }
 
+    override suspend fun legalMoves(uciMoves: List<String>): Set<String> {
+        check(booted) { "engine not booted; call boot() first" }
+        return lock.withLock {
+            withContext(Dispatchers.IO) {
+                val movesSuffix =
+                    if (uciMoves.isEmpty()) "" else " moves " + uciMoves.joinToString(" ")
+                val moves = mutableSetOf<String>()
+                send("position startpos$movesSuffix")
+                send("go perft 1")
+                withTimeout(5_000L) {
+                    while (true) {
+                        val line = readLineLogged()
+                        UciPerftParser.moveFromLine(line)?.let { moves.add(it) }
+                        if (line.startsWith("Nodes searched:")) break
+                    }
+                }
+                moves
+            }
+        }
+    }
+
     private fun send(cmd: String) {
         val w = writer ?: error("writer is null")
         Log.d(TAG, ">> $cmd")
@@ -95,21 +116,24 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
     }
 
     private fun readUntilEquals(token: String): String {
-        val r = reader ?: error("reader is null")
         while (true) {
-            val line = r.readLine() ?: error("engine stdout closed before '$token'")
-            Log.d(TAG, "<< $line")
+            val line = readLineLogged()
             if (line.trim() == token) return line
         }
     }
 
     private fun readUntilStartsWith(prefix: String): String {
-        val r = reader ?: error("reader is null")
         while (true) {
-            val line = r.readLine() ?: error("engine stdout closed before '$prefix...'")
-            Log.d(TAG, "<< $line")
+            val line = readLineLogged()
             if (line.startsWith(prefix)) return line
         }
+    }
+
+    private fun readLineLogged(): String {
+        val r = reader ?: error("reader is null")
+        val line = r.readLine() ?: error("engine stdout closed")
+        Log.d(TAG, "<< $line")
+        return line
     }
 
     override fun shutdown() {

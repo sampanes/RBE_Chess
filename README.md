@@ -58,7 +58,7 @@ flowchart TD
         bootstrap --> state
 
         state --> engine["StockfishProcessEngine"]
-        engine --> uci["UCI pipe<br/>position startpos moves ...<br/>go movetime 1000"]
+        engine --> uci["UCI pipe<br/>position startpos moves ...<br/>go movetime 3000"]
         uci --> stockfish["libstockfish.so<br/>nativeLibraryDir process"]
         stockfish --> bestmove["bestmove <uci>"]
         bestmove --> speaker["BestMoveSpeaker<br/>SpokenMoveFormatter"]
@@ -166,7 +166,7 @@ loop:
 
 Stockfish is treated as a black-box process. The Android code does not
 implement chess search; it sends `position startpos moves ...` and
-`go movetime 1000`, then waits for `bestmove`.
+`go movetime 3000`, then waits for `bestmove`.
 
 ## Stockfish Binary
 
@@ -240,6 +240,9 @@ Firmware build notes and upload troubleshooting are in
   / 5 % with hysteresis above 30 %.
   Adjacent duplicate keypresses are split across BLE commands so rapid
   repeated taps count without being treated as a held key by Android.
+- Keypad-entered moves are checked against Stockfish legal moves before
+  they enter history. Illegal moves leave the current buffer intact and
+  TTS says "Illegal move."
 - M2 chord paths + start menu + manual toggle + undo + new game are
   hardware-confirmed. Battery reporting is hardware-confirmed.
 - **Remaining hardware gap**: full-game loop (multiple commit cycles

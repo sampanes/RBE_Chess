@@ -33,6 +33,10 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         output.speak(lastReplayable ?: "Nothing to repeat.")
     }
 
+    fun speakIllegalMove(waiting: String) {
+        speakReplayable("Illegal move. $waiting")
+    }
+
     fun rememberPlayedMove(mover: String, uci: String, waiting: String) {
         lastReplayable = playedMoveText(mover, uci, waiting)
     }

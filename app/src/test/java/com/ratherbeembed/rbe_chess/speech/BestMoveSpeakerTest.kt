@@ -79,6 +79,23 @@ class BestMoveSpeakerTest {
     }
 
     @Test
+    fun `illegal move is replayable`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakIllegalMove("Waiting for Opponent Black.")
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Illegal move. Waiting for Opponent Black.",
+                "Illegal move. Waiting for Opponent Black.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
     fun `undo speech does not replace replayable output`() {
         val sink = FakeSpeechSink()
         val speaker = BestMoveSpeaker(sink)
