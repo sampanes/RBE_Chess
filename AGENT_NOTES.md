@@ -440,18 +440,20 @@ no-ops in the menu.
 
 ### M3 - terminal-state handling
 
-The app must recognize finished games instead of treating every Stockfish
-reply as a normal UCI move. `bestmove (none)` is not a move; it means no
-legal move exists in the current position. M3 should make the engine bridge
-return a structured result that can represent a terminal state, speak a
-useful phrase such as "checkmate", "stalemate", or "game over", and stop
-auto-advance/engine queries until Undo or New Game.
+Implemented after M4 so finished games do not corrupt `MoveHistory`.
+The app recognizes `bestmove (none)` as terminal instead of treating it
+as a UCI move. `StockfishEngine.bestMove()` now returns a structured
+`BestMoveResult`: either `Move(uci)` or `Terminal(CHECKMATE/STALEMATE)`.
+The Activity speaks the terminal phrase, records a terminal flag, and
+ignores normal move input until Undo or New Game.
 
-Prefer consuming Stockfish `info ... score mate ...` lines when they are
-available, but do not make mate-info parsing the only path. The minimum
-safe behavior is: if `bestmove (none)` arrives, do not append it to
-`MoveHistory`, do not ask `SpokenMoveFormatter` to pronounce it, and mark
-the game terminal in Activity state.
+Classification: while reading for `bestmove`, `StockfishProcessEngine`
+also watches `info ... score mate ...` lines. If `bestmove (none)` arrives
+after mate info, TTS says "Checkmate." Otherwise it says "Stalemate."
+The terminal phrase is replayable through Thumb+Middle.
+
+Still deferred: ordinary non-terminal "check" announcements and richer
+draw/repetition/50-move detection.
 
 ### M4 - keypad move legality guard
 
@@ -466,9 +468,8 @@ On rejection, history remains unchanged, the input buffer stays intact so the
 user can correct it, and TTS says "Illegal move." The correction is replayable
 through Thumb+Middle.
 
-Remaining related work belongs to M3: verbal check/checkmate/stalemate state.
-Stockfish can already expose mate information in `info ... score mate ...`,
-but the app does not yet announce ordinary check or terminal states.
+Remaining related work: ordinary non-terminal "check" announcements. Terminal
+checkmate/stalemate speech is now handled by M3.
 
 ### Repeat-last spoken output
 

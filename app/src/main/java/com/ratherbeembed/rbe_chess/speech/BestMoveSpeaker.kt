@@ -1,6 +1,7 @@
 package com.ratherbeembed.rbe_chess.speech
 
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
+import com.ratherbeembed.rbe_chess.engine.TerminalState
 
 /**
  * High-level speech facade for the Pocket Mode loop. Owns nothing — composes
@@ -35,6 +36,14 @@ class BestMoveSpeaker(private val output: SpeechSink) {
 
     fun speakIllegalMove(waiting: String) {
         speakReplayable("Illegal move. $waiting")
+    }
+
+    fun speakTerminal(state: TerminalState) {
+        val phrase = when (state) {
+            TerminalState.CHECKMATE -> "Checkmate."
+            TerminalState.STALEMATE -> "Stalemate."
+        }
+        speakReplayable(phrase)
     }
 
     fun rememberPlayedMove(mover: String, uci: String, waiting: String) {

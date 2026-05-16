@@ -244,6 +244,9 @@ Firmware build notes and upload troubleshooting are in
 - Keypad-entered moves are checked against Stockfish legal moves before
   they enter history. Illegal moves leave the current buffer intact and
   TTS says "Illegal move."
+- Terminal positions are handled explicitly: `bestmove (none)` becomes
+  replayable "Checkmate." or "Stalemate." speech instead of a fake move,
+  and normal move input is blocked until Undo or New Game.
 - M2 chord paths + start menu + manual toggle + undo + new game are
   hardware-confirmed. Battery reporting is hardware-confirmed.
 - **Remaining hardware gap**: full-game loop (multiple commit cycles

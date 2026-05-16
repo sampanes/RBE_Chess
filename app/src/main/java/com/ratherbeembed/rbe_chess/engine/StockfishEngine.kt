@@ -24,10 +24,11 @@ interface StockfishEngine {
      *   2. `go movetime <movetimeMs>`
      *   3. block until `bestmove <uci>` arrives
      *
-     * Returns the bestmove UCI string (e.g. `"e2e4"` or `"e7e8q"`).
+     * Returns either a bestmove UCI string (e.g. `"e2e4"` or `"e7e8q"`)
+     * or a terminal result when Stockfish replies `bestmove (none)`.
      * Throws if the engine is not booted or the exchange times out.
      */
-    suspend fun bestMove(uciMoves: List<String>, movetimeMs: Long): String
+    suspend fun bestMove(uciMoves: List<String>, movetimeMs: Long): BestMoveResult
 
     /**
      * Return legal UCI moves from the position reached by [uciMoves].

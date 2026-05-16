@@ -66,7 +66,7 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
         }
     }
 
-    override suspend fun bestMove(uciMoves: List<String>, movetimeMs: Long): String {
+    override suspend fun bestMove(uciMoves: List<String>, movetimeMs: Long): BestMoveResult {
         check(booted) { "engine not booted; call boot() first" }
         return lock.withLock {
             withContext(Dispatchers.IO) {
@@ -74,14 +74,25 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
                     if (uciMoves.isEmpty()) "" else " moves " + uciMoves.joinToString(" ")
                 send("position startpos$movesSuffix")
                 send("go movetime $movetimeMs")
-                val line = withTimeout(movetimeMs + 5_000L) {
-                    readUntilStartsWith("bestmove ")
+                var sawMateScore = false
+                val move: String = withTimeout(movetimeMs + 5_000L) {
+                    while (true) {
+                        val line = readLineLogged()
+                        if (UciBestMoveParser.hasMateScore(line)) {
+                            sawMateScore = true
+                        }
+                        val parsed = UciBestMoveParser.moveFromLine(line)
+                        if (parsed != null) return@withTimeout parsed
+                    }
+                    error("unreachable")
                 }
-                val parts = line.split(' ')
-                require(parts.size >= 2 && parts[0] == "bestmove") {
-                    "malformed bestmove line: '$line'"
+                if (move == "(none)") {
+                    val state =
+                        if (sawMateScore) TerminalState.CHECKMATE else TerminalState.STALEMATE
+                    BestMoveResult.Terminal(state)
+                } else {
+                    BestMoveResult.Move(move)
                 }
-                parts[1]
             }
         }
     }
@@ -119,13 +130,6 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
         while (true) {
             val line = readLineLogged()
             if (line.trim() == token) return line
-        }
-    }
-
-    private fun readUntilStartsWith(prefix: String): String {
-        while (true) {
-            val line = readLineLogged()
-            if (line.startsWith(prefix)) return line
         }
     }
 

@@ -15,7 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.ratherbeembed.rbe_chess.chess.ChessSide
 import com.ratherbeembed.rbe_chess.chess.MoveHistory
+import com.ratherbeembed.rbe_chess.engine.BestMoveResult
 import com.ratherbeembed.rbe_chess.engine.StockfishProcessEngine
+import com.ratherbeembed.rbe_chess.engine.TerminalState
 import com.ratherbeembed.rbe_chess.input.BatteryReportParser
 import com.ratherbeembed.rbe_chess.input.ChessKey
 import com.ratherbeembed.rbe_chess.input.GrammarAction
@@ -54,6 +56,7 @@ class MainActivity : ComponentActivity() {
     private var phase by mutableStateOf<AppPhase>(AppPhase.StartMenu(0))
     private var gameMode by mutableStateOf(GameMode.AutoAdvance)
     private var playerSide by mutableStateOf(ChessSide.WHITE)
+    private var terminalState by mutableStateOf<TerminalState?>(null)
     private var batteryPct by mutableStateOf<Int?>(null)
     private var batteryWarnedLow = false
     private var batteryWarnedCritical = false
@@ -185,6 +188,7 @@ class MainActivity : ComponentActivity() {
         engineJob?.cancel(); engineJob = null
         moveHistory = MoveHistory.EMPTY
         moveBuffer = MoveBuffer.DEFAULT
+        terminalState = null
         playerSide = if (asWhite) ChessSide.WHITE else ChessSide.BLACK
         phase = AppPhase.InGame
         engineStatus = if (asWhite) "Engine: opening as white..." else "Engine: idle"
@@ -205,19 +209,29 @@ class MainActivity : ComponentActivity() {
         engineJob = lifecycleScope.launch {
             try {
                 engine.boot()
-                val best = engine.bestMove(
+                when (val result = engine.bestMove(
                     uciMoves = emptyList(),
                     movetimeMs = ENGINE_MOVETIME_MS,
-                )
-                if (gameMode == GameMode.AutoAdvance) {
-                    moveHistory = MoveHistory.EMPTY.append(best)
-                    speaker.speakPlayedMove(moverLabel(playerSide), best, waitingPhrase())
-                    engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
-                } else {
-                    speaker.speakSuggestionFor(moverLabel(playerSide), best)
-                    engineStatus = "Bootstrap (manual): suggested $best"
+                )) {
+                    is BestMoveResult.Move -> {
+                        val best = result.uci
+                        if (gameMode == GameMode.AutoAdvance) {
+                            moveHistory = MoveHistory.EMPTY.append(best)
+                            speaker.speakPlayedMove(moverLabel(playerSide), best, waitingPhrase())
+                            engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
+                        } else {
+                            speaker.speakSuggestionFor(moverLabel(playerSide), best)
+                            engineStatus = "Bootstrap (manual): suggested $best"
+                        }
+                        Log.d(TAG, "Bootstrap engine move: $best (mode=$gameMode)")
+                    }
+                    is BestMoveResult.Terminal -> {
+                        terminalState = result.state
+                        speaker.speakTerminal(result.state)
+                        engineStatus = "Bootstrap: ${terminalLabel(result.state)}"
+                        Log.d(TAG, "Bootstrap terminal: ${result.state}")
+                    }
                 }
-                Log.d(TAG, "Bootstrap engine move: $best (mode=$gameMode)")
             } catch (t: Throwable) {
                 engineStatus = "Engine error on bootstrap: ${t.message}"
                 Log.e(TAG, "bootstrap failed", t)
@@ -234,6 +248,18 @@ class MainActivity : ComponentActivity() {
             GrammarAction.ToggleManual -> handleToggleManual()
             GrammarAction.RepeatLast -> handleRepeatLast()
             GrammarAction.NewGame -> handleNewGame()
+            else -> {
+                terminalState?.let {
+                    speaker.speakTerminal(it)
+                    return
+                }
+                handleLiveGameAction(action)
+            }
+        }
+    }
+
+    private fun handleLiveGameAction(action: GrammarAction) {
+        when (action) {
             GrammarAction.Commit -> {
                 if (engineJob?.isActive == true) {
                     // Engine is mid-think; ignore so the current buffer
@@ -255,6 +281,10 @@ class MainActivity : ComponentActivity() {
                 handleAction(action, before, after)
             }
             GrammarAction.Ignored -> Unit
+            GrammarAction.Undo,
+            GrammarAction.ToggleManual,
+            GrammarAction.RepeatLast,
+            GrammarAction.NewGame -> Unit
         }
     }
 
@@ -330,25 +360,39 @@ class MainActivity : ComponentActivity() {
         engineStatus = "Engine: thinking on $opponentMove..."
         Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves}, mode=$gameMode)")
         try {
-            val best = engine.bestMove(
+            when (val result = engine.bestMove(
                 uciMoves = historyForEngine.moves,
                 movetimeMs = ENGINE_MOVETIME_MS,
-            )
-            if (gameMode == GameMode.Manual) {
-                moveHistory = historyForEngine
-                speaker.speakPlayedAndSuggestion(
-                    typedMoverLabel,
-                    opponentMove,
-                    moverLabel(sideToMove()),
-                    best,
-                )
-                engineStatus = "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
-                Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
-            } else {
-                moveHistory = historyForEngine.append(best)
-                speaker.speakPlayedMove(moverLabel(nextMover), best, waitingPhrase())
-                engineStatus = "Last: opp=$opponentMove -> engine=$best (${moveHistory.size} plies)"
-                Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
+            )) {
+                is BestMoveResult.Move -> {
+                    val best = result.uci
+                    if (gameMode == GameMode.Manual) {
+                        moveHistory = historyForEngine
+                        speaker.speakPlayedAndSuggestion(
+                            typedMoverLabel,
+                            opponentMove,
+                            moverLabel(sideToMove()),
+                            best,
+                        )
+                        engineStatus =
+                            "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
+                        Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
+                    } else {
+                        moveHistory = historyForEngine.append(best)
+                        speaker.speakPlayedMove(moverLabel(nextMover), best, waitingPhrase())
+                        engineStatus =
+                            "Last: opp=$opponentMove -> engine=$best (${moveHistory.size} plies)"
+                        Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
+                    }
+                }
+                is BestMoveResult.Terminal -> {
+                    moveHistory = historyForEngine
+                    terminalState = result.state
+                    speaker.speakTerminal(result.state)
+                    engineStatus =
+                        "${terminalLabel(result.state)} after $opponentMove (${moveHistory.size} plies)"
+                    Log.d(TAG, "Terminal after $opponentMove: ${result.state} history=${moveHistory.moves}")
+                }
             }
         } catch (t: Throwable) {
             engineStatus = "Engine error after $opponentMove: ${t.message}"
@@ -365,6 +409,7 @@ class MainActivity : ComponentActivity() {
         engineJob?.cancel(); engineJob = null
         moveHistory = moveHistory.undoLastPair()
         moveBuffer = MoveBuffer.DEFAULT
+        terminalState = null
         speaker.speakUndo(waitingPhrase())
         rememberCurrentPositionForRepeat()
         engineStatus = "Undo: history=${moveHistory.size} plies"
@@ -384,6 +429,7 @@ class MainActivity : ComponentActivity() {
         engineJob?.cancel(); engineJob = null
         moveHistory = MoveHistory.EMPTY
         moveBuffer = MoveBuffer.DEFAULT
+        terminalState = null
         phase = AppPhase.StartMenu(0)
         engineStatus = "Engine: idle"
         speaker.speakMenuOption("New game. ${START_MENU_OPTIONS[0]}")
@@ -423,6 +469,12 @@ class MainActivity : ComponentActivity() {
         val color = if (side == ChessSide.WHITE) "White" else "Black"
         return if (side == playerSide) "Your $color" else "Opponent $color"
     }
+
+    private fun terminalLabel(state: TerminalState): String =
+        when (state) {
+            TerminalState.CHECKMATE -> "Checkmate"
+            TerminalState.STALEMATE -> "Stalemate"
+        }
 
     private fun waitingPhrase(): String = "Waiting for ${moverLabel(sideToMove())}."
 

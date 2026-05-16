@@ -7,7 +7,8 @@ package com.ratherbeembed.rbe_chess.engine
  * supplied; falls back to "e2e4" once the script is exhausted.
  */
 class FakeStockfishEngine(
-    private val script: List<String> = listOf("e2e4", "g1f3"),
+    private val script: List<BestMoveResult> =
+        listOf(BestMoveResult.Move("e2e4"), BestMoveResult.Move("g1f3")),
     private val legalMovesByHistory: Map<List<String>, Set<String>> = emptyMap(),
     private val defaultLegalMoves: Set<String> = setOf("e2e4", "d2d4", "g1f3"),
 ) : StockfishEngine {
@@ -19,7 +20,7 @@ class FakeStockfishEngine(
         booted = true
     }
 
-    override suspend fun bestMove(uciMoves: List<String>, movetimeMs: Long): String {
+    override suspend fun bestMove(uciMoves: List<String>, movetimeMs: Long): BestMoveResult {
         check(booted) { "engine not booted" }
         val move = script.getOrElse(idx) { FALLBACK }
         idx += 1
@@ -36,6 +37,6 @@ class FakeStockfishEngine(
     }
 
     companion object {
-        private const val FALLBACK = "e2e4"
+        private val FALLBACK = BestMoveResult.Move("e2e4")
     }
 }

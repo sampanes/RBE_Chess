@@ -1,5 +1,6 @@
 package com.ratherbeembed.rbe_chess.speech
 
+import com.ratherbeembed.rbe_chess.engine.TerminalState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -90,6 +91,23 @@ class BestMoveSpeakerTest {
             listOf(
                 "Illegal move. Waiting for Opponent Black.",
                 "Illegal move. Waiting for Opponent Black.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
+    fun `terminal state is replayable`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakTerminal(TerminalState.CHECKMATE)
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Checkmate.",
+                "Checkmate.",
             ),
             sink.spoken,
         )

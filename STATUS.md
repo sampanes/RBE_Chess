@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (firmware v8 changes battery HID telemetry from idle timer pushes to input-gated reports.)
+Last updated: 2026-05-16 (M3 terminal handling landed: Stockfish `bestmove (none)` now speaks checkmate/stalemate instead of mutating history.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -31,6 +31,10 @@ as session-priority cleanup before doing other work.
   idle timer heartbeats. Once the battery interval is due, the next real
   button/chord queues the report behind that input. Pending flash and
   hardware verification.
+- **Current code addition:** M3 terminal handling. The engine bridge now
+  returns `BestMoveResult.Move` or `BestMoveResult.Terminal`; `bestmove
+  (none)` speaks replayable "Checkmate." or "Stalemate.", does not append
+  `(none)` to history, and blocks normal move input until Undo/New Game.
 - **Last completed (code):** M2 — Thumb-as-modifier chord support
   (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
   `RBE Keypad v2`). Held Thumb + cycler emits a distinct HID letter:
@@ -185,17 +189,13 @@ Landed after M2:
   waiting moves from desyncing app history from Stockfish's actual
   position; the dogfood trigger was `e2e4 d7d5 e4d5 e8d7 g1f3 e7e5
   d5e6 a7a5`, where black was in check and `a7a5` was illegal.
+- **M3 terminal handling.** Stockfish `bestmove (none)` is parsed as a
+  terminal state instead of a move. Mate-score info classifies checkmate;
+  otherwise the app calls it stalemate. Terminal positions speak a
+  replayable phrase and stop normal move input until Undo/New Game.
 
 What's still deferred:
 
-- **M3 - terminal-state handling.** Detect when the current position is
-  over instead of treating `bestmove (none)` like a normal move. Acceptance:
-  app says a useful terminal phrase ("checkmate", "stalemate", or "game
-  over"), does not auto-append `(none)`, stops asking Stockfish for moves
-  until Undo/New Game, and keeps the visible board/history intact. Cheapest
-  first pass: make the engine bridge return a structured result that can
-  represent `bestmove (none)` and consume Stockfish `info ... mate ...`
-  lines where available.
 - **Battery telemetry smoothing.** A transient `0%` followed by a normal
   value should not immediately fire a critical warning. Require repeated
   low samples or firmware-side averaged/median ADC reads before speaking
@@ -207,10 +207,9 @@ What's still deferred:
   redundant with New Game — the app doesn't track win/loss, and
   ending a game means starting another. Revisit if/when scoring or
   game-history persistence shows up.
-- **Terminal-position detection.** Notice checkmate, stalemate, and
-  forced draws automatically. Stockfish already reports mate in its
-  `info` lines; cheapest path is probably to consume those rather
-  than ship our own rules engine.
+- **Ordinary check / richer draw detection.** Terminal checkmate/stalemate
+  is handled, but non-terminal "check" announcements and forced draw /
+  repetition / 50-move detection are still future work.
 
 Further out: clock / time control, draw offers, takebacks,
 PGN/FEN export, opening book.
@@ -220,7 +219,7 @@ PGN/FEN export, opening book.
 | Surface | Status | Note |
 |---|---|---|
 | `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after M4 legality guard |
-| `:app:testDebugUnitTest` | 82 / 82 green | includes `BoardProjectorTest` (7), `BestMoveSpeakerTest` (8), and `UciPerftParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `:app:testDebugUnitTest` | 88 / 88 green | includes `BoardProjectorTest` (7), `BestMoveSpeakerTest` (9), `UciPerftParserTest` (3), and `UciBestMoveParserTest` (4); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

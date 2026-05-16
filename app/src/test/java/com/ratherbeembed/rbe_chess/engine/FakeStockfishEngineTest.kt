@@ -17,19 +17,42 @@ class FakeStockfishEngineTest {
 
     @Test
     fun `boot then bestMove returns scripted moves in order`() = runBlocking {
-        val engine = FakeStockfishEngine(script = listOf("e2e4", "g1f3", "f1c4"))
+        val engine = FakeStockfishEngine(
+            script = listOf(
+                BestMoveResult.Move("e2e4"),
+                BestMoveResult.Move("g1f3"),
+                BestMoveResult.Move("f1c4"),
+            ),
+        )
         engine.boot()
-        assertEquals("e2e4", engine.bestMove(emptyList(), 100))
-        assertEquals("g1f3", engine.bestMove(listOf("e2e4", "e7e5"), 100))
-        assertEquals("f1c4", engine.bestMove(listOf("e2e4", "e7e5", "g1f3", "b8c6"), 100))
+        assertEquals(BestMoveResult.Move("e2e4"), engine.bestMove(emptyList(), 100))
+        assertEquals(BestMoveResult.Move("g1f3"), engine.bestMove(listOf("e2e4", "e7e5"), 100))
+        assertEquals(
+            BestMoveResult.Move("f1c4"),
+            engine.bestMove(listOf("e2e4", "e7e5", "g1f3", "b8c6"), 100),
+        )
     }
 
     @Test
     fun `bestMove past script falls back to e2e4`() = runBlocking {
-        val engine = FakeStockfishEngine(script = listOf("a2a3"))
+        val engine = FakeStockfishEngine(script = listOf(BestMoveResult.Move("a2a3")))
         engine.boot()
-        assertEquals("a2a3", engine.bestMove(emptyList(), 100))
-        assertEquals("e2e4", engine.bestMove(emptyList(), 100))
+        assertEquals(BestMoveResult.Move("a2a3"), engine.bestMove(emptyList(), 100))
+        assertEquals(BestMoveResult.Move("e2e4"), engine.bestMove(emptyList(), 100))
+    }
+
+    @Test
+    fun `bestMove can return terminal result`() = runBlocking {
+        val engine = FakeStockfishEngine(
+            script = listOf(BestMoveResult.Terminal(TerminalState.CHECKMATE)),
+        )
+
+        engine.boot()
+
+        assertEquals(
+            BestMoveResult.Terminal(TerminalState.CHECKMATE),
+            engine.bestMove(listOf("f2f3", "e7e5", "g2g4", "d8h4"), 100),
+        )
     }
 
     @Test
@@ -67,6 +90,6 @@ class FakeStockfishEngineTest {
         val engine = FakeStockfishEngine()
         engine.boot()
         engine.boot()
-        assertEquals("e2e4", engine.bestMove(emptyList(), 100))
+        assertEquals(BestMoveResult.Move("e2e4"), engine.bestMove(emptyList(), 100))
     }
 }
