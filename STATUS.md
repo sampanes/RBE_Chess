@@ -19,7 +19,10 @@ as session-priority cleanup before doing other work.
 - **Current code addition:** repeat-last spoken output. Firmware v6 maps
   Thumb+Middle to `R`; the app maps `KEYCODE_R` to `RepeatLast` and
   replays the last replayable spoken move/status without changing
-  history. Hardware flash/verification pending.
+  history. Dogfood follow-up: repeated Android key-downs for keypad
+  keys are now consumed/ignored to stop accidental full-speed cycler
+  rotation, and Undo leaves replay memory on the current board state
+  rather than the undo action. Hardware flash/verification pending.
 - **Last completed (code):** M2 — Thumb-as-modifier chord support
   (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
   `RBE Keypad v2`). Held Thumb + cycler emits a distinct HID letter:
@@ -36,7 +39,7 @@ as session-priority cleanup before doing other work.
   move. Undo cancels in-flight engine work, drops the last pair of
   plies (or one if odd), clears the buffer, says "Undid last move."
   New-game chord cancels engine work, clears history, returns to the
-  start menu. JVM: 73 / 73 tests green; `assembleDebug` green.
+  start menu. JVM: 77 / 77 tests green; `assembleDebug` green.
 - **Next:** flash firmware v6 (`RBE_32u4_chess.ino`), confirm 6 LED
   blinks on boot + BLE name `v6`, re-pair phone if needed. Then on the
   S22 Ultra: verify M1 step 4 (commit → engine → bestmove + auto-
@@ -196,7 +199,7 @@ PGN/FEN export, opening book.
 | Surface | Status | Note |
 |---|---|---|
 | `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after repeat-last speech mapping |
-| `:app:testDebugUnitTest` | 73 / 73 green | includes `BoardProjectorTest` (7) and `BestMoveSpeakerTest` (4); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `:app:testDebugUnitTest` | 77 / 77 green | includes `BoardProjectorTest` (7) and `BestMoveSpeakerTest` (7); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
