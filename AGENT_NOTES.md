@@ -271,10 +271,22 @@ Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
 
 - True screen-off input via `AccessibilityService` (experimental — addendum
   §"True Screen-Off Mode: Experimental").
+- If true screen-off remains infeasible and Pocket Mode continues to be
+  "black/backlight-low screen still technically on", add a deliberate soft
+  screen lock. Current tap-anywhere exit is too easy to trigger in a pocket.
+  Candidate unlock/exit gestures to dogfood: double tap, long press in a
+  specific corner/area, or a volume key. Treat this as nice-to-have fallback
+  polish, not the main gameplay blocker.
 - Foreground service + wake locks (only if screen-off path is pursued).
 - Tappable board input, FEN/PGN, MultiPV, etc. (handoff M4+ and §Future
   Enhancements). A minimal display-only Compose board viewer shipped
   post-M2.
+- Board readability is now higher priority than Pocket Mode polish. Since
+  the app may be used without another person or real pieces present, improve
+  the in-app board so state is easier to see at a glance. Useful next pass:
+  more realistic/legible pieces, stronger move highlights, and a pending
+  entered-move arrow during the short gap after Thumb commit while legality
+  checking / Stockfish thinking is in progress and before history updates.
 
 ---
 
