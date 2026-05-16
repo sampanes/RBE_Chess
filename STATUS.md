@@ -214,6 +214,15 @@ What's still deferred:
 Further out: clock / time control, draw offers, takebacks,
 PGN/FEN export, opening book.
 
+## M5 implementation checklist — Autocomplete & Predictive Entry
+
+- [ ] **A1** `MoveBuffer.copyFromEngine(uci)` implementation.
+- [ ] **E1** `StockfishProcessEngine.getBestMoveForSquare(history, fromSquare)` using `search` filter.
+- [ ] **A2** Predictive Trigger: Trigger engine query once `from` coordinates are fixed; update `to` buffer on result.
+- [ ] **A3** Forced Move Detection: After each ply, check for `count(legalMoves) == 1`.
+- [ ] **S1** Read Autocomplete: Update `BestMoveSpeaker.speakInactivityPrompt` to announce suggestions/forced moves.
+- [ ] **A4** Manual Mode guard: Ensure autocomplete never auto-commits; behaves as advisory in Manual mode.
+
 ## Verification status
 
 | Surface | Status | Note |
