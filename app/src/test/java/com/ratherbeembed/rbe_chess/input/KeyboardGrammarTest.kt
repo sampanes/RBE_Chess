@@ -1,9 +1,6 @@
 package com.ratherbeembed.rbe_chess.input
 
-import android.view.KeyEvent
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KeyboardGrammarTest {
@@ -106,11 +103,4 @@ class KeyboardGrammarTest {
         assertEquals(populated, KeyboardGrammar.apply(GrammarAction.RepeatLast, populated))
     }
 
-    @Test
-    fun `hardware repeat guard ignores repeated chess keys only`() {
-        assertFalse(HardwareKeyboardHandler.shouldIgnoreRepeat(KeyEvent.KEYCODE_D, repeatCount = 0))
-        assertTrue(HardwareKeyboardHandler.shouldIgnoreRepeat(KeyEvent.KEYCODE_D, repeatCount = 1))
-        assertTrue(HardwareKeyboardHandler.shouldIgnoreRepeat(KeyEvent.KEYCODE_R, repeatCount = 2))
-        assertFalse(HardwareKeyboardHandler.shouldIgnoreRepeat(KeyEvent.KEYCODE_A, repeatCount = 1))
-    }
 }

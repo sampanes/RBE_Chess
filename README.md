@@ -140,7 +140,7 @@ from pin to ground using internal pull-ups:
 
 Firmware blinks `FIRMWARE_VERSION` on boot and advertises as
 `RBE Keypad v<N>`, making it possible to confirm which sketch is flashed
-without a USB serial session. (Current version is 6.)
+without a USB serial session. (Current version is 7.)
 
 Battery is sampled from the A9 voltage divider, converted to a 0–100 %
 piecewise-linear Li-Po estimate, and pushed once per minute as four HID
@@ -232,12 +232,14 @@ Firmware build notes and upload troubleshooting are in
 
 - Pocket Mode black screen, brightness dimming, and Activity-scoped
   keyboard capture are implemented.
-- Firmware v6: finger-labeled cycler keys, Thumb-as-modifier chords
+- Firmware v7: finger-labeled cycler keys, Thumb-as-modifier chords
   (Pinky/Ring/Middle/Index emit `U`/`M`/`R`/`N` HID), and battery reports via the HID stream
   (`B` + 3 zero-padded ASCII digits, once per minute). The app
   parses the reports out of the keystream and shows
   `Keypad battery: NN%` on the normal screen; TTS warns below 20 %
   / 5 % with hysteresis above 30 %.
+  Adjacent duplicate keypresses are split across BLE commands so rapid
+  repeated taps count without being treated as a held key by Android.
 - M2 chord paths + start menu + manual toggle + undo + new game are
   hardware-confirmed. Battery reporting is hardware-confirmed.
 - **Remaining hardware gap**: full-game loop (multiple commit cycles

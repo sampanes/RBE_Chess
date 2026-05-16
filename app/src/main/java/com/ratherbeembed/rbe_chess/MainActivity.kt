@@ -112,10 +112,6 @@ class MainActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
             val key = HardwareKeyboardHandler.toChessKey(event.keyCode)
-            if (HardwareKeyboardHandler.shouldIgnoreRepeat(event.keyCode, event.repeatCount)) {
-                Log.d(TAG, "Ignored repeated keyDown: keyCode=${event.keyCode}")
-                return true
-            }
 
             // Battery reports (firmware v5: 'B' + 3 digits) are filtered
             // out before the chess grammar sees them. The parser bails

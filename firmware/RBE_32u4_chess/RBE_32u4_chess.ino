@@ -2,7 +2,7 @@
 // many times on boot, and setup_helper.h appends "v<N>" to the BLE device
 // name. Together they let you verify *from outside* whether the chip is
 // running the bits you think it is, no USB cable required.
-#define FIRMWARE_VERSION 6
+#define FIRMWARE_VERSION 7
 
 #include "setup_helper.h"
 
@@ -246,12 +246,18 @@ void enqueueKey(char c)
 }
 
 // Pop up to (maxLen-1) chars into dest, NUL-terminated. Returns count.
+// Adjacent duplicate chars are intentionally split across BLE commands:
+// AT+BleKeyboard=DD can be interpreted by Android as a held key / repeat,
+// but two separate AT+BleKeyboard=D sends are counted as two deliberate taps.
 uint8_t drainKeysToBatch(char* dest, uint8_t maxLen)
 {
   uint8_t n = 0;
   while (n < (uint8_t)(maxLen - 1) && !keyFifoEmpty())
   {
-    dest[n++] = keyFifo[keyFifoHead];
+    char c = keyFifo[keyFifoHead];
+    if (n > 0 && c == dest[n - 1]) break;
+
+    dest[n++] = c;
     keyFifoHead = (uint8_t)((keyFifoHead + 1) % KEY_FIFO_SIZE);
   }
   dest[n] = '\0';
