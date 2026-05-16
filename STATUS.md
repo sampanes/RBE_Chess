@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-15 (Repeat-last speech implemented in app + firmware v6 mapping; hardware flash/verification still pending. Firmware v5 battery reporting was hardware-confirmed.)
+Last updated: 2026-05-15 (Firmware v7 splits adjacent duplicate keypresses across BLE commands so rapid repeated taps count without Android held-key repeats. Hardware flash/verification pending.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -16,12 +16,12 @@ as session-priority cleanup before doing other work.
 - **In flight:** hardware verification of both M1 step 4 AND M2 — both
   layers ship together since M2 keys the firmware-v2 chords through the
   same Thumb/Space commit path step 4 introduced.
-- **Current code addition:** repeat-last spoken output. Firmware v6 maps
-  Thumb+Middle to `R`; the app maps `KEYCODE_R` to `RepeatLast` and
-  replays the last replayable spoken move/status without changing
-  history. Dogfood follow-up: repeated Android key-downs for keypad
-  keys are now consumed/ignored to stop accidental full-speed cycler
-  rotation, and Undo leaves replay memory on the current board state
+- **Current code addition:** firmware v7 repeated-key batching fix.
+  Adjacent duplicate queued keypresses are split across BLE commands
+  instead of sent as `AT+BleKeyboard=DD...`, which keeps rapid human
+  repeated taps countable without Android treating them as a held key.
+  The app-side repeat skip was removed because it dropped legitimate
+  fast taps. Undo still leaves repeat memory on the current board state
   rather than the undo action. Hardware flash/verification pending.
 - **Last completed (code):** M2 — Thumb-as-modifier chord support
   (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
@@ -39,9 +39,9 @@ as session-priority cleanup before doing other work.
   move. Undo cancels in-flight engine work, drops the last pair of
   plies (or one if odd), clears the buffer, says "Undid last move."
   New-game chord cancels engine work, clears history, returns to the
-  start menu. JVM: 77 / 77 tests green; `assembleDebug` green.
-- **Next:** flash firmware v6 (`RBE_32u4_chess.ino`), confirm 6 LED
-  blinks on boot + BLE name `v6`, re-pair phone if needed. Then on the
+  start menu. JVM: 76 / 76 tests green; `assembleDebug` green.
+- **Next:** flash firmware v7 (`RBE_32u4_chess.ino`), confirm 7 LED
+  blinks on boot + BLE name `v7`, re-pair phone if needed. Then on the
   S22 Ultra: verify M1 step 4 (commit → engine → bestmove + auto-
   advance) AND M2/repeat (chord paths actually deliver `U`/`M`/`R`/`N`
   HID keys; start menu navigates; undo/manual/repeat/new-game all do the right thing
@@ -133,8 +133,11 @@ Single new piece of work post-M2. Three attempts:
   back above 30 %. `FIRMWARE_VERSION` 4 → 5 (5-blink boot,
   `RBE Keypad v5` BLE name).
 - **v6 (repeat chord)**: keep v5 battery behavior and map
-  Thumb+Middle to `R` for repeat-last spoken output. Hardware
-  flash/verification pending.
+  Thumb+Middle to `R` for repeat-last spoken output.
+- **v7 (duplicate-key batching fix)**: keep v6 behavior but split
+  adjacent duplicate queued keys across separate `AT+BleKeyboard=...`
+  commands. This preserves fast repeated cycler taps while avoiding
+  Android held-key repeat behavior. Hardware flash/verification pending.
 
 The custom-GATT BAS path (`AT+GATTADDSERVICE` + `AT+GATTADDCHAR`)
 remains an option if we ever want Android's Settings UI to show the
@@ -157,6 +160,9 @@ Landed after M2:
 - **Repeat-last spoken output.** Firmware v6 maps Thumb+Middle to `R`;
   the app maps it to `RepeatLast` and replays the last replayable
   spoken move/status without changing history or querying Stockfish.
+- **Duplicate-key batching fix.** Firmware v7 splits adjacent duplicate
+  keypresses across BLE commands so rapid repeated cycler taps count
+  without app-side repeat suppression.
 
 What's still deferred:
 
@@ -198,8 +204,8 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after repeat-last speech mapping |
-| `:app:testDebugUnitTest` | 77 / 77 green | includes `BoardProjectorTest` (7) and `BestMoveSpeakerTest` (7); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-15 after duplicate-key batching fix |
+| `:app:testDebugUnitTest` | 76 / 76 green | includes `BoardProjectorTest` (7) and `BestMoveSpeakerTest` (7); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

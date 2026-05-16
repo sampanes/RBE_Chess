@@ -66,6 +66,12 @@ Cycler keys (Pinky / Ring / Middle / Index, emitted as HID `D` / `F` /
 `J` / `K`) still emit immediately on press when Thumb/Space is **not**
 held, so move input feels as snappy as v1.
 
+Firmware v7 keeps queued input non-blocking but avoids sending adjacent
+duplicate characters in the same `AT+BleKeyboard=...` command. For
+example, five fast Pinky taps are sent as five separate `D` commands
+rather than one `DDDDD` batch, so Android counts deliberate taps instead
+of treating the key as held/repeating.
+
 ### Battery reporting via the HID stream (v5)
 
 The standard BLE Battery Service path (`AT+BLEBATTEN=on`) is **not

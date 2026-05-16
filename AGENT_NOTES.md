@@ -422,6 +422,13 @@ the same hold are silently ignored (prevents double-fires from
 slightly-rolling chord gestures). Release Thumb/Space and re-hold to fire
 another chord.
 
+Firmware v7 keeps the non-blocking FIFO but splits adjacent duplicate
+queued keys across separate `AT+BleKeyboard=...` commands. This is
+intentional: batching `DDDDD` can make Android treat the key as held and
+emit full-speed repeats, while separate `D` sends preserve each deliberate
+human tap. Do not reintroduce app-side repeat suppression for cycler keys;
+it makes fast counted input land short.
+
 App routing: see `MainActivity.handleGameKey` / `handleMenuKey`. In
 StartMenu state, Ring/Middle navigate, Thumb/Space selects, and
 Thumb+Middle repeats the last spoken option/status. Other chord keys are
