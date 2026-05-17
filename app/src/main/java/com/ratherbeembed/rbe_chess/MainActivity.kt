@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "RBE_CHESS"
 private const val INACTIVITY_PROMPT_MS = 2_500L
-private const val ENGINE_MOVETIME_MS = 3_000L
+private const val ENGINE_MOVETIME_MS = 4_000L
 private const val AUTOFILL_MOVETIME_MS = 600L
 private const val SOURCE_AUTOFILL_DELAY_MS = INACTIVITY_PROMPT_MS
 private const val AUTOFILL_SCORE_MARGIN_CP = 100

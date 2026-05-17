@@ -38,8 +38,8 @@ Use this file first after a context reset, then read `STATUS.md` and
   game immediately instead of asking for another move. Manual-mode suggestions
   prefill the buffer, and AutoAdvance replies plus forced/suggestion autofill
   speech queue behind the current move phrase instead of interrupting it.
-- Engine bestmove think time was already 3 seconds (`ENGINE_MOVETIME_MS =
-  3000`); no code bump was needed for that dogfood note.
+- Engine bestmove think time is now 4 seconds (`ENGINE_MOVETIME_MS = 4000`)
+  after dogfood showed the slower cadence feels better.
 
 ## Recent Commits
 
@@ -65,6 +65,8 @@ Use this file first after a context reset, then read `STATUS.md` and
   pacing: `.\gradlew.bat test` passed.
 - After dogfood fixes for autocomplete timing / terminal state / speech
   pacing: `.\gradlew.bat assembleDebug` passed.
+- After 4 s engine movetime bump: `.\gradlew.bat test` passed.
+- After 4 s engine movetime bump: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 

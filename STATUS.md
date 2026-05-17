@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (dogfood fixes for autocomplete timing, terminal state, and speech pacing.)
+Last updated: 2026-05-17 (engine movetime bumped to 4 seconds and verified.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -67,14 +67,14 @@ as session-priority cleanup before doing other work.
 - **Next:** dogfood the M5/check fixes on-device with the mini keyboard, then
   hardware. Check that source-square autocomplete waits while scrolling,
   forced autofill waits for the move phrase, manual suggestions start at the
-  suggested move, terminal mates/stalemates stop the game, and the existing
-  3 s engine movetime feels right. After that, move to board readability or
+  suggested move, terminal mates/stalemates stop the game, and the 4 s engine
+  movetime feels right. After that, move to board readability or
   Pocket Mode soft-lock polish based on whichever still hurts dogfood more.
 - **Recent code addition:** M4 legality guard. Before appending a typed
   move, the app asks Stockfish for legal moves from the current history
   via `go perft 1`. Illegal moves leave history unchanged, keep the
   typed buffer intact, and speak "Illegal move" without replacing the
-  repeat-last board event. Engine think time is now 3 s instead of 1 s to
+  repeat-last board event. Engine think time is now 4 s instead of 1 s to
   reduce TTS cutoffs between "played..." and the engine reply.
 
 ## M1 implementation checklist
@@ -269,7 +269,7 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after dogfood fixes |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after 4 s movetime bump |
 | `:app:testDebugUnitTest` | 123 / 123 green | includes `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (14), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
