@@ -21,9 +21,17 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         output.speak(text)
     }
 
-    private fun speakBoardEvent(text: String) {
+    private fun speakQueued(text: String) {
+        output.speakQueued(text)
+    }
+
+    private fun speakBoardEvent(text: String, queued: Boolean = false) {
         lastBoardEvent = text
-        output.speak(text)
+        if (queued) {
+            output.speakQueued(text)
+        } else {
+            output.speak(text)
+        }
     }
 
     private fun speakStatusEvent(text: String) {
@@ -42,6 +50,17 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         return "$mover played $move.$check $waiting"
     }
 
+    private fun playedTerminalText(mover: String, uci: String, state: TerminalState): String {
+        val move = SpokenMoveFormatter.spokenUciMove(uci)
+        return "$mover played $move. ${terminalText(state)}"
+    }
+
+    private fun terminalText(state: TerminalState): String =
+        when (state) {
+            TerminalState.CHECKMATE -> "Checkmate."
+            TerminalState.STALEMATE -> "Stalemate."
+        }
+
     fun repeatLast() {
         output.speak(lastBoardEvent ?: lastStatusEvent ?: "Nothing to repeat.")
     }
@@ -51,11 +70,7 @@ class BestMoveSpeaker(private val output: SpeechSink) {
     }
 
     fun speakTerminal(state: TerminalState) {
-        val phrase = when (state) {
-            TerminalState.CHECKMATE -> "Checkmate."
-            TerminalState.STALEMATE -> "Stalemate."
-        }
-        speakBoardEvent(phrase)
+        speakBoardEvent(terminalText(state))
     }
 
     fun rememberPlayedMove(mover: String, uci: String, waiting: String) {
@@ -96,8 +111,18 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         uci: String,
         waiting: String,
         givesCheck: Boolean = false,
+        queued: Boolean = false,
     ) {
-        speakBoardEvent(playedMoveText(mover, uci, waiting, givesCheck))
+        speakBoardEvent(playedMoveText(mover, uci, waiting, givesCheck), queued)
+    }
+
+    fun speakPlayedTerminal(
+        mover: String,
+        uci: String,
+        state: TerminalState,
+        queued: Boolean = false,
+    ) {
+        speakBoardEvent(playedTerminalText(mover, uci, state), queued)
     }
 
     /** Spoken in manual mode where the engine's pick is advisory only. */
@@ -172,7 +197,7 @@ class BestMoveSpeaker(private val output: SpeechSink) {
 
     fun speakAutofill(uci: String, reason: String) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
-        speak("$reason: $move.")
+        speakQueued("$reason: $move.")
     }
 
     fun speakBatteryWarning(critical: Boolean) {

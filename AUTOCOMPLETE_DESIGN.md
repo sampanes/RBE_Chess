@@ -9,10 +9,11 @@ Instead of defaulting to `a1` when a user starts a move, the app should predict 
 
 ### Mechanism
 1.  **Trigger:** When the user provides both `fromFile` and `fromRank` (i.e., after the second button press in a move sequence).
-2.  **Engine Query:** The app sends the current `MoveHistory` plus the partial "from" coordinate to Stockfish.
-3.  **Selection:** Stockfish identifies the "best move" starting from that square.
-4.  **Autofill:** The `MoveBuffer`'s `toFileIdx` and `toRankIdx` are updated to match the engine's suggested target.
-5.  **User Flow:**
+2.  **Debounce:** The app waits for the inactivity-prompt delay before querying, so normal scrolling can pass through a source square without autocomplete firing.
+3.  **Engine Query:** The app sends the current `MoveHistory` plus the partial "from" coordinate to Stockfish.
+4.  **Selection:** Stockfish identifies the "best move" starting from that square.
+5.  **Autofill:** The `MoveBuffer`'s coordinates are updated to match the engine's suggested target.
+6.  **User Flow:**
     *   If the user agrees with the prediction, they just hit **Thumb (Commit)**.
     *   If they want a different move, they use **Middle (to-file)** or **Index (to-rank)** to override the prediction.
 
@@ -30,6 +31,10 @@ The second implementation adds that "basically one good move" behavior with
 explicit score comparison. When multiple legal candidates remain, the app asks
 Stockfish to search the candidates and only autofills if the best move beats
 the runner-up by the configured centipawn margin.
+
+Autofill announcements are queued behind the current board-move phrase so a
+forced/suggested move does not cut off the move that caused it. AutoAdvance
+engine replies use the same queued path when they follow a typed move.
 
 ## 2. Feature: Forced Move Detection & "Read Autocomplete"
 
@@ -54,6 +59,9 @@ Autocomplete must respect the user's `GameMode` (AutoAdvance vs. Manual):
 | **Forced Move (Opponent)** | Announces "[Move] is forced"; auto-appends both. | Announces "[Move] is forced"; waits for user to manually type/commit. |
 
 In **Manual Mode**, the autocomplete acts as a **non-binding suggestion**. It saves the user from cycling through 8 ranks/files if they happen to agree with the engine, but it never moves a piece without a final "Commit" press from the user.
+
+When the engine gives a manual-mode suggestion, the app prefills the buffer at
+that move rather than leaving the user at `a1a1`.
 
 ## 3. Technical Implementation Details
 

@@ -14,7 +14,9 @@ Use this file first after a context reset, then read `STATUS.md` and
   entry if exactly one legal move starts from that source. If multiple
   candidates remain, the app asks Stockfish for scored candidates with
   `searchmoves` / `MultiPV` and autofills only when the best move clears the
-  configured score margin.
+  configured score margin. Source-square autocomplete is debounced by the
+  inactivity-prompt delay so normal scrolling can pass through suggestible
+  squares before the engine fills the target.
 - A no-hardware mini 5-button keyboard simulator is implemented. The tiny
   `Mini off` / `Mini on` toggle appears on both the start menu and normal
   in-game screen. When enabled, P/R/M/I/T inject the same app keys as the
@@ -31,6 +33,13 @@ Use this file first after a context reset, then read `STATUS.md` and
   and AutoAdvance engine replies; "Check" is part of the replayable move
   phrase. Evaluation-based autocomplete is implemented but still needs
   on-device dogfood before tuning the margin or calling it done.
+- Terminal state is now checked after every appended move, including
+  AutoAdvance engine replies, so engine-delivered mate/stalemate stops the
+  game immediately instead of asking for another move. Manual-mode suggestions
+  prefill the buffer, and AutoAdvance replies plus forced/suggestion autofill
+  speech queue behind the current move phrase instead of interrupting it.
+- Engine bestmove think time was already 3 seconds (`ENGINE_MOVETIME_MS =
+  3000`); no code bump was needed for that dogfood note.
 
 ## Recent Commits
 
@@ -52,6 +61,10 @@ Use this file first after a context reset, then read `STATUS.md` and
 - After score-gap autocomplete: `.\gradlew.bat assembleDebug` passed.
 - After ordinary check announcements: `.\gradlew.bat test` passed.
 - After ordinary check announcements: `.\gradlew.bat assembleDebug` passed.
+- After dogfood fixes for autocomplete timing / terminal state / speech
+  pacing: `.\gradlew.bat test` passed.
+- After dogfood fixes for autocomplete timing / terminal state / speech
+  pacing: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
@@ -60,8 +73,10 @@ Use this file first after a context reset, then read `STATUS.md` and
 1. Install/dogfood full M5 autocomplete with the mini keyboard first, then
    repeat with hardware. Check forced whole-move autofill,
    source-square-only-move autofill, score-gap suggestion autofill, first tap
-   reads preset values, second tap advances, Thumb still must commit, and
-   ordinary checks are spoken after checking moves.
+   reads preset values, second tap advances, Thumb still must commit, source
+   autocomplete waits while scrolling, engine replies and forced autofill
+   speech wait behind the move phrase, terminal mates/stalemates stop the
+   game, and ordinary checks are spoken after checking moves.
 2. Tune or disable score-gap suggestion autofill based on dogfood; keep it
    score-based and explicit rather than guessing from legal move shape alone.
 3. Board readability is no longer the top blocker because the user now has

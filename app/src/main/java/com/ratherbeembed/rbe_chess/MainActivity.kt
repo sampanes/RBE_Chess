@@ -42,6 +42,7 @@ private const val TAG = "RBE_CHESS"
 private const val INACTIVITY_PROMPT_MS = 2_500L
 private const val ENGINE_MOVETIME_MS = 3_000L
 private const val AUTOFILL_MOVETIME_MS = 600L
+private const val SOURCE_AUTOFILL_DELAY_MS = INACTIVITY_PROMPT_MS
 private const val AUTOFILL_SCORE_MARGIN_CP = 100
 
 // Battery TTS-warning thresholds. Falling-edge: speak once when pct
@@ -232,7 +233,7 @@ class MainActivity : ComponentActivity() {
      * speaks white's opening move. In AutoAdvance mode the move is also
      * appended to [moveHistory] so the loop is already "ahead by one" when
      * the user types black's response. In Manual mode the suggestion is
-     * spoken only — the user still types their own first move.
+     * spoken and prefilled, but the user still commits or edits it.
      */
     private fun bootstrapEngineMove() {
         engineJob = lifecycleScope.launch {
@@ -245,11 +246,26 @@ class MainActivity : ComponentActivity() {
                     is BestMoveResult.Move -> {
                         val best = result.uci
                         if (gameMode == GameMode.AutoAdvance) {
-                            moveHistory = MoveHistory.EMPTY.append(best)
-                            speaker.speakPlayedMove(moverLabel(playerSide), best, waitingPhrase())
-                            engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
-                            prefillLegalOrClearEngineMove()
+                            val nextHistory = MoveHistory.EMPTY.append(best)
+                            val terminal = terminalStateAfter(nextHistory)
+                            moveHistory = nextHistory
+                            if (terminal != null) {
+                                terminalState = terminal
+                                speaker.speakPlayedTerminal(moverLabel(playerSide), best, terminal)
+                                engineStatus = "Bootstrap: engine=$best, ${terminalLabel(terminal)}"
+                            } else {
+                                val givesCheck = engine.isSideToMoveInCheck(nextHistory.moves)
+                                speaker.speakPlayedMove(
+                                    moverLabel(playerSide),
+                                    best,
+                                    waitingPhrase(),
+                                    givesCheck = givesCheck,
+                                )
+                                engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
+                                prefillLegalOrClearEngineMove()
+                            }
                         } else {
+                            prefillManualSuggestion(best)
                             speaker.speakSuggestionFor(moverLabel(playerSide), best)
                             engineStatus = "Bootstrap (manual): suggested $best"
                         }
@@ -370,7 +386,7 @@ class MainActivity : ComponentActivity() {
      * ask Stockfish for the bestmove given (history + opponent move), and act
      * on the reply according to [gameMode]:
      *   - AutoAdvance: speak as bestmove, append both plies to [moveHistory].
-     *   - Manual:      speak as suggestion, append only the opponent's ply.
+     *   - Manual:      speak/prefill as suggestion, append only the typed ply.
      * Illegal moves and engine errors leave [moveHistory] untouched so
      * the user can retry without a corrupt move list.
      */
@@ -404,6 +420,17 @@ class MainActivity : ComponentActivity() {
     private suspend fun commitLegalMove(opponentMove: String, typedMoverLabel: String) {
         val historyForEngine = moveHistory.append(opponentMove)
         val nextMover = sideToMove(historyForEngine)
+        val typedTerminal = terminalStateAfter(historyForEngine)
+        if (typedTerminal != null) {
+            moveHistory = historyForEngine
+            terminalState = typedTerminal
+            speaker.speakPlayedTerminal(typedMoverLabel, opponentMove, typedTerminal)
+            engineStatus =
+                "${terminalLabel(typedTerminal)} after $opponentMove (${moveHistory.size} plies)"
+            Log.d(TAG, "Terminal after $opponentMove: $typedTerminal history=${moveHistory.moves}")
+            return
+        }
+
         val typedMoveGivesCheck = engine.isSideToMoveInCheck(historyForEngine.moves)
         speaker.speakPlayedThenCalculating(
             typedMoverLabel,
@@ -432,16 +459,32 @@ class MainActivity : ComponentActivity() {
                         engineStatus =
                             "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
                         Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
-                        prefillLegalOrClearEngineMove()
+                        prefillManualSuggestion(best)
                     } else {
                         val replyHistory = historyForEngine.append(best)
-                        val replyGivesCheck = engine.isSideToMoveInCheck(replyHistory.moves)
+                        val terminal = terminalStateAfter(replyHistory)
                         moveHistory = replyHistory
+                        if (terminal != null) {
+                            terminalState = terminal
+                            speaker.speakPlayedTerminal(
+                                moverLabel(nextMover),
+                                best,
+                                terminal,
+                                queued = true,
+                            )
+                            engineStatus =
+                                "Last: opp=$opponentMove -> engine=$best, ${terminalLabel(terminal)}"
+                            Log.d(TAG, "Terminal after engine reply $best: $terminal history=${moveHistory.moves}")
+                            return
+                        }
+
+                        val replyGivesCheck = engine.isSideToMoveInCheck(replyHistory.moves)
                         speaker.speakPlayedMove(
                             moverLabel(nextMover),
                             best,
                             waitingPhrase(),
                             givesCheck = replyGivesCheck,
+                            queued = true,
                         )
                         engineStatus =
                             "Last: opp=$opponentMove -> engine=$best (${moveHistory.size} plies)"
@@ -513,6 +556,16 @@ class MainActivity : ComponentActivity() {
         autofillJob?.cancel()
         autofillJob = lifecycleScope.launch {
             try {
+                delay(SOURCE_AUTOFILL_DELAY_MS)
+                if (
+                    phase != AppPhase.InGame ||
+                    terminalState != null ||
+                    moveHistory != historyAtRequest ||
+                    moveBuffer != bufferAtRequest
+                ) {
+                    return@launch
+                }
+
                 engine.boot()
                 val legalMoves = engine.legalMoves(historyAtRequest.moves)
                 val candidates = legalMoves
@@ -548,6 +601,23 @@ class MainActivity : ComponentActivity() {
             } catch (t: Throwable) {
                 Log.e(TAG, "source-move autofill failed", t)
             }
+        }
+    }
+
+    private fun prefillManualSuggestion(uci: String) {
+        val after = MoveBuffer.DEFAULT.copyFromEngine(uci)
+        moveBuffer = after
+        inactivityJob?.cancel()
+        inactivityJob = null
+        scheduleInactivityPrompt(after)
+    }
+
+    private suspend fun terminalStateAfter(history: MoveHistory): TerminalState? {
+        if (engine.legalMoves(history.moves).isNotEmpty()) return null
+        return if (engine.isSideToMoveInCheck(history.moves)) {
+            TerminalState.CHECKMATE
+        } else {
+            TerminalState.STALEMATE
         }
     }
 
