@@ -31,9 +31,15 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         output.speak(text)
     }
 
-    private fun playedMoveText(mover: String, uci: String, waiting: String): String {
+    private fun playedMoveText(
+        mover: String,
+        uci: String,
+        waiting: String,
+        givesCheck: Boolean = false,
+    ): String {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
-        return "$mover played $move. $waiting"
+        val check = if (givesCheck) " Check." else ""
+        return "$mover played $move.$check $waiting"
     }
 
     fun repeatLast() {
@@ -85,8 +91,13 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         speakStatusEvent(SpokenMoveFormatter.spokenBestMove(uci))
     }
 
-    fun speakPlayedMove(mover: String, uci: String, waiting: String) {
-        speakBoardEvent(playedMoveText(mover, uci, waiting))
+    fun speakPlayedMove(
+        mover: String,
+        uci: String,
+        waiting: String,
+        givesCheck: Boolean = false,
+    ) {
+        speakBoardEvent(playedMoveText(mover, uci, waiting, givesCheck))
     }
 
     /** Spoken in manual mode where the engine's pick is advisory only. */
@@ -108,9 +119,15 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         speakStatusEvent("Calculating $mover reply")
     }
 
-    fun speakPlayedThenCalculating(mover: String, uci: String, nextMover: String) {
+    fun speakPlayedThenCalculating(
+        mover: String,
+        uci: String,
+        nextMover: String,
+        givesCheck: Boolean = false,
+    ) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
-        speakBoardEvent("$mover played $move. Calculating $nextMover reply")
+        val check = if (givesCheck) " Check." else ""
+        speakBoardEvent("$mover played $move.$check Calculating $nextMover reply")
     }
 
     fun speakPlayedAndSuggestion(
@@ -118,11 +135,13 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         uci: String,
         suggestionMover: String,
         suggestionUci: String,
+        givesCheck: Boolean = false,
     ) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
         val suggestion = SpokenMoveFormatter.spokenUciMove(suggestionUci)
+        val check = if (givesCheck) " Check." else ""
         speakBoardEvent(
-            "$mover played $move. Suggestion for $suggestionMover: $suggestion. " +
+            "$mover played $move.$check Suggestion for $suggestionMover: $suggestion. " +
                 "Waiting for $suggestionMover.",
         )
     }

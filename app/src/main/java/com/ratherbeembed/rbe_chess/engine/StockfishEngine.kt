@@ -37,6 +37,12 @@ interface StockfishEngine {
     suspend fun legalMoves(uciMoves: List<String>): Set<String>
 
     /**
+     * True when the side to move in the position reached by [uciMoves] is
+     * currently in check. Used for ordinary, non-terminal check speech.
+     */
+    suspend fun isSideToMoveInCheck(uciMoves: List<String>): Boolean
+
+    /**
      * Score the supplied legal candidate moves from the position reached by
      * [uciMoves], ordered best-first by Stockfish's MultiPV ranking.
      */

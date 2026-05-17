@@ -404,7 +404,13 @@ class MainActivity : ComponentActivity() {
     private suspend fun commitLegalMove(opponentMove: String, typedMoverLabel: String) {
         val historyForEngine = moveHistory.append(opponentMove)
         val nextMover = sideToMove(historyForEngine)
-        speaker.speakPlayedThenCalculating(typedMoverLabel, opponentMove, moverLabel(nextMover))
+        val typedMoveGivesCheck = engine.isSideToMoveInCheck(historyForEngine.moves)
+        speaker.speakPlayedThenCalculating(
+            typedMoverLabel,
+            opponentMove,
+            moverLabel(nextMover),
+            givesCheck = typedMoveGivesCheck,
+        )
         engineStatus = "Engine: thinking on $opponentMove..."
         Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves}, mode=$gameMode)")
         try {
@@ -419,16 +425,24 @@ class MainActivity : ComponentActivity() {
                         speaker.speakPlayedAndSuggestion(
                             typedMoverLabel,
                             opponentMove,
-                            moverLabel(sideToMove()),
+                            moverLabel(nextMover),
                             best,
+                            givesCheck = typedMoveGivesCheck,
                         )
                         engineStatus =
                             "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
                         Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
                         prefillLegalOrClearEngineMove()
                     } else {
-                        moveHistory = historyForEngine.append(best)
-                        speaker.speakPlayedMove(moverLabel(nextMover), best, waitingPhrase())
+                        val replyHistory = historyForEngine.append(best)
+                        val replyGivesCheck = engine.isSideToMoveInCheck(replyHistory.moves)
+                        moveHistory = replyHistory
+                        speaker.speakPlayedMove(
+                            moverLabel(nextMover),
+                            best,
+                            waitingPhrase(),
+                            givesCheck = replyGivesCheck,
+                        )
                         engineStatus =
                             "Last: opp=$opponentMove -> engine=$best (${moveHistory.size} plies)"
                         Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")

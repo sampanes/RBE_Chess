@@ -464,7 +464,10 @@ also watches `info ... score mate ...` lines. If `bestmove (none)` arrives
 after mate info, TTS says "Checkmate." Otherwise it says "Stalemate."
 The terminal phrase is replayable through Thumb+Middle.
 
-Still deferred: ordinary non-terminal "check" announcements and richer
+Ordinary non-terminal check speech is now handled by M4 follow-up work:
+`StockfishEngine.isSideToMoveInCheck()` reads Stockfish's `d` output and
+parses `Checkers:` after each legal board-changing move. Checking moves speak
+"Check" as part of the replayable move phrase. Still deferred: richer
 draw/repetition/50-move detection.
 
 ### M4 - keypad move legality guard
@@ -480,8 +483,8 @@ On rejection, history remains unchanged, the input buffer stays intact so the
 user can correct it, and TTS says "Illegal move." This transient warning does
 not replace the Thumb+Middle repeat target.
 
-Remaining related work: ordinary non-terminal "check" announcements. Terminal
-checkmate/stalemate speech is now handled by M3.
+Related follow-up landed: ordinary non-terminal check announcements. Terminal
+checkmate/stalemate speech remains handled by M3.
 
 ### M5 - autocomplete
 

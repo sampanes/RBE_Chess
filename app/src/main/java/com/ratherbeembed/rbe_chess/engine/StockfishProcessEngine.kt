@@ -118,6 +118,25 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
         }
     }
 
+    override suspend fun isSideToMoveInCheck(uciMoves: List<String>): Boolean {
+        check(booted) { "engine not booted; call boot() first" }
+        return lock.withLock {
+            withContext(Dispatchers.IO) {
+                val movesSuffix =
+                    if (uciMoves.isEmpty()) "" else " moves " + uciMoves.joinToString(" ")
+                send("position startpos$movesSuffix")
+                send("d")
+                withTimeout(5_000L) {
+                    while (true) {
+                        val line = readLineLogged()
+                        UciCheckersParser.hasCheckers(line)?.let { return@withTimeout it }
+                    }
+                    error("unreachable")
+                }
+            }
+        }
+    }
+
     override suspend fun scoredMoves(
         uciMoves: List<String>,
         candidates: Set<String>,

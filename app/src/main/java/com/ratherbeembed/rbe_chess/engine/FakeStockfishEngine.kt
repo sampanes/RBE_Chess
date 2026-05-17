@@ -10,6 +10,7 @@ class FakeStockfishEngine(
     private val script: List<BestMoveResult> =
         listOf(BestMoveResult.Move("e2e4"), BestMoveResult.Move("g1f3")),
     private val legalMovesByHistory: Map<List<String>, Set<String>> = emptyMap(),
+    private val checkByHistory: Map<List<String>, Boolean> = emptyMap(),
     private val scoredMovesByHistory: Map<List<String>, List<ScoredMove>> = emptyMap(),
     private val defaultLegalMoves: Set<String> = setOf("e2e4", "d2d4", "g1f3"),
     private val defaultScoredMoves: List<ScoredMove> = defaultLegalMoves.mapIndexed { index, move ->
@@ -34,6 +35,11 @@ class FakeStockfishEngine(
     override suspend fun legalMoves(uciMoves: List<String>): Set<String> {
         check(booted) { "engine not booted" }
         return legalMovesByHistory[uciMoves] ?: defaultLegalMoves
+    }
+
+    override suspend fun isSideToMoveInCheck(uciMoves: List<String>): Boolean {
+        check(booted) { "engine not booted" }
+        return checkByHistory[uciMoves] ?: false
     }
 
     override suspend fun scoredMoves(
