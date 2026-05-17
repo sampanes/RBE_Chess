@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (ordinary check announcements landed and verified.)
+Last updated: 2026-05-17 (dogfood fixes for autocomplete timing, terminal state, and speech pacing.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,12 +32,15 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** ordinary non-terminal check announcements.
-  After each legal board-changing move, the app asks Stockfish's `d` board
-  dump whether the side to move has `Checkers:`. If so, the move phrase says
-  "Check" before the waiting/calculating clause. This applies both to typed
-  moves and AutoAdvance engine replies; check remains part of the replayable
-  board event rather than a transient status.
+- **Current code addition:** dogfood fixes after M5/check testing. Source-
+  square autocomplete is now debounced by the inactivity-prompt delay, so
+  scrolling through ranks/files does not trigger autocomplete unless the user
+  pauses. AutoAdvance engine replies and forced/suggestion autofill speech are
+  queued behind the current move phrase instead of flushing it. Manual-mode
+  engine suggestions now prefill the buffer instead of leaving `a1a1`.
+  Terminal state is checked after every appended move, including AutoAdvance
+  engine replies, so checkmate/stalemate stops normal input immediately after
+  the mating/stalemating move.
 - **Current test aid:** Mini 5-button keyboard simulator. A tiny `Mini off`
   / `Mini on` toggle is present on both the start menu and normal in-game
   screen. When enabled, P/R/M/I/T buttons inject the same `ChessKey`s as
@@ -61,13 +64,12 @@ as session-priority cleanup before doing other work.
   plies (or one if odd), clears the buffer, says "Undid last move."
   New-game chord cancels engine work, clears history, returns to the
   start menu. JVM: 76 / 76 tests green; `assembleDebug` green.
-- **Next:** dogfood full M5 autocomplete and ordinary check announcements
-  on-device with the mini keyboard,
-  then hardware. Check forced autofill, score-gap suggestion autofill, first
-  tap reads preset values, second tap advances, Thumb still must commit, and
-  non-terminal checks are spoken only after checking moves. After that, move
-  to board readability or Pocket Mode soft-lock polish based on whichever
-  still hurts dogfood more.
+- **Next:** dogfood the M5/check fixes on-device with the mini keyboard, then
+  hardware. Check that source-square autocomplete waits while scrolling,
+  forced autofill waits for the move phrase, manual suggestions start at the
+  suggested move, terminal mates/stalemates stop the game, and the existing
+  3 s engine movetime feels right. After that, move to board readability or
+  Pocket Mode soft-lock polish based on whichever still hurts dogfood more.
 - **Recent code addition:** M4 legality guard. Before appending a typed
   move, the app asks Stockfish for legal moves from the current history
   via `go perft 1`. Illegal moves leave history unchanged, keep the
@@ -214,11 +216,21 @@ Landed after M2:
   autofilled coordinate reads the preset value without advancing it.
   The score-gap path uses Stockfish `searchmoves` / `MultiPV` through
   `StockfishEngine.scoredMoves()` and autofills only when the best scored
-  legal candidate beats the runner-up by the configured margin.
+  legal candidate beats the runner-up by the configured margin. Source-square
+  autocomplete waits for the inactivity-prompt delay before querying the
+  engine, so normal rank/file scrolling can pass through suggestible squares.
 - **Ordinary check announcements.** `StockfishEngine.isSideToMoveInCheck()`
   reads Stockfish's `d` output and parses the `Checkers:` line. Move speech
   includes "Check" for non-terminal checking moves without changing the
   terminal checkmate/stalemate path.
+- **Terminal state after board-changing moves.** After each appended typed
+  move or AutoAdvance engine reply, the app checks for zero legal replies and
+  classifies checkmate/stalemate from `Checkers:`. This catches engine-delivered
+  mates that return a normal `bestmove` instead of `bestmove (none)`.
+- **Speech pacing.** `SpeechSink.speakQueued()` lets AutoAdvance engine replies
+  and follow-up hints such as forced-move autocomplete wait behind the
+  replayable board move phrase while per-press speech still uses flush
+  semantics.
 - **Mini 5-button keyboard simulator.** `MiniKeyboardInput` mirrors the
   hardware/chord mapping in pure Kotlin, and `MiniKeyboardPanel` exposes
   a tiny on-screen keypad for no-hardware app dogfood. It is intentionally
@@ -231,13 +243,9 @@ What's still deferred:
   value should not immediately fire a critical warning. Require repeated
   low samples or firmware-side averaged/median ADC reads before speaking
   low/critical battery.
-- **Resign / end-of-game state.** Explicit "this game is over" signal
-  so the engine stops being asked for moves on a finished position,
-  and TTS can say something useful ("you resigned" / "checkmate" /
-  "stalemate"). Per the user's mental model, this is currently
-  redundant with New Game — the app doesn't track win/loss, and
-  ending a game means starting another. Revisit if/when scoring or
-  game-history persistence shows up.
+- **Resign / manual end-of-game command.** Checkmate/stalemate now stops the
+  game automatically. A deliberate "resign/end game" signal is still deferred;
+  per the user's mental model, this is currently redundant with New Game.
 - **Richer draw detection.** Terminal checkmate/stalemate and ordinary check
   speech are handled, but forced draw / repetition / 50-move detection are
   still future work.
@@ -252,17 +260,17 @@ PGN/FEN export, opening book.
 
 - [x] **A1** `MoveBuffer.copyFromEngine(uci)` implementation.
 - [x] **E1** Score-gap autocomplete path: `StockfishEngine.scoredMoves()` uses `searchmoves` / `MultiPV`, parses `info score ... pv ...`, and `MoveAutofill.clearBestScoredMove()` requires a configured margin before autofill.
-- [~] **A2** Predictive Trigger: legal-only and score-gap versions landed. Once `from` coordinates are fixed, the app queries legal moves and autofills if the source has exactly one legal move or one scored candidate is clearly ahead.
+- [x] **A2** Predictive Trigger: legal-only and score-gap versions landed. Once `from` coordinates are fixed and the user pauses for the inactivity-prompt delay, the app queries legal moves and autofills if the source has exactly one legal move or one scored candidate is clearly ahead.
 - [x] **A3** Forced Move Detection: after each applied ply/undo, the app checks `count(legalMoves) == 1` and pre-fills the whole move when true.
-- [~] **S1** Read Autocomplete: autofill announcements landed and the inactivity prompt reads the prefilled buffer. Richer suggestion phrasing remains for evaluation-based autocomplete.
+- [x] **S1** Read Autocomplete: autofill announcements are queued behind the current move phrase, and the inactivity prompt reads the prefilled buffer.
 - [x] **A4** Manual Mode guard: autocomplete never auto-commits; it only mutates the buffer and waits for Thumb.
 
 ## Verification status
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after ordinary check announcements |
-| `:app:testDebugUnitTest` | 121 / 121 green | includes `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (12), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after dogfood fixes |
+| `:app:testDebugUnitTest` | 123 / 123 green | includes `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (14), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

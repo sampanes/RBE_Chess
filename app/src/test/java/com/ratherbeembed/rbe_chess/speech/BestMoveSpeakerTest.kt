@@ -8,8 +8,14 @@ class BestMoveSpeakerTest {
 
     private class FakeSpeechSink : SpeechSink {
         val spoken = mutableListOf<String>()
+        val queued = mutableListOf<String>()
 
         override fun speak(text: String) {
+            spoken.add(text)
+        }
+
+        override fun speakQueued(text: String) {
+            queued.add(text)
             spoken.add(text)
         }
     }
@@ -60,6 +66,24 @@ class BestMoveSpeakerTest {
                 "Your White played D one to H five. Check. Waiting for Opponent Black.",
             ),
             sink.spoken,
+        )
+    }
+
+    @Test
+    fun `played move can queue behind current speech`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedMove(
+            "Opponent Black",
+            "e7e5",
+            "Waiting for Your White.",
+            queued = true,
+        )
+
+        assertEquals(
+            listOf("Opponent Black played E seven to E five. Waiting for Your White."),
+            sink.queued,
         )
     }
 
@@ -138,6 +162,23 @@ class BestMoveSpeakerTest {
     }
 
     @Test
+    fun `move that ends the game is replayable as one board event`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedTerminal("Opponent Black", "d8h4", TerminalState.CHECKMATE)
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Opponent Black played D eight to H four. Checkmate.",
+                "Opponent Black played D eight to H four. Checkmate.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
     fun `undo speech does not replace replayable output`() {
         val sink = FakeSpeechSink()
         val speaker = BestMoveSpeaker(sink)
@@ -192,6 +233,7 @@ class BestMoveSpeakerTest {
             ),
             sink.spoken,
         )
+        assertEquals(listOf("Only move from selected piece: G one to F three."), sink.queued)
     }
 
     @Test

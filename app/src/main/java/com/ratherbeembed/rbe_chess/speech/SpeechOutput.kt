@@ -43,7 +43,9 @@ class SpeechOutput(context: Context) : SpeechSink {
     @Volatile private var ready = false
     @Volatile private var shutdownRequested = false
     @Volatile private var currentUtteranceId: String? = null
-    private val pending = ArrayDeque<String>()
+    private data class PendingSpeech(val text: String, val queueMode: Int)
+
+    private val pending = ArrayDeque<PendingSpeech>()
     private val pendingLock = Any()
 
     private lateinit var tts: TextToSpeech
@@ -69,28 +71,36 @@ class SpeechOutput(context: Context) : SpeechSink {
         })
         ready = true
         Log.d(TAG, "TextToSpeech ready")
-        val drained: List<String> = synchronized(pendingLock) {
+        val drained: List<PendingSpeech> = synchronized(pendingLock) {
             val copy = pending.toList()
             pending.clear()
             copy
         }
-        drained.forEach { speakInternal(it) }
+        drained.forEach { speakInternal(it.text, it.queueMode) }
     }
 
     override fun speak(text: String) {
-        if (shutdownRequested || text.isBlank()) return
-        if (!ready) {
-            synchronized(pendingLock) { pending.addLast(text) }
-            return
-        }
-        speakInternal(text)
+        speak(text, TextToSpeech.QUEUE_FLUSH)
     }
 
-    private fun speakInternal(text: String) {
+    override fun speakQueued(text: String) {
+        speak(text, TextToSpeech.QUEUE_ADD)
+    }
+
+    private fun speak(text: String, queueMode: Int) {
+        if (shutdownRequested || text.isBlank()) return
+        if (!ready) {
+            synchronized(pendingLock) { pending.addLast(PendingSpeech(text, queueMode)) }
+            return
+        }
+        speakInternal(text, queueMode)
+    }
+
+    private fun speakInternal(text: String, queueMode: Int) {
         val id = "rbe-${System.nanoTime()}"
         currentUtteranceId = id
         audioManager.requestAudioFocus(focusRequest)
-        val rc = tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
+        val rc = tts.speak(text, queueMode, null, id)
         if (rc != TextToSpeech.SUCCESS) {
             Log.w(TAG, "tts.speak returned $rc for '$text'")
             release(id)

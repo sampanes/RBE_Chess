@@ -464,6 +464,14 @@ also watches `info ... score mate ...` lines. If `bestmove (none)` arrives
 after mate info, TTS says "Checkmate." Otherwise it says "Stalemate."
 The terminal phrase is replayable through Thumb+Middle.
 
+Dogfood follow-up: terminal state is also checked immediately after every
+appended board-changing move, not only when `bestmove (none)` appears. This
+catches the common AutoAdvance case where Stockfish returns a normal mating
+move, the app appends it, and the side to move has no legal replies. The move
+phrase becomes replayable as "`<side> played <move>. Checkmate.`" or
+"`<side> played <move>. Stalemate.`", and normal move input is blocked until
+Undo or New Game.
+
 Ordinary non-terminal check speech is now handled by M4 follow-up work:
 `StockfishEngine.isSideToMoveInCheck()` reads Stockfish's `d` output and
 parses `Checkers:` after each legal board-changing move. Checking moves speak
@@ -502,6 +510,18 @@ uses `searchmoves` / `MultiPV`, `UciScoredMoveParser` parses `info score ...
 pv ...`, and `MoveAutofill.clearBestScoredMove()` only returns a suggestion
 when the top scored candidate clears the configured centipawn margin. This
 still needs on-device dogfood for score-margin tuning.
+
+Dogfood follow-up: source-square autocomplete waits for the same delay as the
+inactivity prompt before it queries the engine. This lets the user scroll
+through a source rank/file (for example through `c5` to `c6`) without the
+target being filled unless they pause long enough for the app to read the
+whole move. Manual-mode suggestions now prefill the buffer with the suggested
+move instead of leaving `a1a1`; Thumb is still required to commit.
+
+AutoAdvance engine replies and autofill TTS use `SpeechSink.speakQueued()` so
+they do not cut off the replayable board move that came immediately before
+them. Per-press D/F/J/K speech still flushes because rapid cycler taps should
+speak the current value, not a stale queue.
 
 ### Mini 5-button keyboard simulator
 
