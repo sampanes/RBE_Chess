@@ -41,6 +41,8 @@ import kotlinx.coroutines.launch
 private const val TAG = "RBE_CHESS"
 private const val INACTIVITY_PROMPT_MS = 2_500L
 private const val ENGINE_MOVETIME_MS = 3_000L
+private const val AUTOFILL_MOVETIME_MS = 600L
+private const val AUTOFILL_SCORE_MARGIN_CP = 100
 
 // Battery TTS-warning thresholds. Falling-edge: speak once when pct
 // first dips below the threshold. Rising-edge: above [BATTERY_REARM_PCT]
@@ -246,7 +248,7 @@ class MainActivity : ComponentActivity() {
                             moveHistory = MoveHistory.EMPTY.append(best)
                             speaker.speakPlayedMove(moverLabel(playerSide), best, waitingPhrase())
                             engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
-                            prefillOnlyLegalMove()
+                            prefillLegalOrClearEngineMove()
                         } else {
                             speaker.speakSuggestionFor(moverLabel(playerSide), best)
                             engineStatus = "Bootstrap (manual): suggested $best"
@@ -327,6 +329,8 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "from-file -> ${after.fromFile} buffer=${after.toUciString()}")
                 scheduleInactivityPrompt(after)
                 if (before.fromFileIdx != after.fromFileIdx) {
+                    autofillJob?.cancel()
+                    autofillJob = null
                     maybeAutofillForSelectedSource(after)
                 }
             }
@@ -335,6 +339,8 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "from-rank -> ${after.fromRank} buffer=${after.toUciString()}")
                 scheduleInactivityPrompt(after)
                 if (before.fromRankIdx != after.fromRankIdx) {
+                    autofillJob?.cancel()
+                    autofillJob = null
                     maybeAutofillForSelectedSource(after)
                 }
             }
@@ -419,14 +425,14 @@ class MainActivity : ComponentActivity() {
                         engineStatus =
                             "Manual: opp=$opponentMove (suggested $best, ${moveHistory.size} plies)"
                         Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
-                        prefillOnlyLegalMove()
+                        prefillLegalOrClearEngineMove()
                     } else {
                         moveHistory = historyForEngine.append(best)
                         speaker.speakPlayedMove(moverLabel(nextMover), best, waitingPhrase())
                         engineStatus =
                             "Last: opp=$opponentMove -> engine=$best (${moveHistory.size} plies)"
                         Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
-                        prefillOnlyLegalMove()
+                        prefillLegalOrClearEngineMove()
                     }
                 }
                 is BestMoveResult.Terminal -> {
@@ -446,7 +452,7 @@ class MainActivity : ComponentActivity() {
 
     // --- Autocomplete ------------------------------------------------------
 
-    private fun prefillOnlyLegalMove() {
+    private fun prefillLegalOrClearEngineMove() {
         val historyAtRequest = moveHistory
         val bufferAtRequest = moveBuffer
         autofillJob?.cancel()
@@ -454,17 +460,35 @@ class MainActivity : ComponentActivity() {
             try {
                 engine.boot()
                 val legalMoves = engine.legalMoves(historyAtRequest.moves)
-                val forced = MoveAutofill.onlyLegalMove(legalMoves) ?: return@launch
+                val forced = MoveAutofill.onlyLegalMove(legalMoves)
+                if (forced != null) {
+                    if (
+                        phase == AppPhase.InGame &&
+                        terminalState == null &&
+                        moveHistory == historyAtRequest &&
+                        moveBuffer == bufferAtRequest
+                    ) {
+                        applyAutofill(forced, "Only legal move")
+                    }
+                    return@launch
+                }
+
+                val suggestion = clearEngineSuggestion(historyAtRequest.moves, legalMoves)
+                    ?: return@launch
                 if (
                     phase == AppPhase.InGame &&
                     terminalState == null &&
                     moveHistory == historyAtRequest &&
                     moveBuffer == bufferAtRequest
                 ) {
-                    applyAutofill(forced, "Only legal move")
+                    applyAutofill(
+                        suggestion.uci,
+                        "Suggestion",
+                        "gap ${suggestion.scoreGapCp} cp",
+                    )
                 }
             } catch (t: Throwable) {
-                Log.e(TAG, "forced-move autofill failed", t)
+                Log.e(TAG, "post-move autofill failed", t)
             }
         }
     }
@@ -477,14 +501,35 @@ class MainActivity : ComponentActivity() {
             try {
                 engine.boot()
                 val legalMoves = engine.legalMoves(historyAtRequest.moves)
-                val move = MoveAutofill.onlyLegalMoveFrom(legalMoves, fromSquare) ?: return@launch
+                val candidates = legalMoves
+                    .filter { it.length >= 4 && it.startsWith(fromSquare) }
+                    .toSet()
+                val forced = MoveAutofill.onlyLegalMove(candidates)
+                if (forced != null) {
+                    if (
+                        phase == AppPhase.InGame &&
+                        terminalState == null &&
+                        moveHistory == historyAtRequest &&
+                        moveBuffer == bufferAtRequest
+                    ) {
+                        applyAutofill(forced, "Only move from selected piece")
+                    }
+                    return@launch
+                }
+
+                val suggestion = clearEngineSuggestion(historyAtRequest.moves, candidates)
+                    ?: return@launch
                 if (
                     phase == AppPhase.InGame &&
                     terminalState == null &&
                     moveHistory == historyAtRequest &&
                     moveBuffer == bufferAtRequest
                 ) {
-                    applyAutofill(move, "Only move from selected piece")
+                    applyAutofill(
+                        suggestion.uci,
+                        "Suggestion",
+                        "gap ${suggestion.scoreGapCp} cp",
+                    )
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "source-move autofill failed", t)
@@ -492,15 +537,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun applyAutofill(uci: String, reason: String) {
+    private suspend fun clearEngineSuggestion(
+        uciMoves: List<String>,
+        candidates: Set<String>,
+    ) =
+        if (candidates.size < 2) {
+            null
+        } else {
+            MoveAutofill.clearBestScoredMove(
+                scoredMoves = engine.scoredMoves(
+                    uciMoves = uciMoves,
+                    candidates = candidates,
+                    movetimeMs = AUTOFILL_MOVETIME_MS,
+                ),
+                minimumScoreGapCp = AUTOFILL_SCORE_MARGIN_CP,
+            )
+        }
+
+    private fun applyAutofill(uci: String, reason: String, detail: String? = null) {
         val after = moveBuffer.copyFromEngine(uci)
         moveBuffer = after
         speaker.speakAutofill(uci, reason)
         inactivityJob?.cancel()
         inactivityJob = null
         scheduleInactivityPrompt(after)
-        engineStatus = "$reason: $uci (history=${moveHistory.size} plies)"
-        Log.d(TAG, "Autofill: $reason -> $uci")
+        val detailText = detail?.let { " [$it]" } ?: ""
+        engineStatus = "$reason: $uci$detailText (history=${moveHistory.size} plies)"
+        Log.d(TAG, "Autofill: $reason -> $uci$detailText")
     }
 
     // --- Chord handlers ----------------------------------------------------
@@ -518,7 +581,7 @@ class MainActivity : ComponentActivity() {
         rememberCurrentPositionForRepeat()
         engineStatus = "Undo: history=${moveHistory.size} plies"
         Log.d(TAG, "Undo -> ${moveHistory.moves}")
-        prefillOnlyLegalMove()
+        prefillLegalOrClearEngineMove()
     }
 
     private fun handleToggleManual() {

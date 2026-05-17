@@ -76,6 +76,48 @@ class FakeStockfishEngineTest {
     }
 
     @Test
+    fun `scoredMoves filters and sorts candidate scores`() = runBlocking {
+        val history = listOf("e2e4", "e7e5")
+        val engine = FakeStockfishEngine(
+            scoredMovesByHistory = mapOf(
+                history to listOf(
+                    ScoredMove("g1f3", EngineScore.Centipawns(20)),
+                    ScoredMove("f1c4", EngineScore.Centipawns(80)),
+                    ScoredMove("d2d4", EngineScore.Centipawns(40)),
+                ),
+            ),
+        )
+
+        engine.boot()
+
+        assertEquals(
+            listOf(
+                ScoredMove("f1c4", EngineScore.Centipawns(80)),
+                ScoredMove("g1f3", EngineScore.Centipawns(20)),
+            ),
+            engine.scoredMoves(
+                uciMoves = history,
+                candidates = setOf("g1f3", "f1c4"),
+                movetimeMs = 100,
+            ),
+        )
+    }
+
+    @Test
+    fun `scoredMoves before boot throws`() {
+        val engine = FakeStockfishEngine()
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                engine.scoredMoves(
+                    uciMoves = emptyList(),
+                    candidates = setOf("e2e4"),
+                    movetimeMs = 100,
+                )
+            }
+        }
+    }
+
+    @Test
     fun `shutdown then bestMove throws`() {
         val engine = FakeStockfishEngine()
         runBlocking { engine.boot() }
