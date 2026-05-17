@@ -26,9 +26,11 @@ Use this file first after a context reset, then read `STATUS.md` and
   advances normally.
 - Repeat-last now prefers the last board-changing event. Illegal-move
   warnings and autocomplete announcements do not replace the repeat target.
-- Ordinary non-terminal "check" announcements are still future work.
-  Evaluation-based autocomplete is implemented but still needs on-device
-  dogfood before tuning the margin or calling it done.
+- Ordinary non-terminal "check" announcements are implemented. The app uses
+  Stockfish's `d` board dump and parses `Checkers:` after legal typed moves
+  and AutoAdvance engine replies; "Check" is part of the replayable move
+  phrase. Evaluation-based autocomplete is implemented but still needs
+  on-device dogfood before tuning the margin or calling it done.
 
 ## Recent Commits
 
@@ -48,6 +50,8 @@ Use this file first after a context reset, then read `STATUS.md` and
 - After mini keyboard simulator: `.\gradlew.bat assembleDebug` passed.
 - After score-gap autocomplete: `.\gradlew.bat test` passed.
 - After score-gap autocomplete: `.\gradlew.bat assembleDebug` passed.
+- After ordinary check announcements: `.\gradlew.bat test` passed.
+- After ordinary check announcements: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
@@ -56,7 +60,8 @@ Use this file first after a context reset, then read `STATUS.md` and
 1. Install/dogfood full M5 autocomplete with the mini keyboard first, then
    repeat with hardware. Check forced whole-move autofill,
    source-square-only-move autofill, score-gap suggestion autofill, first tap
-   reads preset values, second tap advances, and Thumb still must commit.
+   reads preset values, second tap advances, Thumb still must commit, and
+   ordinary checks are spoken after checking moves.
 2. Tune or disable score-gap suggestion autofill based on dogfood; keep it
    score-based and explicit rather than guessing from legal move shape alone.
 3. Board readability is no longer the top blocker because the user now has

@@ -42,6 +42,28 @@ class BestMoveSpeakerTest {
     }
 
     @Test
+    fun `played move can announce ordinary check`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedMove(
+            "Your White",
+            "d1h5",
+            "Waiting for Opponent Black.",
+            givesCheck = true,
+        )
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Your White played D one to H five. Check. Waiting for Opponent Black.",
+                "Your White played D one to H five. Check. Waiting for Opponent Black.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
     fun `per-press speech does not replace replayable output`() {
         val sink = FakeSpeechSink()
         val speaker = BestMoveSpeaker(sink)

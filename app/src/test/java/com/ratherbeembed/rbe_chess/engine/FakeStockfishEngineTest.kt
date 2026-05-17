@@ -2,7 +2,9 @@ package com.ratherbeembed.rbe_chess.engine
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FakeStockfishEngineTest {
@@ -72,6 +74,27 @@ class FakeStockfishEngineTest {
         val engine = FakeStockfishEngine()
         assertThrows(IllegalStateException::class.java) {
             runBlocking { engine.legalMoves(emptyList()) }
+        }
+    }
+
+    @Test
+    fun `isSideToMoveInCheck returns scripted check state`() = runBlocking {
+        val checkedHistory = listOf("e2e4", "e7e5", "d1h5")
+        val engine = FakeStockfishEngine(
+            checkByHistory = mapOf(checkedHistory to true),
+        )
+
+        engine.boot()
+
+        assertTrue(engine.isSideToMoveInCheck(checkedHistory))
+        assertFalse(engine.isSideToMoveInCheck(emptyList()))
+    }
+
+    @Test
+    fun `isSideToMoveInCheck before boot throws`() {
+        val engine = FakeStockfishEngine()
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { engine.isSideToMoveInCheck(emptyList()) }
         }
     }
 
