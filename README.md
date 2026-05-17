@@ -237,8 +237,10 @@ Firmware build notes and upload troubleshooting are in
   (Pinky/Ring/Middle/Index emit `U`/`M`/`R`/`N` HID), and battery reports via the HID stream
   (`B` + 3 zero-padded ASCII digits, input-gated after the timer is due). The app
   parses the reports out of the keystream and shows
-  `Keypad battery: NN%` on the normal screen; TTS warns below 20 %
-  / 5 % with hysteresis above 30 %.
+  `Keypad battery: NN%` on the normal screen. Battery smoothing holds the
+  last accepted display percentage through a single low/critical outlier;
+  TTS warns below 20 % / 5 % only after repeated low samples, with hysteresis
+  above 30 %.
   Adjacent duplicate keypresses are split across BLE commands so rapid
   repeated taps count without being treated as a held key by Android.
 - Keypad-entered moves are checked against Stockfish legal moves before

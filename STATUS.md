@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (board affordances and Pocket Mode long-press exit landed.)
+Last updated: 2026-05-17 (battery telemetry smoothing landed.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,7 +32,11 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** board readability + Pocket Mode soft-lock pass.
+- **Current code addition:** battery telemetry smoothing. The app now holds
+  the last accepted keypad battery percentage through a single low/critical
+  outlier, requires repeated low samples before low/critical TTS warnings,
+  and rearms after charging/reporting at or above 30%.
+- **Recent code addition:** board readability + Pocket Mode soft-lock pass.
   The board now has stronger last-move/current-input/pending-move highlights,
   arrow overlays for last/current/pending moves, and a "Pending: ..." line
   while a committed move is being legality-checked / answered by Stockfish.
@@ -235,10 +239,8 @@ Landed after M2:
 
 What's still deferred:
 
-- **Battery telemetry smoothing.** A transient `0%` followed by a normal
-  value should not immediately fire a critical warning. Require repeated
-  low samples or firmware-side averaged/median ADC reads before speaking
-  low/critical battery.
+- **Cancel/clear current input buffer.** Deferred indefinitely for now; Undo
+  plus retype is the current workaround.
 - **Resign / manual end-of-game command.** Checkmate/stalemate now stops the
   game automatically. A deliberate "resign/end game" signal is still deferred;
   per the user's mental model, this is currently redundant with New Game.
@@ -246,8 +248,8 @@ What's still deferred:
   speech are handled, but forced draw / repetition / 50-move detection are
   still future work.
 - **Evaluation-based autocomplete dogfood.** The score-gap path is implemented
-  and JVM/build verified, but still needs on-device dogfood to tune the score
-  margin and confirm it does not feel pushy.
+  and JVM/build verified. Dedicated score-margin tuning is deferred
+  indefinitely unless dogfood shows it feels pushy or confusing.
 
 Further out: clock / time control, draw offers, takebacks,
 PGN/FEN export, opening book.
@@ -265,8 +267,8 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after board/Pocket affordance pass |
-| `:app:testDebugUnitTest` | 123 / 123 green | includes `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (14), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after battery telemetry smoothing |
+| `:app:testDebugUnitTest` | 128 / 128 green | includes `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (14), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

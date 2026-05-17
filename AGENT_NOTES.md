@@ -397,8 +397,8 @@ finalizing on Thumb/Space. Mapping (best-guess from user's note "k, b, r, q
 **Not in M1, deferred to a later milestone:**
 - ~~Undo last committed move.~~ Shipped in M2 as **Thumb+Pinky** chord
   (drops the last pair of plies, or one if odd).
-- Cancel/clear current input buffer. Still deferred — Undo + retype
-  is the workaround.
+- Cancel/clear current input buffer. Deferred indefinitely for now; Undo +
+  retype is the workaround.
 - "Exit Pocket Mode" gesture shipped as long press on the black screen.
 - ~~A toggleable *manual mode*~~. Shipped in M2 as **Thumb+Ring** chord.
   AutoAdvance stays the default; Manual keeps the engine's pick
@@ -508,7 +508,9 @@ score comparison, not a legal-shape guess. `StockfishEngine.scoredMoves()`
 uses `searchmoves` / `MultiPV`, `UciScoredMoveParser` parses `info score ...
 pv ...`, and `MoveAutofill.clearBestScoredMove()` only returns a suggestion
 when the top scored candidate clears the configured centipawn margin. This
-still needs on-device dogfood for score-margin tuning.
+can continue getting incidental on-device dogfood, but dedicated
+score-margin tuning is deferred indefinitely unless it feels pushy or
+confusing.
 
 Dogfood follow-up: source-square autocomplete waits for the same delay as the
 inactivity prompt before it queries the engine. This lets the user scroll
@@ -529,8 +531,9 @@ start menu and normal in-game screen. When enabled, the on-screen P/R/M/I/T
 buttons inject the same `ChessKey`s as the Bluetooth keypad through the
 Activity's existing menu/game handlers. `Hold` latches Thumb for one chord,
 so the four finger buttons become U/M/R/N and then clear the latch. `B%`
-cycles mock battery percentages through `handleBatteryReport()` so UI and TTS
-threshold behavior can be tested with the physical keypad powered off.
+cycles mock battery percentages `88, 19, 4, 3, 73` through
+`handleBatteryReport()` so UI smoothing, TTS thresholds, and rearm behavior
+can be tested with the physical keypad powered off.
 
 ### Repeat-last spoken output
 
@@ -555,15 +558,16 @@ idle timer pushes: once the battery interval is due, the next real
 button/chord input queues the report. This preserves in-app telemetry
 while preventing the keypad from typing `B071` into unrelated apps after
 RBE Chess is closed. `input/BatteryReportParser` strips the sequence before
-`HardwareKeyboardHandler` runs, surfaces `batteryPct` to the UI, and
-fires one-shot TTS warnings on threshold crossings (<20 % low,
-<5 % critical, re-armed ≥30 %).
+`HardwareKeyboardHandler` runs, surfaces `batteryPct` to the UI, and feeds
+`BatteryTelemetrySmoother`. The smoother holds the previous accepted display
+percentage through a single low/critical outlier, requires repeated low
+samples before speaking low/critical warnings (<20 % low, <5 % critical), and
+re-arms warnings after a report at or above 30%.
 
 Dogfooding note: one transient `B000` followed by a plausible normal value
-has been observed. Treat this as a false low sample unless it repeats.
-Future smoothing should either average/median multiple firmware ADC reads
-(discarding the first read after wake/boot) or require two consecutive low
-reports before the app speaks low/critical battery.
+has been observed. App-side smoothing now treats that as a false low sample
+unless low readings repeat. Future firmware-side averaging/median ADC reads
+may still be useful, but are no longer required for the app warning path.
 
 Why not the standard BLE Battery Service: v3 tried `AT+BLEBATTEN=on`
 and v4 confirmed via serial log that this nRF51 SPI Friend's AT

@@ -8,6 +8,10 @@ Use this file first after a context reset, then read `STATUS.md` and
 - User has semi-thoroughly dogfooded firmware v8 input-gated battery
   reports and the repeated physical-piece game loop; both are good enough
   to move on.
+- Battery telemetry smoothing is implemented. The app holds the previous
+  accepted keypad battery percentage through a single low/critical outlier,
+  requires repeated low samples before low/critical TTS warnings, and rearms
+  warnings after a report at or above 30%.
 - M5 autocomplete is implemented in the working tree. It still prefers the
   conservative legal-only paths first: autofill the whole buffer if there is
   exactly one legal move in the position, or autofill after source-square
@@ -73,15 +77,18 @@ Use this file first after a context reset, then read `STATUS.md` and
 - After 4 s engine movetime bump: `.\gradlew.bat assembleDebug` passed.
 - After board/Pocket affordance pass: `.\gradlew.bat test` passed.
 - After board/Pocket affordance pass: `.\gradlew.bat assembleDebug` passed.
+- After battery telemetry smoothing: `.\gradlew.bat test` passed.
+- After battery telemetry smoothing: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
 ## Next Recommended Work
 
-1. Install/dogfood the board/Pocket changes with the mini keyboard first, then
-   repeat with hardware. Check pending arrows during legality/engine think,
-   last/current/pending highlights, ignored cycler taps while pending, and
-   long-press Pocket Mode exit.
+1. Install/dogfood the board/Pocket and battery smoothing changes with the
+   mini keyboard first, then repeat with hardware. Check pending arrows during
+   legality/engine think, last/current/pending highlights, ignored cycler taps
+   while pending, long-press Pocket Mode exit, and `B%` behavior across
+   `88 -> 19 -> 4 -> 3 -> 73`.
 2. Re-check full M5 autocomplete in the same pass: forced whole-move
    autofill, source-square-only-move autofill, score-gap suggestion autofill,
    first tap reads preset values, second tap advances, Thumb still must
@@ -89,8 +96,9 @@ Use this file first after a context reset, then read `STATUS.md` and
    forced autofill speech wait behind the move phrase, terminal
    mates/stalemates stop the game, and ordinary checks are spoken after
    checking moves.
-3. Tune or disable score-gap suggestion autofill based on dogfood; keep it
-   score-based and explicit rather than guessing from legal move shape alone.
+3. Next code slice should likely be promotion pick state. Clear-buffer and
+   score-gap margin tuning are deferred indefinitely unless dogfood surfaces a
+   real pain point.
 4. If board arrows feel cluttered, simplify the overlay before adding any new
    gameplay feature.
 
