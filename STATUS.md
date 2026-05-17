@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-16 (mini 5-button keyboard simulator landed for no-hardware dogfood.)
+Last updated: 2026-05-17 (evaluation-based autocomplete scoring path landed and verified.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,13 +32,15 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** M5 conservative autocomplete. The app now
-  uses Stockfish `legalMoves()` to autofill when a position has exactly
-  one legal move, or when a selected source square has exactly one legal
-  move. Autofilled coordinates are marked "read pending," so the first
-  press on each cycler reads the preset value without advancing it.
-  Repeat-last now prefers the last board-changing event; illegal-move and
-  autofill announcements do not replace the replay target.
+- **Current code addition:** M5 autocomplete now has both conservative and
+  score-gap paths. The app still autofills forced legal moves first: exactly
+  one legal move in the position, or exactly one legal move from the selected
+  source square. When multiple legal candidates remain, it asks Stockfish for
+  scored candidates with `searchmoves` / `MultiPV` and autofills only if the
+  best move clears the configured score margin. Autofilled coordinates are
+  marked "read pending," so the first press on each cycler reads the preset
+  value without advancing it. Repeat-last still prefers the last board-changing
+  event; illegal-move and autofill announcements do not replace replay.
 - **Current test aid:** Mini 5-button keyboard simulator. A tiny `Mini off`
   / `Mini on` toggle is present on both the start menu and normal in-game
   screen. When enabled, P/R/M/I/T buttons inject the same `ChessKey`s as
@@ -62,9 +64,11 @@ as session-priority cleanup before doing other work.
   plies (or one if odd), clears the buffer, says "Undid last move."
   New-game chord cancels engine work, clears history, returns to the
   start menu. JVM: 76 / 76 tests green; `assembleDebug` green.
-- **Next:** dogfood M5 conservative autocomplete on-device, then add the
-  evaluation-based "basically one good move" path using Stockfish search /
-  MultiPV scoring once the legal-only behavior feels right.
+- **Next:** dogfood full M5 autocomplete on-device with the mini keyboard,
+  then hardware. Check forced autofill, score-gap suggestion autofill, first
+  tap reads preset values, second tap advances, and Thumb still must commit.
+  After that, move to board readability or Pocket Mode soft-lock polish based
+  on whichever still hurts dogfood more.
 - **Recent code addition:** M4 legality guard. Before appending a typed
   move, the app asks Stockfish for legal moves from the current history
   via `go perft 1`. Illegal moves leave history unchanged, keep the
@@ -204,11 +208,14 @@ Landed after M2:
   terminal state instead of a move. Mate-score info classifies checkmate;
   otherwise the app calls it stalemate. Terminal positions speak a
   replayable phrase and stop normal move input until Undo/New Game.
-- **M5 conservative autocomplete.** `MoveBuffer.copyFromEngine()` can
+- **M5 autocomplete.** `MoveBuffer.copyFromEngine()` can
   prefill UCI coordinates, and `MoveAutofill` picks only unambiguous
   legal moves: exactly one legal move in the position, or exactly one
   legal move from the source square the user entered. First press on an
   autofilled coordinate reads the preset value without advancing it.
+  The score-gap path uses Stockfish `searchmoves` / `MultiPV` through
+  `StockfishEngine.scoredMoves()` and autofills only when the best scored
+  legal candidate beats the runner-up by the configured margin.
 - **Mini 5-button keyboard simulator.** `MiniKeyboardInput` mirrors the
   hardware/chord mapping in pure Kotlin, and `MiniKeyboardPanel` exposes
   a tiny on-screen keypad for no-hardware app dogfood. It is intentionally
@@ -231,10 +238,9 @@ What's still deferred:
 - **Ordinary check / richer draw detection.** Terminal checkmate/stalemate
   is handled, but non-terminal "check" announcements and forced draw /
   repetition / 50-move detection are still future work.
-- **Evaluation-based autocomplete.** The conservative M5 slice only
-  trusts legal uniqueness. The later "basically one good move" version
-  should compare engine scores, likely via `searchmoves` plus MultiPV or
-  sequential candidate scoring, before autofilling non-forced choices.
+- **Evaluation-based autocomplete dogfood.** The score-gap path is implemented
+  and JVM/build verified, but still needs on-device dogfood to tune the score
+  margin and confirm it does not feel pushy.
 
 Further out: clock / time control, draw offers, takebacks,
 PGN/FEN export, opening book.
@@ -242,8 +248,8 @@ PGN/FEN export, opening book.
 ## M5 implementation checklist — Autocomplete & Predictive Entry
 
 - [x] **A1** `MoveBuffer.copyFromEngine(uci)` implementation.
-- [ ] **E1** `StockfishProcessEngine.getBestMoveForSquare(history, fromSquare)` using `search` filter / score comparison for the later "obvious best move" path.
-- [~] **A2** Predictive Trigger: legal-only version landed. Once `from` coordinates are fixed, the app queries legal moves and autofills only if exactly one legal move starts from that source.
+- [x] **E1** Score-gap autocomplete path: `StockfishEngine.scoredMoves()` uses `searchmoves` / `MultiPV`, parses `info score ... pv ...`, and `MoveAutofill.clearBestScoredMove()` requires a configured margin before autofill.
+- [~] **A2** Predictive Trigger: legal-only and score-gap versions landed. Once `from` coordinates are fixed, the app queries legal moves and autofills if the source has exactly one legal move or one scored candidate is clearly ahead.
 - [x] **A3** Forced Move Detection: after each applied ply/undo, the app checks `count(legalMoves) == 1` and pre-fills the whole move when true.
 - [~] **S1** Read Autocomplete: autofill announcements landed and the inactivity prompt reads the prefilled buffer. Richer suggestion phrasing remains for evaluation-based autocomplete.
 - [x] **A4** Manual Mode guard: autocomplete never auto-commits; it only mutates the buffer and waits for Thumb.
@@ -252,8 +258,8 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-16 after mini keyboard simulator |
-| `:app:testDebugUnitTest` | 104 / 104 green | includes `MiniKeyboardInputTest` (3), `MoveAutofillTest` (5), `MoveBufferTest` (17), `BestMoveSpeakerTest` (11), `BoardProjectorTest` (7), `UciPerftParserTest` (3), and `UciBestMoveParserTest` (4); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after score-gap autocomplete |
+| `:app:testDebugUnitTest` | 115 / 115 green | includes `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (11), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), and `UciScoredMoveParserTest` (4); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

@@ -26,8 +26,10 @@ It autofills only when the legal move set is unambiguous:
 
 Autofilled coordinates are "read pending": the first press on D/F/J/K reads
 the preset value without advancing, and the second press advances normally.
-The later "basically one good move" behavior should compare Stockfish scores
-before autofilling non-forced choices.
+The second implementation adds that "basically one good move" behavior with
+explicit score comparison. When multiple legal candidates remain, the app asks
+Stockfish to search the candidates and only autofills if the best move beats
+the runner-up by the configured centipawn margin.
 
 ## 2. Feature: Forced Move Detection & "Read Autocomplete"
 
@@ -59,8 +61,8 @@ In **Manual Mode**, the autocomplete acts as a **non-binding suggestion**. It sa
 - Add a `copyFromEngine(uci: String)` method that parses a 4-character UCI string and sets all four indices.
 
 ### Changes to `StockfishProcessEngine.kt`
-- Add a new method `getBestMoveForSquare(history: MoveHistory, fromSquare: String): String?`.
-- This would use the `search` command with a filter or simply parse the top moves to find the one matching the `from` square.
+- Add `scoredMoves(history, candidates, movetimeMs)`.
+- It uses `searchmoves` plus `MultiPV`, parses `info score ... pv ...`, and restores `MultiPV` to 1 after the candidate search.
 
 ### Changes to `MainActivity.kt`
 - Update `handleAction` to trigger the engine prediction once `fromFileIdx` and `fromRankIdx` are non-null.
@@ -68,4 +70,4 @@ In **Manual Mode**, the autocomplete acts as a **non-binding suggestion**. It sa
 
 ## 4. Future Considerations
 - **Toggle Settings:** Allow users to turn off "Predictive Autocomplete" if they find it distracting or want to play purely manually.
-- **Confidence Threshold:** Only autocomplete if the engine's "best move" is significantly better than the second-best move (e.g., a CP difference of >100).
+- **Confidence Threshold:** Dogfood and tune the current 100 cp score margin before exposing it as a setting.

@@ -36,6 +36,16 @@ interface StockfishEngine {
      */
     suspend fun legalMoves(uciMoves: List<String>): Set<String>
 
+    /**
+     * Score the supplied legal candidate moves from the position reached by
+     * [uciMoves], ordered best-first by Stockfish's MultiPV ranking.
+     */
+    suspend fun scoredMoves(
+        uciMoves: List<String>,
+        candidates: Set<String>,
+        movetimeMs: Long,
+    ): List<ScoredMove>
+
     /** Shut down the engine process. Safe to call repeatedly. */
     fun shutdown()
 }

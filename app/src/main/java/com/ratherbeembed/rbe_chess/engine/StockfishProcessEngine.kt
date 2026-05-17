@@ -118,6 +118,50 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
         }
     }
 
+    override suspend fun scoredMoves(
+        uciMoves: List<String>,
+        candidates: Set<String>,
+        movetimeMs: Long,
+    ): List<ScoredMove> {
+        check(booted) { "engine not booted; call boot() first" }
+        if (candidates.isEmpty()) return emptyList()
+        return lock.withLock {
+            withContext(Dispatchers.IO) {
+                val movesSuffix =
+                    if (uciMoves.isEmpty()) "" else " moves " + uciMoves.joinToString(" ")
+                val multiPv = minOf(candidates.size, 2)
+                val latestByMultiPv = linkedMapOf<Int, ScoredMove>()
+                send("position startpos$movesSuffix")
+                send("setoption name MultiPV value $multiPv")
+                send("isready")
+                readUntilEquals("readyok")
+                try {
+                    send(
+                        "go movetime $movetimeMs searchmoves " +
+                            candidates.sorted().joinToString(" "),
+                    )
+                    withTimeout(movetimeMs + 5_000L) {
+                        while (true) {
+                            val line = readLineLogged()
+                            UciScoredMoveParser.scoredMoveFromInfoLine(line)
+                                ?.takeIf { it.move.uci in candidates }
+                                ?.let { latestByMultiPv[it.multipv] = it.move }
+                            if (UciBestMoveParser.moveFromLine(line) != null) break
+                        }
+                    }
+                    latestByMultiPv
+                        .toSortedMap()
+                        .values
+                        .toList()
+                } finally {
+                    send("setoption name MultiPV value 1")
+                    send("isready")
+                    readUntilEquals("readyok")
+                }
+            }
+        }
+    }
+
     private fun send(cmd: String) {
         val w = writer ?: error("writer is null")
         Log.d(TAG, ">> $cmd")

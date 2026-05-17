@@ -8,10 +8,13 @@ Use this file first after a context reset, then read `STATUS.md` and
 - User has semi-thoroughly dogfooded firmware v8 input-gated battery
   reports and the repeated physical-piece game loop; both are good enough
   to move on.
-- Conservative M5 autocomplete is implemented in the working tree. It uses
-  Stockfish legal moves only: autofill the whole buffer if there is exactly
-  one legal move in the position, or autofill after source-square entry if
-  exactly one legal move starts from that source.
+- M5 autocomplete is implemented in the working tree. It still prefers the
+  conservative legal-only paths first: autofill the whole buffer if there is
+  exactly one legal move in the position, or autofill after source-square
+  entry if exactly one legal move starts from that source. If multiple
+  candidates remain, the app asks Stockfish for scored candidates with
+  `searchmoves` / `MultiPV` and autofills only when the best move clears the
+  configured score margin.
 - A no-hardware mini 5-button keyboard simulator is implemented. The tiny
   `Mini off` / `Mini on` toggle appears on both the start menu and normal
   in-game screen. When enabled, P/R/M/I/T inject the same app keys as the
@@ -23,8 +26,9 @@ Use this file first after a context reset, then read `STATUS.md` and
   advances normally.
 - Repeat-last now prefers the last board-changing event. Illegal-move
   warnings and autocomplete announcements do not replace the repeat target.
-- Ordinary non-terminal "check" announcements and evaluation-based
-  "basically one good move" autocomplete are still future work.
+- Ordinary non-terminal "check" announcements are still future work.
+  Evaluation-based autocomplete is implemented but still needs on-device
+  dogfood before tuning the margin or calling it done.
 
 ## Recent Commits
 
@@ -42,18 +46,19 @@ Use this file first after a context reset, then read `STATUS.md` and
 - After M5 conservative autocomplete: `.\gradlew.bat assembleDebug` passed.
 - After mini keyboard simulator: `.\gradlew.bat test` passed.
 - After mini keyboard simulator: `.\gradlew.bat assembleDebug` passed.
+- After score-gap autocomplete: `.\gradlew.bat test` passed.
+- After score-gap autocomplete: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
 ## Next Recommended Work
 
-1. Install/dogfood M5 conservative autocomplete with the mini keyboard first,
-   then repeat with hardware. Check:
-   forced whole-move autofill, source-square-only-move autofill, first tap
+1. Install/dogfood full M5 autocomplete with the mini keyboard first, then
+   repeat with hardware. Check forced whole-move autofill,
+   source-square-only-move autofill, score-gap suggestion autofill, first tap
    reads preset values, second tap advances, and Thumb still must commit.
-2. If the conservative behavior feels right, design the evaluation-based
-   "basically one good move" path. Keep it score-based and explicit rather
-   than guessing from legal move shape alone.
+2. Tune or disable score-gap suggestion autofill based on dogfood; keep it
+   score-based and explicit rather than guessing from legal move shape alone.
 3. Board readability is no longer the top blocker because the user now has
    actual pieces, but keep it available if dogfood still requires frequent
    phone checks.

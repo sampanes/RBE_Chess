@@ -483,19 +483,22 @@ not replace the Thumb+Middle repeat target.
 Remaining related work: ordinary non-terminal "check" announcements. Terminal
 checkmate/stalemate speech is now handled by M3.
 
-### M5 - conservative autocomplete
+### M5 - autocomplete
 
-Landed first slice: the app uses `legalMoves()` only, not engine preference
-scores. It autofills the buffer when the whole position has exactly one legal
-move, or when the source square the user entered has exactly one legal move.
-Autofilled coordinates are marked read-pending, so the first D/F/J/K press
-reads the preset value without advancing it and the second press advances.
-Autocomplete never commits; Thumb is still required in both AutoAdvance and
-Manual mode.
+Landed first slice: the app uses `legalMoves()` for conservative forced
+autofill. It autofills the buffer when the whole position has exactly one
+legal move, or when the source square the user entered has exactly one legal
+move. Autofilled coordinates are marked read-pending, so the first D/F/J/K
+press reads the preset value without advancing it and the second press
+advances. Autocomplete never commits; Thumb is still required in both
+AutoAdvance and Manual mode.
 
-Still deferred: the "basically one good move any child would see" behavior.
-Implement that with explicit Stockfish score comparison (`searchmoves`,
-MultiPV, or candidate scoring) instead of inferring from legal move shape.
+Landed second slice: the "basically one good move" behavior is explicit
+score comparison, not a legal-shape guess. `StockfishEngine.scoredMoves()`
+uses `searchmoves` / `MultiPV`, `UciScoredMoveParser` parses `info score ...
+pv ...`, and `MoveAutofill.clearBestScoredMove()` only returns a suggestion
+when the top scored candidate clears the configured centipawn margin. This
+still needs on-device dogfood for score-margin tuning.
 
 ### Mini 5-button keyboard simulator
 
