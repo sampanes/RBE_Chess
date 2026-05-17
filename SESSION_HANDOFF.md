@@ -40,6 +40,10 @@ Use this file first after a context reset, then read `STATUS.md` and
   speech queue behind the current move phrase instead of interrupting it.
 - Engine bestmove think time is now 4 seconds (`ENGINE_MOVETIME_MS = 4000`)
   after dogfood showed the slower cadence feels better.
+- Board readability and Pocket Mode soft-lock have landed. The board draws
+  stronger last/current/pending highlights, overlays arrows for those moves,
+  and shows a "Pending: ..." line while the engine is checking/thinking.
+  Pocket Mode exit is now a long press on the black screen, not tap-anywhere.
 
 ## Recent Commits
 
@@ -67,27 +71,28 @@ Use this file first after a context reset, then read `STATUS.md` and
   pacing: `.\gradlew.bat assembleDebug` passed.
 - After 4 s engine movetime bump: `.\gradlew.bat test` passed.
 - After 4 s engine movetime bump: `.\gradlew.bat assembleDebug` passed.
+- After board/Pocket affordance pass: `.\gradlew.bat test` passed.
+- After board/Pocket affordance pass: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
 ## Next Recommended Work
 
-1. Install/dogfood full M5 autocomplete with the mini keyboard first, then
-   repeat with hardware. Check forced whole-move autofill,
-   source-square-only-move autofill, score-gap suggestion autofill, first tap
-   reads preset values, second tap advances, Thumb still must commit, source
-   autocomplete waits while scrolling, engine replies and forced autofill
-   speech wait behind the move phrase, terminal mates/stalemates stop the
-   game, and ordinary checks are spoken after checking moves.
-2. Tune or disable score-gap suggestion autofill based on dogfood; keep it
+1. Install/dogfood the board/Pocket changes with the mini keyboard first, then
+   repeat with hardware. Check pending arrows during legality/engine think,
+   last/current/pending highlights, ignored cycler taps while pending, and
+   long-press Pocket Mode exit.
+2. Re-check full M5 autocomplete in the same pass: forced whole-move
+   autofill, source-square-only-move autofill, score-gap suggestion autofill,
+   first tap reads preset values, second tap advances, Thumb still must
+   commit, source autocomplete waits while scrolling, engine replies and
+   forced autofill speech wait behind the move phrase, terminal
+   mates/stalemates stop the game, and ordinary checks are spoken after
+   checking moves.
+3. Tune or disable score-gap suggestion autofill based on dogfood; keep it
    score-based and explicit rather than guessing from legal move shape alone.
-3. Board readability is no longer the top blocker because the user now has
-   actual pieces, but keep it available if dogfood still requires frequent
-   phone checks.
-4. Treat Pocket Mode soft-lock as fallback polish if true screen-off remains
-   infeasible. Candidate unlock/exit gestures: double tap, long press or tap
-   in a specific area, or volume up/down. This is less important than board
-   improvements.
+4. If board arrows feel cluttered, simplify the overlay before adding any new
+   gameplay feature.
 
 ## Cautions
 

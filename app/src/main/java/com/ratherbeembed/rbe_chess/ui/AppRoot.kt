@@ -37,6 +37,7 @@ fun AppRoot(
     buffer: MoveBuffer,
     pocketMode: PocketModeState,
     history: MoveHistory,
+    pendingMove: String?,
     engineStatus: String,
     gameMode: GameMode,
     playerSide: ChessSide,
@@ -62,6 +63,7 @@ fun AppRoot(
             PocketModeState.Normal -> NormalScreen(
                 buffer = buffer,
                 history = history,
+                pendingMove = pendingMove,
                 engineStatus = engineStatus,
                 gameMode = gameMode,
                 playerSide = playerSide,
@@ -80,6 +82,7 @@ fun AppRoot(
 private fun NormalScreen(
     buffer: MoveBuffer,
     history: MoveHistory,
+    pendingMove: String?,
     engineStatus: String,
     gameMode: GameMode,
     playerSide: ChessSide,
@@ -120,6 +123,8 @@ private fun NormalScreen(
             ChessBoard(
                 history = history,
                 bottomSide = playerSide,
+                buffer = buffer,
+                pendingMove = pendingMove,
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 380.dp),
@@ -165,7 +170,7 @@ private fun NormalScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Tap anywhere on the black screen to exit.",
+                    text = "Long press the black screen to exit.",
                     style = MaterialTheme.typography.bodySmall
                 )
             } else {
@@ -190,6 +195,7 @@ private fun AppRootInGamePreview() {
             buffer = MoveBuffer.DEFAULT,
             pocketMode = PocketModeState.Normal,
             history = MoveHistory.EMPTY,
+            pendingMove = null,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
             playerSide = ChessSide.WHITE,
@@ -213,6 +219,7 @@ private fun AppRootStartMenuPreview() {
             buffer = MoveBuffer.DEFAULT,
             pocketMode = PocketModeState.Normal,
             history = MoveHistory.EMPTY,
+            pendingMove = null,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
             playerSide = ChessSide.WHITE,

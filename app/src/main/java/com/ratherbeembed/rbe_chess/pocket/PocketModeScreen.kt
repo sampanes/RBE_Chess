@@ -16,7 +16,7 @@ import androidx.compose.ui.tooling.preview.Preview
 /**
  * Black/minimal screen for Pocket Mode. The Activity stays foregrounded
  * (so it keeps BT keyboard focus) but the visual surface is essentially
- * off; a tap anywhere exits Pocket Mode per the AGENT_NOTES grammar.
+ * off; a deliberate long press exits Pocket Mode.
  */
 @Composable
 fun PocketModeScreen(onExit: () -> Unit) {
@@ -25,7 +25,7 @@ fun PocketModeScreen(onExit: () -> Unit) {
             .fillMaxSize()
             .background(Color.Black)
             .pointerInput(Unit) {
-                detectTapGestures(onTap = { onExit() })
+                detectTapGestures(onLongPress = { onExit() })
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -33,7 +33,7 @@ fun PocketModeScreen(onExit: () -> Unit) {
         // they peek at the screen. Anything brighter would defeat the
         // point of the dimmed window.
         Text(
-            text = "•",
+            text = "hold",
             color = Color(0xFF202020),
             style = MaterialTheme.typography.bodySmall,
         )

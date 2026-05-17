@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private var moveBuffer by mutableStateOf(MoveBuffer.DEFAULT)
     private var pocketMode by mutableStateOf(PocketModeState.Normal)
     private var moveHistory by mutableStateOf(MoveHistory.EMPTY)
+    private var pendingMove by mutableStateOf<String?>(null)
     private var engineStatus by mutableStateOf("Engine: idle")
     private var phase by mutableStateOf<AppPhase>(AppPhase.StartMenu(0))
     private var gameMode by mutableStateOf(GameMode.AutoAdvance)
@@ -90,6 +91,7 @@ class MainActivity : ComponentActivity() {
                     buffer = moveBuffer,
                     pocketMode = pocketMode,
                     history = moveHistory,
+                    pendingMove = pendingMove,
                     engineStatus = engineStatus,
                     gameMode = gameMode,
                     playerSide = playerSide,
@@ -217,6 +219,7 @@ class MainActivity : ComponentActivity() {
         engineJob?.cancel(); engineJob = null
         autofillJob?.cancel(); autofillJob = null
         moveHistory = MoveHistory.EMPTY
+        pendingMove = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         playerSide = if (asWhite) ChessSide.WHITE else ChessSide.BLACK
@@ -305,14 +308,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleLiveGameAction(action: GrammarAction) {
+        if (
+            engineJob?.isActive == true &&
+            action != GrammarAction.Ignored
+        ) {
+            // While a committed move is being checked / answered, keep the
+            // visible buffer stable. Chords such as Undo/New Game are handled
+            // before this method and can still cancel the engine job.
+            Log.d(TAG, "Input ignored — engine still calculating")
+            return
+        }
         when (action) {
             GrammarAction.Commit -> {
-                if (engineJob?.isActive == true) {
-                    // Engine is mid-think; ignore so the current buffer
-                    // stays visible and TTS isn't double-fired.
-                    Log.d(TAG, "Commit ignored — engine still calculating")
-                    return
-                }
                 autofillJob?.cancel()
                 autofillJob = null
                 inactivityJob?.cancel()
@@ -393,6 +400,7 @@ class MainActivity : ComponentActivity() {
     private fun commitMove(opponentMove: String) {
         autofillJob?.cancel()
         autofillJob = null
+        pendingMove = opponentMove
         val mover = sideToMove()
         val typedMoverLabel = moverLabel(mover)
         engineStatus = "Engine: checking $opponentMove..."
@@ -402,6 +410,7 @@ class MainActivity : ComponentActivity() {
                 engine.boot()
                 val legalMoves = engine.legalMoves(moveHistory.moves)
                 if (opponentMove !in legalMoves) {
+                    pendingMove = null
                     speaker.speakIllegalMove(waitingPhrase())
                     engineStatus = "Illegal move: $opponentMove (history=${moveHistory.size} plies)"
                     Log.d(TAG, "Illegal move rejected: $opponentMove legal=${legalMoves.sorted()}")
@@ -411,6 +420,7 @@ class MainActivity : ComponentActivity() {
                 moveBuffer = MoveBuffer.DEFAULT
                 commitLegalMove(opponentMove, typedMoverLabel)
             } catch (t: Throwable) {
+                pendingMove = null
                 engineStatus = "Engine error checking $opponentMove: ${t.message}"
                 Log.e(TAG, "engine legal move check failed", t)
             }
@@ -423,6 +433,7 @@ class MainActivity : ComponentActivity() {
         val typedTerminal = terminalStateAfter(historyForEngine)
         if (typedTerminal != null) {
             moveHistory = historyForEngine
+            pendingMove = null
             terminalState = typedTerminal
             speaker.speakPlayedTerminal(typedMoverLabel, opponentMove, typedTerminal)
             engineStatus =
@@ -449,6 +460,7 @@ class MainActivity : ComponentActivity() {
                     val best = result.uci
                     if (gameMode == GameMode.Manual) {
                         moveHistory = historyForEngine
+                        pendingMove = null
                         speaker.speakPlayedAndSuggestion(
                             typedMoverLabel,
                             opponentMove,
@@ -464,6 +476,7 @@ class MainActivity : ComponentActivity() {
                         val replyHistory = historyForEngine.append(best)
                         val terminal = terminalStateAfter(replyHistory)
                         moveHistory = replyHistory
+                        pendingMove = null
                         if (terminal != null) {
                             terminalState = terminal
                             speaker.speakPlayedTerminal(
@@ -494,6 +507,7 @@ class MainActivity : ComponentActivity() {
                 }
                 is BestMoveResult.Terminal -> {
                     moveHistory = historyForEngine
+                    pendingMove = null
                     terminalState = result.state
                     speaker.speakTerminal(result.state)
                     engineStatus =
@@ -502,6 +516,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } catch (t: Throwable) {
+            pendingMove = null
             engineStatus = "Engine error after $opponentMove: ${t.message}"
             Log.e(TAG, "engine bestmove failed", t)
         }
@@ -659,6 +674,7 @@ class MainActivity : ComponentActivity() {
         // overwrite the rewound state we're about to set below.
         engineJob?.cancel(); engineJob = null
         moveHistory = moveHistory.undoLastPair()
+        pendingMove = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         speaker.speakUndo(waitingPhrase())
@@ -681,6 +697,7 @@ class MainActivity : ComponentActivity() {
         engineJob?.cancel(); engineJob = null
         autofillJob?.cancel(); autofillJob = null
         moveHistory = MoveHistory.EMPTY
+        pendingMove = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         phase = AppPhase.StartMenu(0)
