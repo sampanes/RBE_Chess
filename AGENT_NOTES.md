@@ -321,7 +321,7 @@ All four open questions this file used to track are answered by
 | Question | Resolved by addendum section | Short answer |
 |---|---|---|
 | Stockfish binary source | §"Stockfish Binary Source" | Stockfish 18 Android ARMv8 Dot Product (`sf_18`); fallback plain ARMv8. Record in `app/src/main/jniLibs/README.md` when the `.so` is added. |
-| Engine settings defaults | §"Engine Settings Defaults" | Threads=3, Hash=64 MB, MultiPV=1, Ponder=false, movetime=3000 ms. Raised from 1000 ms after dogfood showed TTS cutting off "played..." before the engine reply. Run the 20-analysis thermal test before raising further. |
+| Engine settings defaults | §"Engine Settings Defaults" | Threads=3, Hash=64 MB, MultiPV=1, Ponder=false, movetime=4000 ms. Raised from 1000 ms after dogfood showed TTS cutting off "played..." before the engine reply, then raised to 4000 ms because the slower dogfood cadence felt better. Run the 20-analysis thermal test before raising further. |
 | AccessibilityService UX | §"AccessibilityService UX" | Not required for M1. When added later: explicit consent screen, two-button choice, opens `Settings.ACTION_ACCESSIBILITY_SETTINGS`. |
 
 (The addendum's original "Keyboard grammar v0" question is no longer
@@ -373,7 +373,7 @@ press.
 **Thumb/Space (single tap) — commit and advance:**
 
 1. Apply the entered move to the board state as the opponent's move.
-2. Run Stockfish `go movetime 3000`.
+2. Run Stockfish `go movetime 4000`.
 3. TTS speaks the bestmove (e.g. *"Best move: D2 to D4"*).
 4. **Auto-apply the bestmove** to the board state — the user will play it
    on the physical board next, so the model advances with it.

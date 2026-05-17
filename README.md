@@ -58,7 +58,7 @@ flowchart TD
         bootstrap --> state
 
         state --> engine["StockfishProcessEngine"]
-        engine --> uci["UCI pipe<br/>position startpos moves ...<br/>go movetime 3000"]
+        engine --> uci["UCI pipe<br/>position startpos moves ...<br/>go movetime 4000"]
         uci --> stockfish["libstockfish.so<br/>nativeLibraryDir process"]
         stockfish --> bestmove["bestmove <uci>"]
         bestmove --> speaker["BestMoveSpeaker<br/>SpokenMoveFormatter"]
@@ -167,7 +167,7 @@ loop:
 
 Stockfish is treated as a black-box process. The Android code does not
 implement chess search; it sends `position startpos moves ...` and
-`go movetime 3000`, then waits for `bestmove`.
+`go movetime 4000`, then waits for `bestmove`.
 
 ## Stockfish Binary
 
