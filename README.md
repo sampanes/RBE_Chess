@@ -161,7 +161,7 @@ loop:
 | App shell     | `MainActivity.kt`, `ui/`                 | Start menu, normal screen, Pocket Mode entry, key dispatch                  |
 | Input grammar | `input/`                                 | Map Android `KeyEvent`s to chess actions and mutate `MoveBuffer`            |
 | Game state    | `chess/MoveHistory.kt`, `ui/AppPhase.kt` | Track UCI plies, side selection, AutoAdvance vs Manual                      |
-| Pocket Mode   | `pocket/`                                | Keep the Activity awake, dim the screen, show the black tap-to-exit surface |
+| Pocket Mode   | `pocket/`                                | Keep the Activity awake, dim the screen, show the black long-press-to-exit surface |
 | Engine        | `engine/`                                | Spawn Stockfish and speak UCI over stdin/stdout                             |
 | Speech        | `speech/`                                | Convert UCI moves and status events into TTS-friendly phrases               |
 
@@ -231,8 +231,8 @@ Firmware build notes and upload troubleshooting are in
 
 ## Current Status
 
-- Pocket Mode black screen, brightness dimming, and Activity-scoped
-  keyboard capture are implemented.
+- Pocket Mode black screen, brightness dimming, long-press exit, and
+  Activity-scoped keyboard capture are implemented.
 - Firmware v8: finger-labeled cycler keys, Thumb-as-modifier chords
   (Pinky/Ring/Middle/Index emit `U`/`M`/`R`/`N` HID), and battery reports via the HID stream
   (`B` + 3 zero-padded ASCII digits, input-gated after the timer is due). The app

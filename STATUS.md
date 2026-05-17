@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (engine movetime bumped to 4 seconds and verified.)
+Last updated: 2026-05-17 (board affordances and Pocket Mode long-press exit landed.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,15 +32,13 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** dogfood fixes after M5/check testing. Source-
-  square autocomplete is now debounced by the inactivity-prompt delay, so
-  scrolling through ranks/files does not trigger autocomplete unless the user
-  pauses. AutoAdvance engine replies and forced/suggestion autofill speech are
-  queued behind the current move phrase instead of flushing it. Manual-mode
-  engine suggestions now prefill the buffer instead of leaving `a1a1`.
-  Terminal state is checked after every appended move, including AutoAdvance
-  engine replies, so checkmate/stalemate stops normal input immediately after
-  the mating/stalemating move.
+- **Current code addition:** board readability + Pocket Mode soft-lock pass.
+  The board now has stronger last-move/current-input/pending-move highlights,
+  arrow overlays for last/current/pending moves, and a "Pending: ..." line
+  while a committed move is being legality-checked / answered by Stockfish.
+  Ordinary cycler taps are ignored while that pending move is active so the
+  visible buffer stays stable. Pocket Mode no longer exits on any tap; it
+  requires a deliberate long press on the black screen.
 - **Current test aid:** Mini 5-button keyboard simulator. A tiny `Mini off`
   / `Mini on` toggle is present on both the start menu and normal in-game
   screen. When enabled, P/R/M/I/T buttons inject the same `ChessKey`s as
@@ -64,12 +62,10 @@ as session-priority cleanup before doing other work.
   plies (or one if odd), clears the buffer, says "Undid last move."
   New-game chord cancels engine work, clears history, returns to the
   start menu. JVM: 76 / 76 tests green; `assembleDebug` green.
-- **Next:** dogfood the M5/check fixes on-device with the mini keyboard, then
-  hardware. Check that source-square autocomplete waits while scrolling,
-  forced autofill waits for the move phrase, manual suggestions start at the
-  suggested move, terminal mates/stalemates stop the game, and the 4 s engine
-  movetime feels right. After that, move to board readability or
-  Pocket Mode soft-lock polish based on whichever still hurts dogfood more.
+- **Next:** dogfood the board/Pocket changes on-device with the mini keyboard,
+  then hardware. Check pending arrows during engine think, last/current move
+  highlights, ignored cycler taps while pending, and long-press Pocket Mode
+  exit. Also re-check the recent M5/check fixes in the same pass.
 - **Recent code addition:** M4 legality guard. Before appending a typed
   move, the app asks Stockfish for legal moves from the current history
   via `go perft 1`. Illegal moves leave history unchanged, keep the
@@ -92,7 +88,7 @@ as steps land:
       still deferred to 2d. (`b86f0a4`)
 - [x] **2c** Pocket Mode shell: `PocketModeState`, `PocketModeController`
       (`FLAG_KEEP_SCREEN_ON` + brightness dim/restore), `PocketModeScreen`
-      (full black, tap-anywhere onExit). "Enter Pocket Mode" button on
+      (full black, long-press onExit). "Enter Pocket Mode" button on
       the normal screen. `BestMoveSpeaker.speakCommit()` → "Calculating"
       on Thumb/Space. Verified on the S22 Ultra 2026-05-15.
 - [x] **3** Stockfish PoC: `engine/` package + `scripts/fetch-stockfish.sh`
@@ -186,13 +182,13 @@ no Android Settings dependency.
 M1 proved the move loop; M2 makes the *game* operable from the keypad.
 Landed after M2:
 
-- **Minimal in-app board viewer.** Display-only Compose board on the
+- **In-app board viewer.** Display-only Compose board on the
   normal in-game screen, oriented with the selected Stockfish/player
   side at the bottom. It projects `MoveHistory` from the start position,
-  renders rank/file labels and piece letters, and highlights the source
-  and target squares of the last applied UCI move. It intentionally has
-  no touch input; the board only changes through Stockfish auto-advance
-  and keyboard-entered moves.
+  renders in-square rank/file labels and piece letters, highlights last move
+  / current input / pending committed move, and draws arrows for those move
+  affordances. It intentionally has no touch input; the board only changes
+  through Stockfish auto-advance and keyboard-entered moves.
 - **Repeat-last spoken output.** Firmware v6 maps Thumb+Middle to `R`;
   the app maps it to `RepeatLast` and now prefers the last board-changing
   spoken event. Transient statuses such as illegal-move warnings and
@@ -269,9 +265,9 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after 4 s movetime bump |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after board/Pocket affordance pass |
 | `:app:testDebugUnitTest` | 123 / 123 green | includes `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (14), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
-| Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last-move source/target highlights |
+| Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
 | App launch on S22 Ultra | green | confirmed 2026-05-14 |
@@ -283,7 +279,7 @@ PGN/FEN export, opening book.
 | Per-press TTS on-device | green (phone speaker) | "loud and clear" on S22 Ultra speaker 2026-05-15 |
 | 2.5 s inactivity prompt on-device | green (phone speaker) | fires on pause, cancels on next press |
 | TTS routing to BT A2DP speaker | green | dual-BT verified 2026-05-15: earbuds + Bluefruit keypad together, audio routes to earbuds |
-| Pocket Mode entry/exit on-device | green | enter dims + keeps awake; BT keypad still drives TTS through earbuds; tap-anywhere exits and restores brightness 2026-05-15 |
+| Pocket Mode entry/exit on-device | needs recheck | enter dims + keeps awake was green 2026-05-15; exit gesture changed from tap-anywhere to long-press 2026-05-17 |
 | Stockfish UCI loop on-device | green | Initial proof button verified boot → uci/uciok → isready/readyok → position startpos → go movetime 1000 → bestmove spoken via TTS 2026-05-15; the temporary button has since been removed from the normal screen. |
 | Thumb → engine → bestmove on-device | green (semi-thorough dogfood) | User-confirmed 2026-05-16: real game loop has been tested through repeated physical-piece play enough to move on to M5. |
 | Firmware v2 chord detection | green | User-confirmed 2026-05-15: hold Thumb + tap Pinky/Ring/Index emits the right HID codes. |
@@ -298,17 +294,9 @@ PGN/FEN export, opening book.
 
 ## Open follow-ups (scheduled, not blockers)
 
-- Board readability remains useful but is no longer the next blocker now
-  that the user has actual pieces available. Revisit if dogfood still
-  requires frequent phone checks. Candidate improvements: more realistic/
-  legible pieces, stronger last/current move affordances, and an arrow
-  showing the entered move during the brief Thumb-commit -> legality/
-  Stockfish -> history-update interval.
-- If true screen-off input remains infeasible and we stay with Pocket Mode
-  as "black/backlight-low screen still technically on", replace tap-anywhere
-  exit with a deliberate soft-lock/unlock gesture. Candidates to test:
-  double tap, long press or tap in a specific area, or volume up/down. This
-  is nice-to-have compared with board improvements.
+- Board readability + Pocket long-press exit need on-device dogfood after the
+  2026-05-17 affordance pass. Revisit if arrows are cluttered, piece letters
+  are too plain, or long-press is awkward with the dimmed screen.
 - Bump AGP and `compileSdk` back to 36 before the post-M1 screen-off
   spike. (AGENT_NOTES §"Build configuration — deviations".)
 - *Manual mode* (working title: "user types their own moves too") —
