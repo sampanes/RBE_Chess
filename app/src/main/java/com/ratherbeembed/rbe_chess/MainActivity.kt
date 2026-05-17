@@ -19,6 +19,7 @@ import com.ratherbeembed.rbe_chess.engine.BestMoveResult
 import com.ratherbeembed.rbe_chess.engine.StockfishProcessEngine
 import com.ratherbeembed.rbe_chess.engine.TerminalState
 import com.ratherbeembed.rbe_chess.input.BatteryReportParser
+import com.ratherbeembed.rbe_chess.input.BatteryTelemetrySmoother
 import com.ratherbeembed.rbe_chess.input.ChessKey
 import com.ratherbeembed.rbe_chess.input.GrammarAction
 import com.ratherbeembed.rbe_chess.input.HardwareKeyboardHandler
@@ -51,7 +52,7 @@ private const val AUTOFILL_SCORE_MARGIN_CP = 100
 private const val BATTERY_LOW_PCT = 20
 private const val BATTERY_CRITICAL_PCT = 5
 private const val BATTERY_REARM_PCT = 30
-private val MOCK_BATTERY_REPORTS = intArrayOf(88, 19, 4, 73)
+private val MOCK_BATTERY_REPORTS = intArrayOf(88, 19, 4, 3, 73)
 
 class MainActivity : ComponentActivity() {
     private var moveBuffer by mutableStateOf(MoveBuffer.DEFAULT)
@@ -65,14 +66,17 @@ class MainActivity : ComponentActivity() {
     private var terminalState by mutableStateOf<TerminalState?>(null)
     private var batteryPct by mutableStateOf<Int?>(null)
     private var miniKeyboardVisible by mutableStateOf(false)
-    private var batteryWarnedLow = false
-    private var batteryWarnedCritical = false
     private var mockBatteryIndex = 0
     private lateinit var speechOutput: SpeechOutput
     private lateinit var speaker: BestMoveSpeaker
     private lateinit var pocketController: PocketModeController
     private lateinit var engine: StockfishProcessEngine
     private val batteryParser = BatteryReportParser()
+    private val batterySmoother = BatteryTelemetrySmoother(
+        lowPct = BATTERY_LOW_PCT,
+        criticalPct = BATTERY_CRITICAL_PCT,
+        rearmPct = BATTERY_REARM_PCT,
+    )
     private var inactivityJob: Job? = null
     private var engineJob: Job? = null
     private var autofillJob: Job? = null
@@ -157,21 +161,15 @@ class MainActivity : ComponentActivity() {
 
     private fun handleBatteryReport(pct: Int) {
         Log.d(TAG, "Battery report: $pct%%")
-        batteryPct = pct
-        // Re-arm after charging so a later drop can warn again.
-        if (pct >= BATTERY_REARM_PCT) {
-            batteryWarnedLow = false
-            batteryWarnedCritical = false
-            return
-        }
-        if (pct < BATTERY_CRITICAL_PCT && !batteryWarnedCritical) {
-            speaker.speakBatteryWarning(critical = true)
-            batteryWarnedCritical = true
-            return
-        }
-        if (pct < BATTERY_LOW_PCT && !batteryWarnedLow) {
-            speaker.speakBatteryWarning(critical = false)
-            batteryWarnedLow = true
+        val update = batterySmoother.record(pct)
+        batteryPct = update.displayPct
+        Log.d(TAG, "Battery smoothed: display=${update.displayPct} warning=${update.warning}")
+        when (update.warning) {
+            BatteryTelemetrySmoother.Warning.CRITICAL ->
+                speaker.speakBatteryWarning(critical = true)
+            BatteryTelemetrySmoother.Warning.LOW ->
+                speaker.speakBatteryWarning(critical = false)
+            null -> Unit
         }
     }
 
