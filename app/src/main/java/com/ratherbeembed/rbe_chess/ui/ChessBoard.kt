@@ -220,7 +220,7 @@ private fun BoardSquareView(
         if (piece != null) {
             Text(
                 text = piece.boardSymbol(),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = pieceTextColor(piece.side),
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -445,22 +445,19 @@ private fun bottomRank(side: ChessSide): Int =
 private fun leftFile(side: ChessSide): Int =
     if (side == ChessSide.WHITE) 0 else 7
 
-private fun ChessPiece.boardSymbol(): String {
-    val sidePrefix = if (side == ChessSide.WHITE) "W" else "B"
-    val piece = when (type) {
-        PieceType.KING -> "K"
-        PieceType.QUEEN -> "Q"
-        PieceType.ROOK -> "R"
-        PieceType.BISHOP -> "B"
-        PieceType.KNIGHT -> "N"
-        PieceType.PAWN -> "P"
+private fun ChessPiece.boardSymbol(): String =
+    when (type) {
+        PieceType.KING -> "♚"
+        PieceType.QUEEN -> "♛"
+        PieceType.ROOK -> "♜"
+        PieceType.BISHOP -> "♝"
+        PieceType.KNIGHT -> "♞"
+        PieceType.PAWN -> "♟"
     }
-    return sidePrefix + piece
-}
 
 private fun pieceTextColor(side: ChessSide): Color =
     if (side == ChessSide.WHITE) {
-        Color(0xFF0D47A1)
+        Color.White
     } else {
-        Color(0xFF2A1B13)
+        Color.Black
     }
