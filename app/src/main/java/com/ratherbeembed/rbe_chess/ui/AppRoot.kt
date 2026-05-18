@@ -22,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ratherbeembed.rbe_chess.chess.ChessSide
@@ -39,6 +40,7 @@ fun AppRoot(
     history: MoveHistory,
     pendingMove: String?,
     promotionBaseMove: String?,
+    finishedGame: FinishedGameUiState?,
     engineStatus: String,
     gameMode: GameMode,
     playerSide: ChessSide,
@@ -66,6 +68,7 @@ fun AppRoot(
                 history = history,
                 pendingMove = pendingMove,
                 promotionBaseMove = promotionBaseMove,
+                finishedGame = finishedGame,
                 engineStatus = engineStatus,
                 gameMode = gameMode,
                 playerSide = playerSide,
@@ -86,6 +89,7 @@ private fun NormalScreen(
     history: MoveHistory,
     pendingMove: String?,
     promotionBaseMove: String?,
+    finishedGame: FinishedGameUiState?,
     engineStatus: String,
     gameMode: GameMode,
     playerSide: ChessSide,
@@ -122,6 +126,24 @@ private fun NormalScreen(
                     "Keypad battery: ${batteryPct?.let { "$it%" } ?: "unknown"}",
                 style = MaterialTheme.typography.bodyMedium
             )
+            if (finishedGame != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "${finishedGame.reason.label}: " +
+                        FINISHED_GAME_OPTIONS[finishedGame.selectedIndex],
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                )
+                finishedGame.lastExportPath?.let { path ->
+                    Text(
+                        text = "Saved: $path",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
             Spacer(Modifier.height(16.dp))
             ChessBoard(
                 history = history,
@@ -208,6 +230,7 @@ private fun AppRootInGamePreview() {
             history = MoveHistory.EMPTY,
             pendingMove = null,
             promotionBaseMove = null,
+            finishedGame = null,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
             playerSide = ChessSide.WHITE,
@@ -233,6 +256,7 @@ private fun AppRootStartMenuPreview() {
             history = MoveHistory.EMPTY,
             pendingMove = null,
             promotionBaseMove = null,
+            finishedGame = null,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
             playerSide = ChessSide.WHITE,

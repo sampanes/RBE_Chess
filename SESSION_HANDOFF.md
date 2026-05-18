@@ -15,7 +15,11 @@ Use this file first after a context reset, then read `STATUS.md` and
 - Promotion pick state is implemented. A four-coordinate promotion base move
   such as `e7e8` now opens a one-key pick state when legal moves contain
   suffixed candidates. D/Pinky chooses knight, F/Ring bishop, J/Middle rook,
-  and K/Index or Thumb/Space queen.
+  and K/Index or Thumb/Space queen. Dogfood for this is nice-to-have/deferred.
+- Finished-game export is implemented. Checkmate/stalemate and live-game
+  Hold+Index enter a finished-game menu with `Save PGN/FEN` and `New game`.
+  Saving writes a timestamped `.txt` with FEN plus PGN-style UCI movetext to
+  `Downloads/RBE Chess` on Android 10+.
 - M5 autocomplete is implemented in the working tree. It still prefers the
   conservative legal-only paths first: autofill the whole buffer if there is
   exactly one legal move in the position, or autofill after source-square
@@ -85,6 +89,8 @@ Use this file first after a context reset, then read `STATUS.md` and
 - After battery telemetry smoothing: `.\gradlew.bat assembleDebug` passed.
 - After promotion pick state: `.\gradlew.bat test` passed.
 - After promotion pick state: `.\gradlew.bat assembleDebug` passed.
+- After PGN/FEN text export: `.\gradlew.bat test` passed.
+- After PGN/FEN text export: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
@@ -102,10 +108,15 @@ Use this file first after a context reset, then read `STATUS.md` and
    forced autofill speech wait behind the move phrase, terminal
    mates/stalemates stop the game, and ordinary checks are spoken after
    checking moves.
-3. Dogfood promotion with at least one queen promotion and one underpromotion
-   button press. Clear-buffer and score-gap margin tuning are deferred
-   indefinitely unless dogfood surfaces a real pain point.
-4. If board arrows feel cluttered, simplify the overlay before adding any new
+3. Re-check end-game/export flow: Hold+Index during a live game should end
+   the game, Ring/Middle should cycle `Save PGN/FEN` / `New game`, Thumb on
+   save should create a `.txt` in `Downloads/RBE Chess`, and Thumb on new game
+   should return to the start menu. Also check the same finished menu after
+   checkmate/stalemate if naturally reached.
+4. Promotion dogfood is nice-to-have/deferred. Clear-buffer and score-gap
+   margin tuning are deferred indefinitely unless dogfood surfaces a real
+   pain point.
+5. If board arrows feel cluttered, simplify the overlay before adding any new
    gameplay feature.
 
 ## Cautions

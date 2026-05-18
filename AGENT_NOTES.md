@@ -278,9 +278,10 @@ Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
   Alternative gestures remain double tap, a specific corner/area, or a volume
   key.
 - Foreground service + wake locks (only if screen-off path is pursued).
-- Tappable board input, FEN/PGN, MultiPV, etc. (handoff M4+ and §Future
+- Tappable board input, MultiPV, etc. (handoff M4+ and §Future
   Enhancements). A minimal display-only Compose board viewer shipped
-  post-M2.
+  post-M2; FEN plus PGN-style UCI text export shipped later as a
+  finished-game option.
 - Board readability pass landed: piece letters, in-square rank/file labels,
   stronger last/current/pending move highlights, and arrows for those move
   states. `MainActivity.pendingMove` shows the committed move during the short
@@ -427,7 +428,7 @@ Chord assignments (firmware → HID → app action):
 | Thumb + Pinky | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
 | Thumb + Ring | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance ⇄ Manual; speak the new state. |
 | Thumb + Middle | `R` | `REPEAT_LAST` | `RepeatLast` | Replay the last board-changing spoken event without changing history. |
-| Thumb + Index | `N` | `NEW_GAME` | `NewGame` | Cancel engine, clear history + buffer, return to StartMenu. |
+| Thumb + Index | `N` | `NEW_GAME` | `NewGame` | Live game: end current game and open export/new-game options. Finished game: return to StartMenu. |
 
 Once any chord fires during a Thumb/Space hold, further cycler presses during
 the same hold are silently ignored (prevents double-fires from

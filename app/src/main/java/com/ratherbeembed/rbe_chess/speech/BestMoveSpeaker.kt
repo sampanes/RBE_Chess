@@ -199,6 +199,22 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         speakStatusEvent(text)
     }
 
+    fun speakFinishedGame(reason: String, option: String) {
+        speakStatusEvent("$reason. $option.")
+    }
+
+    fun speakFinishedGameOption(option: String) {
+        speakStatusEvent(option)
+    }
+
+    fun speakExportSaved(path: String) {
+        speakStatusEvent("Saved game export to $path")
+    }
+
+    fun speakExportFailed() {
+        speakStatusEvent("Could not save game export")
+    }
+
     fun speakGameStart(asWhite: Boolean) {
         speakStatusEvent(if (asWhite) "Playing as white" else "Playing as black")
     }

@@ -10,7 +10,7 @@ package com.ratherbeembed.rbe_chess.input
  *   Thumb+Pinky  -> 'U' (UNDO)
  *   Thumb+Ring   -> 'M' (TOGGLE_MANUAL)
  *   Thumb+Middle -> 'R' (REPEAT_LAST)
- *   Thumb+Index  -> 'N' (NEW_GAME)
+ *   Thumb+Index  -> 'N' (end current game; starts a new game from done state)
  *
  * See firmware/RBE_32u4_chess/README.md §"Thumb/Space-as-modifier chords".
  */
@@ -61,7 +61,7 @@ object KeyboardGrammar {
         GrammarAction.CycleToRank -> buffer.cycleToRank()
         GrammarAction.Commit -> MoveBuffer.DEFAULT
         // Chord actions wipe any in-progress cycler input: after Undo or
-        // NewGame the half-typed move is no longer meaningful. Manual
+        // NewGame/End the half-typed move is no longer meaningful. Manual
         // toggle and RepeatLast leave the buffer alone since they do not
         // change the move being typed.
         GrammarAction.Undo -> MoveBuffer.DEFAULT

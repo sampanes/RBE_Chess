@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (promotion pick state landed.)
+Last updated: 2026-05-17 (PGN/FEN text export landed.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,7 +32,11 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** promotion pick state. A four-coordinate pawn
+- **Current code addition:** finished-game export. Checkmate/stalemate and
+  the live-game Hold+Index chord now enter a finished-game menu with
+  "Save PGN/FEN" and "New game". Saving writes a `.txt` export containing
+  FEN plus PGN-style UCI movetext to `Downloads/RBE Chess` on modern Android.
+- **Recent code addition:** promotion pick state. A four-coordinate pawn
   promotion base move now pauses after legality lookup, speaks the promotion
   choices, and maps Pinky/D to knight, Ring/F to bishop, Middle/J to rook,
   and Index/K or Thumb/Space to queen before committing the suffixed UCI move.
@@ -244,14 +248,17 @@ Landed after M2:
   Stockfish's legal moves only contain promotion-suffixed variants of that
   base move, the app prompts for the promotion piece instead of calling it
   illegal. The chosen piece is then committed as normal UCI, e.g. `e7e8q`.
+  Promotion dogfood is nice-to-have, not a blocker for the current phone pass.
+- **PGN/FEN text export.** Finished games expose a small keypad menu:
+  F/Ring and J/Middle cycle options, Thumb selects. "Save PGN/FEN" writes
+  a timestamped `.txt` with a full FEN and PGN-style UCI movetext; "New game"
+  returns to the start menu. Live-game Hold+Index now means "end current
+  game" so forfeits/abandoned games can also be exported.
 
 What's still deferred:
 
 - **Cancel/clear current input buffer.** Deferred indefinitely for now; Undo
   plus retype is the current workaround.
-- **Resign / manual end-of-game command.** Checkmate/stalemate now stops the
-  game automatically. A deliberate "resign/end game" signal is still deferred;
-  per the user's mental model, this is currently redundant with New Game.
 - **Richer draw detection.** Terminal checkmate/stalemate and ordinary check
   speech are handled, but forced draw / repetition / 50-move detection are
   still future work.
@@ -259,8 +266,7 @@ What's still deferred:
   and JVM/build verified. Dedicated score-margin tuning is deferred
   indefinitely unless dogfood shows it feels pushy or confusing.
 
-Further out: clock / time control, draw offers, takebacks,
-PGN/FEN export, opening book.
+Further out: clock / time control, draw offers, takebacks, opening book.
 
 ## M5 implementation checklist — Autocomplete & Predictive Entry
 
@@ -275,8 +281,8 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after promotion pick state |
-| `:app:testDebugUnitTest` | 135 / 135 green | includes `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (15), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after PGN/FEN text export |
+| `:app:testDebugUnitTest` | 141 / 141 green | includes `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (15), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
@@ -296,7 +302,7 @@ PGN/FEN export, opening book.
 | Start menu navigation on-device | green | User-confirmed 2026-05-15: cold launch lands in StartMenu, TTS speaks the intro, Ring/Middle cycle, Thumb selects. |
 | Manual mode toggle on-device | green | User-confirmed 2026-05-15: Thumb+Ring flips mode and TTS announces. |
 | Undo on-device | green | User-confirmed 2026-05-15: Thumb+Pinky drops the last pair, TTS confirms. |
-| New game on-device | green | User-confirmed 2026-05-15: Thumb+Index returns to StartMenu mid-game. |
+| End game / export menu on-device | needs recheck | Hold+Index now ends a live game and opens finished-game options instead of immediately returning to StartMenu. |
 | Full keypad game loop on-device | green (semi-thorough dogfood) | User-confirmed 2026-05-16: firmware v8 plus repeated game-loop play are good enough for the next feature slice. |
 | Firmware v3 BAS battery percentage | broken | v3 made `AT+BLEBATTEN=on` failure fatal; the nRF51 module's AT firmware doesn't support that command, so the keypad bricked into `error()`. |
 | Firmware v4 BAS init non-fatal | green | Confirmed via serial: `AT+BLEBATTEN=on` returns ERROR on this module, warning logged, boot continues. Keypad works as keyboard, no BAS visible to Android. |
@@ -318,8 +324,8 @@ PGN/FEN export, opening book.
   Gated on whether real-world M1 testing finds the cycler intuitive
   enough that doubling input per move isn't punishing. Logged in
   AGENT_NOTES §"Keyboard grammar — hardware-aware V1" → Deferred list.
-- Promotion pick state needs on-device dogfood with at least one queen
-  promotion and one underpromotion button press.
+- Promotion pick state dogfood is nice-to-have/deferred; do not spend the
+  next phone pass forcing a promotion unless it is convenient.
 - Double-tap Space semantics — TBD.
 
 ## Where to read next (precedence: high → low)
