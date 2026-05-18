@@ -14,10 +14,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.ratherbeembed.rbe_chess.chess.ChessSide
+import com.ratherbeembed.rbe_chess.chess.GameEndReason
+import com.ratherbeembed.rbe_chess.chess.GameTextExporter
 import com.ratherbeembed.rbe_chess.chess.MoveHistory
 import com.ratherbeembed.rbe_chess.engine.BestMoveResult
 import com.ratherbeembed.rbe_chess.engine.StockfishProcessEngine
 import com.ratherbeembed.rbe_chess.engine.TerminalState
+import com.ratherbeembed.rbe_chess.export.GameExportStore
 import com.ratherbeembed.rbe_chess.input.BatteryReportParser
 import com.ratherbeembed.rbe_chess.input.BatteryTelemetrySmoother
 import com.ratherbeembed.rbe_chess.input.ChessKey
@@ -33,6 +36,10 @@ import com.ratherbeembed.rbe_chess.speech.BestMoveSpeaker
 import com.ratherbeembed.rbe_chess.speech.SpeechOutput
 import com.ratherbeembed.rbe_chess.ui.AppPhase
 import com.ratherbeembed.rbe_chess.ui.AppRoot
+import com.ratherbeembed.rbe_chess.ui.FINISHED_GAME_NEW_GAME
+import com.ratherbeembed.rbe_chess.ui.FINISHED_GAME_OPTIONS
+import com.ratherbeembed.rbe_chess.ui.FINISHED_GAME_SAVE_EXPORT
+import com.ratherbeembed.rbe_chess.ui.FinishedGameUiState
 import com.ratherbeembed.rbe_chess.ui.GameMode
 import com.ratherbeembed.rbe_chess.ui.START_MENU_OPTIONS
 import com.ratherbeembed.rbe_chess.ui.START_MENU_PLAY_WHITE
@@ -61,6 +68,7 @@ class MainActivity : ComponentActivity() {
     private var moveHistory by mutableStateOf(MoveHistory.EMPTY)
     private var pendingMove by mutableStateOf<String?>(null)
     private var promotionPick by mutableStateOf<PromotionPickState?>(null)
+    private var finishedGame by mutableStateOf<FinishedGameUiState?>(null)
     private var engineStatus by mutableStateOf("Engine: idle")
     private var phase by mutableStateOf<AppPhase>(AppPhase.StartMenu(0))
     private var gameMode by mutableStateOf(GameMode.AutoAdvance)
@@ -72,6 +80,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var speechOutput: SpeechOutput
     private lateinit var speaker: BestMoveSpeaker
     private lateinit var pocketController: PocketModeController
+    private lateinit var exportStore: GameExportStore
     private lateinit var engine: StockfishProcessEngine
     private val batteryParser = BatteryReportParser()
     private val batterySmoother = BatteryTelemetrySmoother(
@@ -88,6 +97,7 @@ class MainActivity : ComponentActivity() {
         speechOutput = SpeechOutput(this)
         speaker = BestMoveSpeaker(speechOutput)
         pocketController = PocketModeController(this)
+        exportStore = GameExportStore(this)
         engine = StockfishProcessEngine(this)
         setContent {
             val colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
@@ -99,6 +109,7 @@ class MainActivity : ComponentActivity() {
                     history = moveHistory,
                     pendingMove = pendingMove,
                     promotionBaseMove = promotionPick?.baseMove,
+                    finishedGame = finishedGame,
                     engineStatus = engineStatus,
                     gameMode = gameMode,
                     playerSide = playerSide,
@@ -222,6 +233,7 @@ class MainActivity : ComponentActivity() {
         moveHistory = MoveHistory.EMPTY
         pendingMove = null
         promotionPick = null
+        finishedGame = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         playerSide = if (asWhite) ChessSide.WHITE else ChessSide.BLACK
@@ -256,6 +268,7 @@ class MainActivity : ComponentActivity() {
                             moveHistory = nextHistory
                             if (terminal != null) {
                                 terminalState = terminal
+                                finishedGame = FinishedGameUiState(terminal.toEndReason())
                                 speaker.speakPlayedTerminal(moverLabel(playerSide), best, terminal)
                                 engineStatus = "Bootstrap: engine=$best, ${terminalLabel(terminal)}"
                             } else {
@@ -278,6 +291,7 @@ class MainActivity : ComponentActivity() {
                     }
                     is BestMoveResult.Terminal -> {
                         terminalState = result.state
+                        finishedGame = FinishedGameUiState(result.state.toEndReason())
                         speaker.speakTerminal(result.state)
                         engineStatus = "Bootstrap: ${terminalLabel(result.state)}"
                         Log.d(TAG, "Bootstrap terminal: ${result.state}")
@@ -296,7 +310,13 @@ class MainActivity : ComponentActivity() {
         val action = KeyboardGrammar.translate(key)
         when (action) {
             GrammarAction.Undo -> handleUndo()
-            GrammarAction.ToggleManual -> handleToggleManual()
+            GrammarAction.ToggleManual -> {
+                if (finishedGame == null) {
+                    handleToggleManual()
+                } else {
+                    speakFinishedSelection()
+                }
+            }
             GrammarAction.RepeatLast -> {
                 val promotion = promotionPick
                 if (promotion != null) {
@@ -305,8 +325,19 @@ class MainActivity : ComponentActivity() {
                     handleRepeatLast()
                 }
             }
-            GrammarAction.NewGame -> handleNewGame()
+            GrammarAction.NewGame -> {
+                if (finishedGame != null) {
+                    handleNewGame()
+                } else {
+                    handleEndCurrentGame()
+                }
+            }
             else -> {
+                val finished = finishedGame
+                if (finished != null) {
+                    handleFinishedGameAction(action, finished)
+                    return
+                }
                 terminalState?.let {
                     speaker.speakTerminal(it)
                     return
@@ -318,6 +349,71 @@ class MainActivity : ComponentActivity() {
                 handleLiveGameAction(action)
             }
         }
+    }
+
+    private fun handleFinishedGameAction(
+        action: GrammarAction,
+        state: FinishedGameUiState,
+    ) {
+        when (action) {
+            GrammarAction.CycleFromRank -> {
+                val next = (state.selectedIndex - 1 + FINISHED_GAME_OPTIONS.size) %
+                    FINISHED_GAME_OPTIONS.size
+                finishedGame = state.copy(selectedIndex = next)
+                speaker.speakFinishedGameOption(FINISHED_GAME_OPTIONS[next])
+            }
+            GrammarAction.CycleToFile -> {
+                val next = (state.selectedIndex + 1) % FINISHED_GAME_OPTIONS.size
+                finishedGame = state.copy(selectedIndex = next)
+                speaker.speakFinishedGameOption(FINISHED_GAME_OPTIONS[next])
+            }
+            GrammarAction.Commit -> {
+                when (state.selectedIndex) {
+                    FINISHED_GAME_SAVE_EXPORT -> saveGameExport(state.reason)
+                    FINISHED_GAME_NEW_GAME -> handleNewGame()
+                }
+            }
+            GrammarAction.CycleFromFile,
+            GrammarAction.CycleToRank,
+            GrammarAction.Ignored -> speakFinishedSelection()
+            GrammarAction.Undo,
+            GrammarAction.ToggleManual,
+            GrammarAction.RepeatLast,
+            GrammarAction.NewGame -> Unit
+        }
+    }
+
+    private fun handleEndCurrentGame() {
+        inactivityJob?.cancel(); inactivityJob = null
+        autofillJob?.cancel(); autofillJob = null
+        engineJob?.cancel(); engineJob = null
+        pendingMove = null
+        promotionPick = null
+        terminalState = null
+        finishedGame = FinishedGameUiState(GameEndReason.FORFEIT)
+        engineStatus = "Game ended: save/export available"
+        speaker.speakFinishedGame(GameEndReason.FORFEIT.label, FINISHED_GAME_OPTIONS[0])
+        Log.d(TAG, "Game manually ended at history=${moveHistory.moves}")
+    }
+
+    private fun saveGameExport(reason: GameEndReason) {
+        try {
+            val export = GameTextExporter.build(moveHistory, reason)
+            val path = exportStore.save(export)
+            finishedGame = finishedGame?.copy(lastExportPath = path)
+            engineStatus = "Saved export: $path"
+            speaker.speakExportSaved(path)
+            Log.d(TAG, "Saved game export: $path")
+        } catch (t: Throwable) {
+            engineStatus = "Export failed: ${t.message}"
+            speaker.speakExportFailed()
+            Log.e(TAG, "game export failed", t)
+        }
+    }
+
+    private fun speakFinishedSelection() {
+        val finished = finishedGame ?: return
+        speaker.speakFinishedGameOption(FINISHED_GAME_OPTIONS[finished.selectedIndex])
     }
 
     private fun handlePromotionKey(key: ChessKey) {
@@ -501,6 +597,7 @@ class MainActivity : ComponentActivity() {
             moveHistory = historyForEngine
             pendingMove = null
             terminalState = typedTerminal
+            finishedGame = FinishedGameUiState(typedTerminal.toEndReason())
             speaker.speakPlayedTerminal(typedMoverLabel, opponentMove, typedTerminal)
             engineStatus =
                 "${terminalLabel(typedTerminal)} after $opponentMove (${moveHistory.size} plies)"
@@ -545,6 +642,7 @@ class MainActivity : ComponentActivity() {
                         pendingMove = null
                         if (terminal != null) {
                             terminalState = terminal
+                            finishedGame = FinishedGameUiState(terminal.toEndReason())
                             speaker.speakPlayedTerminal(
                                 moverLabel(nextMover),
                                 best,
@@ -575,6 +673,7 @@ class MainActivity : ComponentActivity() {
                     moveHistory = historyForEngine
                     pendingMove = null
                     terminalState = result.state
+                    finishedGame = FinishedGameUiState(result.state.toEndReason())
                     speaker.speakTerminal(result.state)
                     engineStatus =
                         "${terminalLabel(result.state)} after $opponentMove (${moveHistory.size} plies)"
@@ -742,6 +841,7 @@ class MainActivity : ComponentActivity() {
         moveHistory = moveHistory.undoLastPair()
         pendingMove = null
         promotionPick = null
+        finishedGame = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         speaker.speakUndo(waitingPhrase())
@@ -766,6 +866,7 @@ class MainActivity : ComponentActivity() {
         moveHistory = MoveHistory.EMPTY
         pendingMove = null
         promotionPick = null
+        finishedGame = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         phase = AppPhase.StartMenu(0)
@@ -812,6 +913,12 @@ class MainActivity : ComponentActivity() {
         when (state) {
             TerminalState.CHECKMATE -> "Checkmate"
             TerminalState.STALEMATE -> "Stalemate"
+        }
+
+    private fun TerminalState.toEndReason(): GameEndReason =
+        when (this) {
+            TerminalState.CHECKMATE -> GameEndReason.CHECKMATE
+            TerminalState.STALEMATE -> GameEndReason.STALEMATE
         }
 
     private fun waitingPhrase(): String = "Waiting for ${moverLabel(sideToMove())}."

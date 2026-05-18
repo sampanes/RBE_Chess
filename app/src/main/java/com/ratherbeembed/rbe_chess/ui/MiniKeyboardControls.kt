@@ -170,7 +170,7 @@ private fun buttonLabel(button: MiniKeyboardButton, thumbHeld: Boolean): String 
             MiniKeyboardButton.PINKY -> "U"
             MiniKeyboardButton.RING -> "M"
             MiniKeyboardButton.MIDDLE -> "R"
-            MiniKeyboardButton.INDEX -> "N"
+            MiniKeyboardButton.INDEX -> "End"
             MiniKeyboardButton.THUMB -> "T"
         }
     } else {

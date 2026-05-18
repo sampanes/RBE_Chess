@@ -1,6 +1,7 @@
 package com.ratherbeembed.rbe_chess.ui
 
 import androidx.compose.runtime.Immutable
+import com.ratherbeembed.rbe_chess.chess.GameEndReason
 
 /**
  * Top-level screen state for the app. Sits above [com.ratherbeembed.rbe_chess.pocket.PocketModeState]
@@ -39,3 +40,18 @@ const val START_MENU_PLAY_BLACK: Int = 1
  * whispers what it would have played.
  */
 enum class GameMode { AutoAdvance, Manual }
+
+@Immutable
+data class FinishedGameUiState(
+    val reason: GameEndReason,
+    val selectedIndex: Int = 0,
+    val lastExportPath: String? = null,
+)
+
+val FINISHED_GAME_OPTIONS: List<String> = listOf(
+    "Save PGN/FEN",
+    "New game",
+)
+
+const val FINISHED_GAME_SAVE_EXPORT: Int = 0
+const val FINISHED_GAME_NEW_GAME: Int = 1

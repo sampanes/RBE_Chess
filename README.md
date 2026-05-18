@@ -100,7 +100,7 @@ flowchart TD
 | **Hold Thumb + Pinky**     | `U`                 | Undo the last move pair and clear the buffer  |
 | **Hold Thumb + Ring**      | `M`                 | Toggle Manual / AutoAdvance mode              |
 | **Hold Thumb + Middle**    | `R`                 | Repeat the last replayable spoken output      |
-| **Hold Thumb + Index**     | `N`                 | New game; return to the start menu            |
+| **Hold Thumb + Index**     | `N`                 | End the current game; finished games can start a new one |
 
 Each coordinate starts unset and renders as `a` or `1`. The first press
 selects the first value, so one Pinky press speaks `A`, two Pinky presses
@@ -248,15 +248,18 @@ Firmware build notes and upload troubleshooting are in
   TTS says "Illegal move."
 - Terminal positions are handled explicitly: `bestmove (none)` becomes
   replayable "Checkmate." or "Stalemate." speech instead of a fake move,
-  and normal move input is blocked until Undo or New Game.
+  and normal move input is blocked by the finished-game menu.
+- Finished games can be saved as a text file containing FEN plus PGN-style
+  UCI movetext. On Android 10+, exports are written to
+  `Downloads/RBE Chess`.
 - Promotion input is implemented as a pick state after the four-coordinate
   pawn move is entered: Pinky/D = knight, Ring/F = bishop, Middle/J = rook,
   and Index/K or Thumb/Space = queen.
 - M2 chord paths + start menu + manual toggle + undo + new game are
   hardware-confirmed. Battery reporting is hardware-confirmed.
 - Full-game loop dogfood is green enough to continue feature work; recent
-  board, autocomplete, battery smoothing, and promotion changes still need
-  focused phone checks. Tracked in [`STATUS.md`](STATUS.md).
+  board, autocomplete, battery smoothing, export, and end-game changes still
+  need focused phone checks. Tracked in [`STATUS.md`](STATUS.md).
 - True screen-off/background keyboard capture is deferred. The standard
   BLE Battery Service path (Android Settings battery %) is also deferred
   — this nRF51 module's AT firmware
