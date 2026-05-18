@@ -381,10 +381,11 @@ press.
 
 **Thumb/Space (double tap):** reserved.
 
-**Promotion handling.** When the committed move places a pawn on its
-promotion rank, the app enters a brief *promotion-pick* state instead of
-finalizing on Thumb/Space. Mapping (best-guess from user's note "k, b, r, q
-(two btns are queen)"; confirm before committing code if it matters):
+**Promotion handling.** Implemented as a legality-driven pick state. The
+cycler still enters only four coordinates; when the committed base move is
+not directly legal but Stockfish legal moves contain promotion-suffixed
+variants of that base move, the app prompts for the promotion piece and then
+commits the suffixed UCI move. Mapping:
 
 | Input  | Promotion piece |
 |---|---|

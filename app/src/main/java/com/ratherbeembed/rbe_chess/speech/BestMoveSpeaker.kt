@@ -69,6 +69,14 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         speak("Illegal move. $waiting")
     }
 
+    fun speakPromotionPrompt(baseMove: String) {
+        val move = SpokenMoveFormatter.spokenUciMove(baseMove)
+        speakStatusEvent(
+            "Promotion: $move. Pinky knight. Ring bishop. Middle rook. " +
+                "Index or Thumb queen.",
+        )
+    }
+
     fun speakTerminal(state: TerminalState) {
         speakBoardEvent(terminalText(state))
     }

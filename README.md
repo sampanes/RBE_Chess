@@ -249,16 +249,17 @@ Firmware build notes and upload troubleshooting are in
 - Terminal positions are handled explicitly: `bestmove (none)` becomes
   replayable "Checkmate." or "Stalemate." speech instead of a fake move,
   and normal move input is blocked until Undo or New Game.
+- Promotion input is implemented as a pick state after the four-coordinate
+  pawn move is entered: Pinky/D = knight, Ring/F = bishop, Middle/J = rook,
+  and Index/K or Thumb/Space = queen.
 - M2 chord paths + start menu + manual toggle + undo + new game are
   hardware-confirmed. Battery reporting is hardware-confirmed.
-- **Remaining hardware gap**: full-game loop (multiple commit cycles
-  in a row) has not been exercised end-to-end. Single commits are
-  JVM-green and the M2 control paths around them work; nobody has
-  played a real game through the loop yet. Tracked in
-  [`STATUS.md`](STATUS.md).
-- Promotion input and true screen-off/background keyboard capture are
-  deferred. The standard BLE Battery Service path (Android Settings
-  battery %) is also deferred — this nRF51 module's AT firmware
+- Full-game loop dogfood is green enough to continue feature work; recent
+  board, autocomplete, battery smoothing, and promotion changes still need
+  focused phone checks. Tracked in [`STATUS.md`](STATUS.md).
+- True screen-off/background keyboard capture is deferred. The standard
+  BLE Battery Service path (Android Settings battery %) is also deferred
+  — this nRF51 module's AT firmware
   doesn't expose `AT+BLEBATTEN`, so reaching it would need the manual
   `AT+GATTADDSERVICE` route.
 

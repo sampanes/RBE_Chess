@@ -12,6 +12,10 @@ Use this file first after a context reset, then read `STATUS.md` and
   accepted keypad battery percentage through a single low/critical outlier,
   requires repeated low samples before low/critical TTS warnings, and rearms
   warnings after a report at or above 30%.
+- Promotion pick state is implemented. A four-coordinate promotion base move
+  such as `e7e8` now opens a one-key pick state when legal moves contain
+  suffixed candidates. D/Pinky chooses knight, F/Ring bishop, J/Middle rook,
+  and K/Index or Thumb/Space queen.
 - M5 autocomplete is implemented in the working tree. It still prefers the
   conservative legal-only paths first: autofill the whole buffer if there is
   exactly one legal move in the position, or autofill after source-square
@@ -79,6 +83,8 @@ Use this file first after a context reset, then read `STATUS.md` and
 - After board/Pocket affordance pass: `.\gradlew.bat assembleDebug` passed.
 - After battery telemetry smoothing: `.\gradlew.bat test` passed.
 - After battery telemetry smoothing: `.\gradlew.bat assembleDebug` passed.
+- After promotion pick state: `.\gradlew.bat test` passed.
+- After promotion pick state: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
@@ -96,9 +102,9 @@ Use this file first after a context reset, then read `STATUS.md` and
    forced autofill speech wait behind the move phrase, terminal
    mates/stalemates stop the game, and ordinary checks are spoken after
    checking moves.
-3. Next code slice should likely be promotion pick state. Clear-buffer and
-   score-gap margin tuning are deferred indefinitely unless dogfood surfaces a
-   real pain point.
+3. Dogfood promotion with at least one queen promotion and one underpromotion
+   button press. Clear-buffer and score-gap margin tuning are deferred
+   indefinitely unless dogfood surfaces a real pain point.
 4. If board arrows feel cluttered, simplify the overlay before adding any new
    gameplay feature.
 

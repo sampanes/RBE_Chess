@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (battery telemetry smoothing landed.)
+Last updated: 2026-05-17 (promotion pick state landed.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,7 +32,11 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** battery telemetry smoothing. The app now holds
+- **Current code addition:** promotion pick state. A four-coordinate pawn
+  promotion base move now pauses after legality lookup, speaks the promotion
+  choices, and maps Pinky/D to knight, Ring/F to bishop, Middle/J to rook,
+  and Index/K or Thumb/Space to queen before committing the suffixed UCI move.
+- **Recent code addition:** battery telemetry smoothing. The app now holds
   the last accepted keypad battery percentage through a single low/critical
   outlier, requires repeated low samples before low/critical TTS warnings,
   and rearms after charging/reporting at or above 30%.
@@ -236,6 +240,10 @@ Landed after M2:
   a tiny on-screen keypad for no-hardware app dogfood. It is intentionally
   UI-only: injected keys go through the same Activity menu/game handlers
   as real HID events.
+- **Promotion pick state.** If the user commits a four-coordinate move and
+  Stockfish's legal moves only contain promotion-suffixed variants of that
+  base move, the app prompts for the promotion piece instead of calling it
+  illegal. The chosen piece is then committed as normal UCI, e.g. `e7e8q`.
 
 What's still deferred:
 
@@ -267,8 +275,8 @@ PGN/FEN export, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after battery telemetry smoothing |
-| `:app:testDebugUnitTest` | 128 / 128 green | includes `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (14), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after promotion pick state |
+| `:app:testDebugUnitTest` | 135 / 135 green | includes `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (15), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
@@ -310,8 +318,8 @@ PGN/FEN export, opening book.
   Gated on whether real-world M1 testing finds the cycler intuitive
   enough that doubling input per move isn't punishing. Logged in
   AGENT_NOTES §"Keyboard grammar — hardware-aware V1" → Deferred list.
-- Promotion mapping (`D=N, F=B, J=R, K=Q, Space=Q`) is a best-guess.
-  Verify with the user before the promo-pick code lands.
+- Promotion pick state needs on-device dogfood with at least one queen
+  promotion and one underpromotion button press.
 - Double-tap Space semantics — TBD.
 
 ## Where to read next (precedence: high → low)
