@@ -145,6 +145,25 @@ class BestMoveSpeakerTest {
     }
 
     @Test
+    fun `promotion prompt does not replace last board event`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedMove("Opponent Black", "a7a6", "Waiting for Your White.")
+        speaker.speakPromotionPrompt("e7e8")
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Opponent Black played A seven to A six. Waiting for Your White.",
+                "Promotion: E seven to E eight. Pinky knight. Ring bishop. Middle rook. Index or Thumb queen.",
+                "Opponent Black played A seven to A six. Waiting for Your White.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
     fun `terminal state is replayable`() {
         val sink = FakeSpeechSink()
         val speaker = BestMoveSpeaker(sink)

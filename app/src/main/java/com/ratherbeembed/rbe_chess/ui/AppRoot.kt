@@ -38,6 +38,7 @@ fun AppRoot(
     pocketMode: PocketModeState,
     history: MoveHistory,
     pendingMove: String?,
+    promotionBaseMove: String?,
     engineStatus: String,
     gameMode: GameMode,
     playerSide: ChessSide,
@@ -64,6 +65,7 @@ fun AppRoot(
                 buffer = buffer,
                 history = history,
                 pendingMove = pendingMove,
+                promotionBaseMove = promotionBaseMove,
                 engineStatus = engineStatus,
                 gameMode = gameMode,
                 playerSide = playerSide,
@@ -83,6 +85,7 @@ private fun NormalScreen(
     buffer: MoveBuffer,
     history: MoveHistory,
     pendingMove: String?,
+    promotionBaseMove: String?,
     engineStatus: String,
     gameMode: GameMode,
     playerSide: ChessSide,
@@ -134,6 +137,14 @@ private fun NormalScreen(
                 text = buffer.toUciString(),
                 style = MaterialTheme.typography.displayMedium
             )
+            if (promotionBaseMove != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Promote: $promotionBaseMove",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = { detailsVisible = !detailsVisible }) {
                 Text(if (detailsVisible) "Hide details" else "Show details")
@@ -196,6 +207,7 @@ private fun AppRootInGamePreview() {
             pocketMode = PocketModeState.Normal,
             history = MoveHistory.EMPTY,
             pendingMove = null,
+            promotionBaseMove = null,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
             playerSide = ChessSide.WHITE,
@@ -220,6 +232,7 @@ private fun AppRootStartMenuPreview() {
             pocketMode = PocketModeState.Normal,
             history = MoveHistory.EMPTY,
             pendingMove = null,
+            promotionBaseMove = null,
             engineStatus = "Engine: idle",
             gameMode = GameMode.AutoAdvance,
             playerSide = ChessSide.WHITE,

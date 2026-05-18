@@ -26,6 +26,7 @@ import com.ratherbeembed.rbe_chess.input.HardwareKeyboardHandler
 import com.ratherbeembed.rbe_chess.input.KeyboardGrammar
 import com.ratherbeembed.rbe_chess.input.MoveAutofill
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
+import com.ratherbeembed.rbe_chess.input.PromotionPickState
 import com.ratherbeembed.rbe_chess.pocket.PocketModeController
 import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 import com.ratherbeembed.rbe_chess.speech.BestMoveSpeaker
@@ -59,6 +60,7 @@ class MainActivity : ComponentActivity() {
     private var pocketMode by mutableStateOf(PocketModeState.Normal)
     private var moveHistory by mutableStateOf(MoveHistory.EMPTY)
     private var pendingMove by mutableStateOf<String?>(null)
+    private var promotionPick by mutableStateOf<PromotionPickState?>(null)
     private var engineStatus by mutableStateOf("Engine: idle")
     private var phase by mutableStateOf<AppPhase>(AppPhase.StartMenu(0))
     private var gameMode by mutableStateOf(GameMode.AutoAdvance)
@@ -96,6 +98,7 @@ class MainActivity : ComponentActivity() {
                     pocketMode = pocketMode,
                     history = moveHistory,
                     pendingMove = pendingMove,
+                    promotionBaseMove = promotionPick?.baseMove,
                     engineStatus = engineStatus,
                     gameMode = gameMode,
                     playerSide = playerSide,
@@ -218,6 +221,7 @@ class MainActivity : ComponentActivity() {
         autofillJob?.cancel(); autofillJob = null
         moveHistory = MoveHistory.EMPTY
         pendingMove = null
+        promotionPick = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         playerSide = if (asWhite) ChessSide.WHITE else ChessSide.BLACK
@@ -293,14 +297,61 @@ class MainActivity : ComponentActivity() {
         when (action) {
             GrammarAction.Undo -> handleUndo()
             GrammarAction.ToggleManual -> handleToggleManual()
-            GrammarAction.RepeatLast -> handleRepeatLast()
+            GrammarAction.RepeatLast -> {
+                val promotion = promotionPick
+                if (promotion != null) {
+                    speaker.speakPromotionPrompt(promotion.baseMove)
+                } else {
+                    handleRepeatLast()
+                }
+            }
             GrammarAction.NewGame -> handleNewGame()
             else -> {
                 terminalState?.let {
                     speaker.speakTerminal(it)
                     return
                 }
+                if (promotionPick != null) {
+                    handlePromotionKey(key)
+                    return
+                }
                 handleLiveGameAction(action)
+            }
+        }
+    }
+
+    private fun handlePromotionKey(key: ChessKey) {
+        if (engineJob?.isActive == true) {
+            Log.d(TAG, "Promotion input ignored - engine still calculating")
+            return
+        }
+        val promotion = promotionPick ?: return
+        val promotedMove = promotion.choose(key)
+        if (promotedMove == null) {
+            speaker.speakPromotionPrompt(promotion.baseMove)
+            engineStatus =
+                "Promotion pending: ${promotion.baseMove} (${promotion.legalPieceNames()})"
+            return
+        }
+
+        autofillJob?.cancel()
+        autofillJob = null
+        inactivityJob?.cancel()
+        inactivityJob = null
+        promotionPick = null
+        moveBuffer = MoveBuffer.DEFAULT
+        pendingMove = promotedMove
+        val typedMoverLabel = moverLabel(sideToMove())
+        engineStatus = "Engine: thinking on $promotedMove..."
+        Log.d(TAG, "Promotion selected: ${promotion.baseMove} -> $promotedMove")
+        engineJob = lifecycleScope.launch {
+            try {
+                engine.boot()
+                commitLegalMove(promotedMove, typedMoverLabel)
+            } catch (t: Throwable) {
+                pendingMove = null
+                engineStatus = "Engine error after $promotedMove: ${t.message}"
+                Log.e(TAG, "engine promotion commit failed", t)
             }
         }
     }
@@ -408,17 +459,34 @@ class MainActivity : ComponentActivity() {
                 engine.boot()
                 val legalMoves = engine.legalMoves(moveHistory.moves)
                 if (opponentMove !in legalMoves) {
+                    val promotion = PromotionPickState.fromLegalMoves(opponentMove, legalMoves)
+                    if (promotion != null) {
+                        pendingMove = null
+                        promotionPick = promotion
+                        speaker.speakPromotionPrompt(opponentMove)
+                        engineStatus =
+                            "Promotion pending: $opponentMove (${promotion.legalPieceNames()})"
+                        Log.d(
+                            TAG,
+                            "Promotion pending: $opponentMove legal=${promotion.legalPieceNames()}",
+                        )
+                        return@launch
+                    }
+
                     pendingMove = null
+                    promotionPick = null
                     speaker.speakIllegalMove(waitingPhrase())
                     engineStatus = "Illegal move: $opponentMove (history=${moveHistory.size} plies)"
                     Log.d(TAG, "Illegal move rejected: $opponentMove legal=${legalMoves.sorted()}")
                     return@launch
                 }
 
+                promotionPick = null
                 moveBuffer = MoveBuffer.DEFAULT
                 commitLegalMove(opponentMove, typedMoverLabel)
             } catch (t: Throwable) {
                 pendingMove = null
+                promotionPick = null
                 engineStatus = "Engine error checking $opponentMove: ${t.message}"
                 Log.e(TAG, "engine legal move check failed", t)
             }
@@ -673,6 +741,7 @@ class MainActivity : ComponentActivity() {
         engineJob?.cancel(); engineJob = null
         moveHistory = moveHistory.undoLastPair()
         pendingMove = null
+        promotionPick = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         speaker.speakUndo(waitingPhrase())
@@ -696,6 +765,7 @@ class MainActivity : ComponentActivity() {
         autofillJob?.cancel(); autofillJob = null
         moveHistory = MoveHistory.EMPTY
         pendingMove = null
+        promotionPick = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
         phase = AppPhase.StartMenu(0)
