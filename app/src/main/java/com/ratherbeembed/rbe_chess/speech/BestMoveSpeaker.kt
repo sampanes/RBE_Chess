@@ -203,8 +203,12 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         speakStatusEvent("$reason. $option.")
     }
 
-    fun speakFinishedGameOption(option: String) {
-        speakStatusEvent(option)
+    fun speakFinishedGameOption(option: String, queued: Boolean = false) {
+        if (queued) {
+            speakQueued(option)
+        } else {
+            speakStatusEvent(option)
+        }
     }
 
     fun speakExportSaved(path: String) {

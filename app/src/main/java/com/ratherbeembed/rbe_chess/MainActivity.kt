@@ -270,6 +270,7 @@ class MainActivity : ComponentActivity() {
                                 terminalState = terminal
                                 finishedGame = FinishedGameUiState(terminal.toEndReason())
                                 speaker.speakPlayedTerminal(moverLabel(playerSide), best, terminal)
+                                speakFinishedSaveOptionQueued()
                                 engineStatus = "Bootstrap: engine=$best, ${terminalLabel(terminal)}"
                             } else {
                                 val givesCheck = engine.isSideToMoveInCheck(nextHistory.moves)
@@ -293,6 +294,7 @@ class MainActivity : ComponentActivity() {
                         terminalState = result.state
                         finishedGame = FinishedGameUiState(result.state.toEndReason())
                         speaker.speakTerminal(result.state)
+                        speakFinishedSaveOptionQueued()
                         engineStatus = "Bootstrap: ${terminalLabel(result.state)}"
                         Log.d(TAG, "Bootstrap terminal: ${result.state}")
                     }
@@ -414,6 +416,13 @@ class MainActivity : ComponentActivity() {
     private fun speakFinishedSelection() {
         val finished = finishedGame ?: return
         speaker.speakFinishedGameOption(FINISHED_GAME_OPTIONS[finished.selectedIndex])
+    }
+
+    private fun speakFinishedSaveOptionQueued() {
+        speaker.speakFinishedGameOption(
+            FINISHED_GAME_OPTIONS[FINISHED_GAME_SAVE_EXPORT],
+            queued = true,
+        )
     }
 
     private fun handlePromotionKey(key: ChessKey) {
@@ -599,6 +608,7 @@ class MainActivity : ComponentActivity() {
             terminalState = typedTerminal
             finishedGame = FinishedGameUiState(typedTerminal.toEndReason())
             speaker.speakPlayedTerminal(typedMoverLabel, opponentMove, typedTerminal)
+            speakFinishedSaveOptionQueued()
             engineStatus =
                 "${terminalLabel(typedTerminal)} after $opponentMove (${moveHistory.size} plies)"
             Log.d(TAG, "Terminal after $opponentMove: $typedTerminal history=${moveHistory.moves}")
@@ -649,6 +659,7 @@ class MainActivity : ComponentActivity() {
                                 terminal,
                                 queued = true,
                             )
+                            speakFinishedSaveOptionQueued()
                             engineStatus =
                                 "Last: opp=$opponentMove -> engine=$best, ${terminalLabel(terminal)}"
                             Log.d(TAG, "Terminal after engine reply $best: $terminal history=${moveHistory.moves}")
@@ -675,6 +686,7 @@ class MainActivity : ComponentActivity() {
                     terminalState = result.state
                     finishedGame = FinishedGameUiState(result.state.toEndReason())
                     speaker.speakTerminal(result.state)
+                    speakFinishedSaveOptionQueued()
                     engineStatus =
                         "${terminalLabel(result.state)} after $opponentMove (${moveHistory.size} plies)"
                     Log.d(TAG, "Terminal after $opponentMove: ${result.state} history=${moveHistory.moves}")
