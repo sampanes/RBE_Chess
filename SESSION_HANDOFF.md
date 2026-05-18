@@ -45,6 +45,12 @@ Use this file first after a context reset, then read `STATUS.md` and
   advances normally.
 - Repeat-last now prefers the last board-changing event. Illegal-move
   warnings and autocomplete announcements do not replace the repeat target.
+  In active games it now appends a compact Kotlin narrative phrase when one
+  adds information: captures, recaptures/trades, castling, promotion, forced
+  moves, and one legal reply. Emotional scoring is wired through
+  `StockfishEngine.analyzePosition()`, which normalizes raw UCI evals to White
+  POV before `NarrativeTone` computes the mover-relative "Blunder", "Mistake",
+  "Sharp", or "Great move" prefix.
 - Ordinary non-terminal "check" announcements are implemented. The app uses
   Stockfish's `d` board dump and parses `Checkers:` after legal typed moves
   and AutoAdvance engine replies; "Check" is part of the replayable move
@@ -72,6 +78,8 @@ Use this file first after a context reset, then read `STATUS.md` and
 
 ## Verification Already Run
 
+- After normalized repeat emotion: `.\gradlew.bat test` passed.
+- After normalized repeat emotion: `.\gradlew.bat assembleDebug` passed.
 - After terminal handling: `.\gradlew.bat test` passed.
 - After terminal handling: `.\gradlew.bat assembleDebug` passed.
 - After M5 conservative autocomplete: `.\gradlew.bat test` passed.

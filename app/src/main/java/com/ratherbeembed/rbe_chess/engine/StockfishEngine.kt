@@ -31,6 +31,13 @@ interface StockfishEngine {
     suspend fun bestMove(uciMoves: List<String>, movetimeMs: Long): BestMoveResult
 
     /**
+     * Analyze the position reached by [uciMoves] without applying the returned
+     * best move. Scores are normalized to White POV before they leave the
+     * engine wrapper.
+     */
+    suspend fun analyzePosition(uciMoves: List<String>, movetimeMs: Long): AnalysisSummary?
+
+    /**
      * Return legal UCI moves from the position reached by [uciMoves].
      * Used to reject keypad-entered moves before they mutate app history.
      */

@@ -61,8 +61,15 @@ class BestMoveSpeaker(private val output: SpeechSink) {
             TerminalState.STALEMATE -> "Stalemate."
         }
 
-    fun repeatLast() {
-        output.speak(lastBoardEvent ?: lastStatusEvent ?: "Nothing to repeat.")
+    fun repeatLast(narrative: String? = null) {
+        val replay = lastBoardEvent ?: lastStatusEvent ?: "Nothing to repeat."
+        val withNarrative =
+            if (narrative.isNullOrBlank() || lastBoardEvent == null) {
+                replay
+            } else {
+                "$replay $narrative"
+            }
+        output.speak(withNarrative)
     }
 
     fun speakIllegalMove(waiting: String) {

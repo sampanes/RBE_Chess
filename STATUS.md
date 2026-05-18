@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (session resume persistence landed.)
+Last updated: 2026-05-17 (normalized repeat emotion landed.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,7 +32,15 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** session resume persistence. The app saves a
+- **Current code addition:** normalized repeat emotion. Active-game
+  Thumb+Middle still replays the same board-changing phrase as before, then
+  appends a compact narrative phrase. `StockfishEngine.analyzePosition()`
+  parses `info score ... pv ...`, normalizes scores to White POV at the wrapper
+  boundary, and `NarrativeTone` converts before/after deltas into mover-relative
+  "Blunder", "Mistake", "Sharp", or "Great move" prefixes. Kotlin geometry
+  currently adds captures, recaptures/trades, castling, promotion, forced moves,
+  and one legal reply.
+- **Recent code addition:** session resume persistence. The app saves a
   compact session snapshot in SharedPreferences whenever move history, buffer,
   side, mode, terminal/finished state, promotion pick, battery display, or mini
   keyboard visibility changes. On launch it restores before first render and
@@ -290,8 +298,8 @@ Further out: clock / time control, draw offers, takebacks, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after session resume persistence |
-| `:app:testDebugUnitTest` | 145 / 145 green | includes `SessionSnapshotCodecTest` (3), `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (16), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after normalized repeat emotion |
+| `:app:testDebugUnitTest` | 166 / 166 green | includes `NarrativeToneTest` (5), `MoveNarrativeTest` (7), `UciAnalysisParserTest` (5), `SessionSnapshotCodecTest` (3), `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (18), `FakeStockfishEngineTest` (13), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

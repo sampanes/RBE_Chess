@@ -3,6 +3,7 @@ package com.ratherbeembed.rbe_chess.engine
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -67,6 +68,33 @@ class FakeStockfishEngineTest {
         engine.boot()
 
         assertEquals(setOf("e4d5", "g1f3"), engine.legalMoves(history))
+    }
+
+    @Test
+    fun `analyzePosition returns scripted analysis for exact history`() = runBlocking {
+        val history = listOf("e2e4", "d7d5")
+        val analysis = AnalysisSummary(
+            whiteCentipawns = 42,
+            mate = null,
+            bestMove = "e4d5",
+            principalVariation = listOf("e4d5", "d8d5"),
+        )
+        val engine = FakeStockfishEngine(
+            analysisByHistory = mapOf(history to analysis),
+        )
+
+        engine.boot()
+
+        assertEquals(analysis, engine.analyzePosition(history, 100))
+        assertNull(engine.analyzePosition(emptyList(), 100))
+    }
+
+    @Test
+    fun `analyzePosition before boot throws`() {
+        val engine = FakeStockfishEngine()
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { engine.analyzePosition(emptyList(), 100) }
+        }
     }
 
     @Test

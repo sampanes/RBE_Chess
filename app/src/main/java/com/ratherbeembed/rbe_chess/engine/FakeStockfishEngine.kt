@@ -12,6 +12,7 @@ class FakeStockfishEngine(
     private val legalMovesByHistory: Map<List<String>, Set<String>> = emptyMap(),
     private val checkByHistory: Map<List<String>, Boolean> = emptyMap(),
     private val scoredMovesByHistory: Map<List<String>, List<ScoredMove>> = emptyMap(),
+    private val analysisByHistory: Map<List<String>, AnalysisSummary> = emptyMap(),
     private val defaultLegalMoves: Set<String> = setOf("e2e4", "d2d4", "g1f3"),
     private val defaultScoredMoves: List<ScoredMove> = defaultLegalMoves.mapIndexed { index, move ->
         ScoredMove(move, EngineScore.Centipawns(30 - (index * 10)))
@@ -30,6 +31,14 @@ class FakeStockfishEngine(
         val move = script.getOrElse(idx) { FALLBACK }
         idx += 1
         return move
+    }
+
+    override suspend fun analyzePosition(
+        uciMoves: List<String>,
+        movetimeMs: Long,
+    ): AnalysisSummary? {
+        check(booted) { "engine not booted" }
+        return analysisByHistory[uciMoves]
     }
 
     override suspend fun legalMoves(uciMoves: List<String>): Set<String> {
