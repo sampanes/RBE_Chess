@@ -20,6 +20,11 @@ Use this file first after a context reset, then read `STATUS.md` and
   Hold+Index enter a finished-game menu with `Save PGN/FEN` and `New game`.
   Saving writes a timestamped `.txt` with FEN plus PGN-style UCI movetext to
   `Downloads/RBE Chess` on Android 10+.
+- Session resume persistence is implemented. A SharedPreferences-backed
+  snapshot restores phase, history, buffer, side, mode, terminal/finished
+  state, promotion pick, battery display, and mini-keyboard visibility before
+  first render. It deliberately does not restore Pocket Mode or in-flight
+  engine pending state.
 - M5 autocomplete is implemented in the working tree. It still prefers the
   conservative legal-only paths first: autofill the whole buffer if there is
   exactly one legal move in the position, or autofill after source-square
@@ -93,6 +98,8 @@ Use this file first after a context reset, then read `STATUS.md` and
 - After PGN/FEN text export: `.\gradlew.bat assembleDebug` passed.
 - After terminal export-menu speech: `.\gradlew.bat test` passed.
 - After terminal export-menu speech: `.\gradlew.bat assembleDebug` passed.
+- After session resume persistence: `.\gradlew.bat test` passed.
+- After session resume persistence: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
@@ -115,10 +122,14 @@ Use this file first after a context reset, then read `STATUS.md` and
    save should create a `.txt` in `Downloads/RBE Chess`, and Thumb on new game
    should return to the start menu. Also check the same finished menu after
    checkmate/stalemate if naturally reached.
-4. Promotion dogfood is nice-to-have/deferred. Clear-buffer and score-gap
+4. Re-check resume: start a live game, enter a partial buffer, force-stop or
+   swipe away/relaunch, and confirm it says `Resumed game...` with the same
+   board, mode, side, buffer, and battery display. Repeat once from the
+   finished-game export menu.
+5. Promotion dogfood is nice-to-have/deferred. Clear-buffer and score-gap
    margin tuning are deferred indefinitely unless dogfood surfaces a real
    pain point.
-5. If board arrows feel cluttered, simplify the overlay before adding any new
+6. If board arrows feel cluttered, simplify the overlay before adding any new
    gameplay feature.
 
 ## Cautions

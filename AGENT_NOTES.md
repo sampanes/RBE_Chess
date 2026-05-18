@@ -282,6 +282,10 @@ Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
   Enhancements). A minimal display-only Compose board viewer shipped
   post-M2; FEN plus PGN-style UCI text export shipped later as a
   finished-game option.
+- Session resume persistence shipped after export. It uses an Activity-state
+  snapshot codec plus SharedPreferences store, restores before first Compose
+  render, speaks `Resumed game...`, and deliberately drops Pocket Mode plus
+  in-flight pending engine state on restore.
 - Board readability pass landed: piece letters, in-square rank/file labels,
   stronger last/current/pending move highlights, and arrows for those move
   states. `MainActivity.pendingMove` shows the committed move during the short

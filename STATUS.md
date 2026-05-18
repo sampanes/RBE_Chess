@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (PGN/FEN text export landed.)
+Last updated: 2026-05-17 (session resume persistence landed.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,7 +32,12 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** finished-game export. Checkmate/stalemate and
+- **Current code addition:** session resume persistence. The app saves a
+  compact session snapshot in SharedPreferences whenever move history, buffer,
+  side, mode, terminal/finished state, promotion pick, battery display, or mini
+  keyboard visibility changes. On launch it restores before first render and
+  speaks "Resumed game..." for live/finished games.
+- **Recent code addition:** finished-game export. Checkmate/stalemate and
   the live-game Hold+Index chord now enter a finished-game menu with
   "Save PGN/FEN" and "New game". Saving writes a `.txt` export containing
   FEN plus PGN-style UCI movetext to `Downloads/RBE Chess` on modern Android.
@@ -254,6 +259,10 @@ Landed after M2:
   a timestamped `.txt` with a full FEN and PGN-style UCI movetext; "New game"
   returns to the start menu. Live-game Hold+Index now means "end current
   game" so forfeits/abandoned games can also be exported.
+- **Session resume.** `SessionSnapshotCodec` serializes the Activity-owned
+  game state to app private SharedPreferences via `SessionStore`. Restored
+  sessions always come back in normal screen mode, not Pocket Mode, and do
+  not resurrect in-flight engine jobs or pending arrows.
 
 What's still deferred:
 
@@ -281,8 +290,8 @@ Further out: clock / time control, draw offers, takebacks, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after terminal export-menu speech |
-| `:app:testDebugUnitTest` | 142 / 142 green | includes `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (16), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after session resume persistence |
+| `:app:testDebugUnitTest` | 145 / 145 green | includes `SessionSnapshotCodecTest` (3), `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (16), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
@@ -303,6 +312,7 @@ Further out: clock / time control, draw offers, takebacks, opening book.
 | Manual mode toggle on-device | green | User-confirmed 2026-05-15: Thumb+Ring flips mode and TTS announces. |
 | Undo on-device | green | User-confirmed 2026-05-15: Thumb+Pinky drops the last pair, TTS confirms. |
 | End game / export menu on-device | needs recheck | Hold+Index now ends a live game and opens finished-game options instead of immediately returning to StartMenu. |
+| Session resume on-device | needs recheck | New SharedPreferences-backed snapshot restore should resume live/finished games after app process death/relaunch. |
 | Full keypad game loop on-device | green (semi-thorough dogfood) | User-confirmed 2026-05-16: firmware v8 plus repeated game-loop play are good enough for the next feature slice. |
 | Firmware v3 BAS battery percentage | broken | v3 made `AT+BLEBATTEN=on` failure fatal; the nRF51 module's AT firmware doesn't support that command, so the keypad bricked into `error()`. |
 | Firmware v4 BAS init non-fatal | green | Confirmed via serial: `AT+BLEBATTEN=on` returns ERROR on this module, warning logged, boot continues. Keypad works as keyboard, no BAS visible to Android. |

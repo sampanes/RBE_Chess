@@ -252,14 +252,17 @@ Firmware build notes and upload troubleshooting are in
 - Finished games can be saved as a text file containing FEN plus PGN-style
   UCI movetext. On Android 10+, exports are written to
   `Downloads/RBE Chess`.
+- Game/session state is persisted locally and restored on relaunch, including
+  move history, current buffer, side, mode, terminal/export state, battery
+  display, and mini-keyboard visibility.
 - Promotion input is implemented as a pick state after the four-coordinate
   pawn move is entered: Pinky/D = knight, Ring/F = bishop, Middle/J = rook,
   and Index/K or Thumb/Space = queen.
 - M2 chord paths + start menu + manual toggle + undo + new game are
   hardware-confirmed. Battery reporting is hardware-confirmed.
 - Full-game loop dogfood is green enough to continue feature work; recent
-  board, autocomplete, battery smoothing, export, and end-game changes still
-  need focused phone checks. Tracked in [`STATUS.md`](STATUS.md).
+  board, autocomplete, battery smoothing, export, end-game, and resume changes
+  still need focused phone checks. Tracked in [`STATUS.md`](STATUS.md).
 - True screen-off/background keyboard capture is deferred. The standard
   BLE Battery Service path (Android Settings battery %) is also deferred
   — this nRF51 module's AT firmware

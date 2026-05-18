@@ -11,6 +11,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.ratherbeembed.rbe_chess.chess.ChessSide
@@ -34,6 +35,8 @@ import com.ratherbeembed.rbe_chess.pocket.PocketModeController
 import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 import com.ratherbeembed.rbe_chess.speech.BestMoveSpeaker
 import com.ratherbeembed.rbe_chess.speech.SpeechOutput
+import com.ratherbeembed.rbe_chess.session.SessionSnapshot
+import com.ratherbeembed.rbe_chess.session.SessionStore
 import com.ratherbeembed.rbe_chess.ui.AppPhase
 import com.ratherbeembed.rbe_chess.ui.AppRoot
 import com.ratherbeembed.rbe_chess.ui.FINISHED_GAME_NEW_GAME
@@ -45,6 +48,7 @@ import com.ratherbeembed.rbe_chess.ui.START_MENU_OPTIONS
 import com.ratherbeembed.rbe_chess.ui.START_MENU_PLAY_WHITE
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 private const val TAG = "RBE_CHESS"
@@ -81,6 +85,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var speaker: BestMoveSpeaker
     private lateinit var pocketController: PocketModeController
     private lateinit var exportStore: GameExportStore
+    private lateinit var sessionStore: SessionStore
     private lateinit var engine: StockfishProcessEngine
     private val batteryParser = BatteryReportParser()
     private val batterySmoother = BatteryTelemetrySmoother(
@@ -98,7 +103,9 @@ class MainActivity : ComponentActivity() {
         speaker = BestMoveSpeaker(speechOutput)
         pocketController = PocketModeController(this)
         exportStore = GameExportStore(this)
+        sessionStore = SessionStore(this)
         engine = StockfishProcessEngine(this)
+        val restored = restoreSessionIfPresent()
         setContent {
             val colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
             MaterialTheme(colorScheme = colors) {
@@ -123,14 +130,8 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        // Cold-start announcement: speak the menu intro + first option so
-        // the user gets verbal feedback before any keypress.
-        val startMenu = phase as? AppPhase.StartMenu
-        if (startMenu != null) {
-            speaker.speakMenuOption(
-                "Start menu. ${START_MENU_OPTIONS[startMenu.selectedIndex]}",
-            )
-        }
+        startSessionPersistence()
+        speakInitialState(restored)
     }
 
     override fun onDestroy() {
@@ -144,6 +145,82 @@ class MainActivity : ComponentActivity() {
         pocketController.exit()
         speechOutput.shutdown()
         super.onDestroy()
+    }
+
+    private fun restoreSessionIfPresent(): Boolean {
+        val snapshot = sessionStore.load() ?: return false
+        phase = when (val restoredPhase = snapshot.phase) {
+            is AppPhase.StartMenu ->
+                AppPhase.StartMenu(restoredPhase.selectedIndex.coerceStartMenuIndex())
+            AppPhase.InGame -> AppPhase.InGame
+        }
+        moveHistory = snapshot.moveHistory
+        moveBuffer = snapshot.moveBuffer
+        gameMode = snapshot.gameMode
+        playerSide = snapshot.playerSide
+        terminalState = snapshot.terminalState
+        finishedGame = snapshot.finishedGame
+            ?.let { it.copy(selectedIndex = it.selectedIndex.coerceFinishedOptionIndex()) }
+            ?: snapshot.terminalState?.let { FinishedGameUiState(it.toEndReason()) }
+        promotionPick = snapshot.promotionPick
+        batteryPct = snapshot.batteryPct
+        miniKeyboardVisible = snapshot.miniKeyboardVisible
+        pendingMove = null
+        pocketMode = PocketModeState.Normal
+        engineStatus =
+            if (phase == AppPhase.InGame) {
+                "Resumed: history=${moveHistory.size} plies"
+            } else {
+                "Engine: idle"
+            }
+        return true
+    }
+
+    private fun startSessionPersistence() {
+        lifecycleScope.launch {
+            snapshotFlow { currentSessionSnapshot() }
+                .distinctUntilChanged()
+                .collect { sessionStore.save(it) }
+        }
+    }
+
+    private fun currentSessionSnapshot(): SessionSnapshot =
+        SessionSnapshot(
+            phase = phase,
+            moveHistory = moveHistory,
+            moveBuffer = moveBuffer,
+            gameMode = gameMode,
+            playerSide = playerSide,
+            terminalState = terminalState,
+            finishedGame = finishedGame,
+            promotionPick = promotionPick,
+            batteryPct = batteryPct,
+            miniKeyboardVisible = miniKeyboardVisible,
+        )
+
+    private fun speakInitialState(restored: Boolean) {
+        if (restored && phase == AppPhase.InGame) {
+            rememberCurrentPositionForRepeat()
+            val finished = finishedGame
+            if (finished != null) {
+                speaker.speakFinishedGame(
+                    "Resumed game",
+                    FINISHED_GAME_OPTIONS[finished.selectedIndex.coerceFinishedOptionIndex()],
+                )
+            } else {
+                speaker.speakMenuOption("Resumed game. ${waitingPhrase()}")
+            }
+            return
+        }
+
+        // Cold-start announcement: speak the menu intro + first option so
+        // the user gets verbal feedback before any keypress.
+        val startMenu = phase as? AppPhase.StartMenu
+        if (startMenu != null) {
+            speaker.speakMenuOption(
+                "Start menu. ${START_MENU_OPTIONS[startMenu.selectedIndex]}",
+            )
+        }
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -932,6 +1009,12 @@ class MainActivity : ComponentActivity() {
             TerminalState.CHECKMATE -> GameEndReason.CHECKMATE
             TerminalState.STALEMATE -> GameEndReason.STALEMATE
         }
+
+    private fun Int.coerceFinishedOptionIndex(): Int =
+        coerceIn(0, FINISHED_GAME_OPTIONS.lastIndex)
+
+    private fun Int.coerceStartMenuIndex(): Int =
+        coerceIn(0, START_MENU_OPTIONS.lastIndex)
 
     private fun waitingPhrase(): String = "Waiting for ${moverLabel(sideToMove())}."
 
