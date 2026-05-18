@@ -256,6 +256,26 @@ class BestMoveSpeakerTest {
     }
 
     @Test
+    fun `finished game option can queue behind terminal speech`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedTerminal("Your White", "h7h8q", TerminalState.CHECKMATE)
+        speaker.speakFinishedGameOption("Save PGN/FEN", queued = true)
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Your White played H seven to H eight, queen. Checkmate.",
+                "Save PGN/FEN",
+                "Your White played H seven to H eight, queen. Checkmate.",
+            ),
+            sink.spoken,
+        )
+        assertEquals(listOf("Save PGN/FEN"), sink.queued)
+    }
+
+    @Test
     fun `rememberPlayedMove updates replay without speaking`() {
         val sink = FakeSpeechSink()
         val speaker = BestMoveSpeaker(sink)

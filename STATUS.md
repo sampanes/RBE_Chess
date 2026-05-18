@@ -281,8 +281,8 @@ Further out: clock / time control, draw offers, takebacks, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after PGN/FEN text export |
-| `:app:testDebugUnitTest` | 141 / 141 green | includes `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (15), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after terminal export-menu speech |
+| `:app:testDebugUnitTest` | 142 / 142 green | includes `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (16), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |

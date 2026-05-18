@@ -91,6 +91,8 @@ Use this file first after a context reset, then read `STATUS.md` and
 - After promotion pick state: `.\gradlew.bat assembleDebug` passed.
 - After PGN/FEN text export: `.\gradlew.bat test` passed.
 - After PGN/FEN text export: `.\gradlew.bat assembleDebug` passed.
+- After terminal export-menu speech: `.\gradlew.bat test` passed.
+- After terminal export-menu speech: `.\gradlew.bat assembleDebug` passed.
 - Firmware v8 was not compiled from this shell because `arduino-cli` /
   `arduino` are not on PATH.
 
