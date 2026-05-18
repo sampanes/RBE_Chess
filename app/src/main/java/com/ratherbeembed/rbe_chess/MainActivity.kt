@@ -19,6 +19,7 @@ import com.ratherbeembed.rbe_chess.chess.GameEndReason
 import com.ratherbeembed.rbe_chess.chess.GameTextExporter
 import com.ratherbeembed.rbe_chess.chess.MoveHistory
 import com.ratherbeembed.rbe_chess.engine.BestMoveResult
+import com.ratherbeembed.rbe_chess.engine.AnalysisSummary
 import com.ratherbeembed.rbe_chess.engine.StockfishProcessEngine
 import com.ratherbeembed.rbe_chess.engine.TerminalState
 import com.ratherbeembed.rbe_chess.export.GameExportStore
@@ -31,6 +32,8 @@ import com.ratherbeembed.rbe_chess.input.KeyboardGrammar
 import com.ratherbeembed.rbe_chess.input.MoveAutofill
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
 import com.ratherbeembed.rbe_chess.input.PromotionPickState
+import com.ratherbeembed.rbe_chess.narrative.MoveNarrative
+import com.ratherbeembed.rbe_chess.narrative.NarrativeTone
 import com.ratherbeembed.rbe_chess.pocket.PocketModeController
 import com.ratherbeembed.rbe_chess.pocket.PocketModeState
 import com.ratherbeembed.rbe_chess.speech.BestMoveSpeaker
@@ -55,6 +58,7 @@ private const val TAG = "RBE_CHESS"
 private const val INACTIVITY_PROMPT_MS = 2_500L
 private const val ENGINE_MOVETIME_MS = 4_000L
 private const val AUTOFILL_MOVETIME_MS = 600L
+private const val NARRATIVE_ANALYSIS_MOVETIME_MS = 600L
 private const val SOURCE_AUTOFILL_DELAY_MS = INACTIVITY_PROMPT_MS
 private const val AUTOFILL_SCORE_MARGIN_CP = 100
 
@@ -65,6 +69,28 @@ private const val BATTERY_LOW_PCT = 20
 private const val BATTERY_CRITICAL_PCT = 5
 private const val BATTERY_REARM_PCT = 30
 private val MOCK_BATTERY_REPORTS = intArrayOf(88, 19, 4, 3, 73)
+
+private data class PositionState(
+    val legalMoves: Set<String>,
+    val inCheck: Boolean,
+) {
+    val terminalState: TerminalState?
+        get() =
+            if (legalMoves.isNotEmpty()) {
+                null
+            } else if (inCheck) {
+                TerminalState.CHECKMATE
+            } else {
+                TerminalState.STALEMATE
+            }
+
+    val onlyReply: String? get() = legalMoves.singleOrNull()
+}
+
+private data class CachedAnalysis(
+    val history: MoveHistory,
+    val summary: AnalysisSummary,
+)
 
 class MainActivity : ComponentActivity() {
     private var moveBuffer by mutableStateOf(MoveBuffer.DEFAULT)
@@ -96,6 +122,8 @@ class MainActivity : ComponentActivity() {
     private var inactivityJob: Job? = null
     private var engineJob: Job? = null
     private var autofillJob: Job? = null
+    private var latestNarrative: String? = null
+    private var latestAnalysis: CachedAnalysis? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -167,6 +195,8 @@ class MainActivity : ComponentActivity() {
         miniKeyboardVisible = snapshot.miniKeyboardVisible
         pendingMove = null
         pocketMode = PocketModeState.Normal
+        latestNarrative = MoveNarrative.latestFromHistory(moveHistory)
+        latestAnalysis = null
         engineStatus =
             if (phase == AppPhase.InGame) {
                 "Resumed: history=${moveHistory.size} plies"
@@ -313,6 +343,8 @@ class MainActivity : ComponentActivity() {
         finishedGame = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
+        latestNarrative = null
+        latestAnalysis = null
         playerSide = if (asWhite) ChessSide.WHITE else ChessSide.BLACK
         phase = AppPhase.InGame
         engineStatus = if (asWhite) "Engine: opening as white..." else "Engine: idle"
@@ -340,9 +372,21 @@ class MainActivity : ComponentActivity() {
                     is BestMoveResult.Move -> {
                         val best = result.uci
                         if (gameMode == GameMode.AutoAdvance) {
+                            val beforeAnalysis = analysisFor(MoveHistory.EMPTY)
                             val nextHistory = MoveHistory.EMPTY.append(best)
-                            val terminal = terminalStateAfter(nextHistory)
+                            val afterState = positionStateAfter(nextHistory)
+                            val afterAnalysis = analysisFor(nextHistory)
+                            val terminal = afterState.terminalState
                             moveHistory = nextHistory
+                            rememberNarrativeForMove(
+                                historyBefore = MoveHistory.EMPTY,
+                                move = best,
+                                mover = playerSide,
+                                wasForced = false,
+                                onlyReply = afterState.onlyReply,
+                                beforeAnalysis = beforeAnalysis,
+                                afterAnalysis = afterAnalysis,
+                            )
                             if (terminal != null) {
                                 terminalState = terminal
                                 finishedGame = FinishedGameUiState(terminal.toEndReason())
@@ -350,12 +394,11 @@ class MainActivity : ComponentActivity() {
                                 speakFinishedSaveOptionQueued()
                                 engineStatus = "Bootstrap: engine=$best, ${terminalLabel(terminal)}"
                             } else {
-                                val givesCheck = engine.isSideToMoveInCheck(nextHistory.moves)
                                 speaker.speakPlayedMove(
                                     moverLabel(playerSide),
                                     best,
                                     waitingPhrase(),
-                                    givesCheck = givesCheck,
+                                    givesCheck = afterState.inCheck,
                                 )
                                 engineStatus = "Bootstrap: engine=$best (${moveHistory.size} plies)"
                                 prefillLegalOrClearEngineMove()
@@ -665,7 +708,11 @@ class MainActivity : ComponentActivity() {
 
                 promotionPick = null
                 moveBuffer = MoveBuffer.DEFAULT
-                commitLegalMove(opponentMove, typedMoverLabel)
+                commitLegalMove(
+                    opponentMove,
+                    typedMoverLabel,
+                    wasForced = legalMoves.size == 1,
+                )
             } catch (t: Throwable) {
                 pendingMove = null
                 promotionPick = null
@@ -675,15 +722,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun commitLegalMove(opponentMove: String, typedMoverLabel: String) {
-        val historyForEngine = moveHistory.append(opponentMove)
+    private suspend fun commitLegalMove(
+        opponentMove: String,
+        typedMoverLabel: String,
+        wasForced: Boolean = false,
+    ) {
+        val historyBeforeTypedMove = moveHistory
+        val historyForEngine = historyBeforeTypedMove.append(opponentMove)
+        val mover = sideToMove(historyBeforeTypedMove)
         val nextMover = sideToMove(historyForEngine)
-        val typedTerminal = terminalStateAfter(historyForEngine)
+        val beforeAnalysis = analysisFor(historyBeforeTypedMove)
+        val typedState = positionStateAfter(historyForEngine)
+        val afterTypedAnalysis = analysisFor(historyForEngine)
+        val typedTerminal = typedState.terminalState
         if (typedTerminal != null) {
             moveHistory = historyForEngine
             pendingMove = null
             terminalState = typedTerminal
             finishedGame = FinishedGameUiState(typedTerminal.toEndReason())
+            rememberNarrativeForMove(
+                historyBefore = historyBeforeTypedMove,
+                move = opponentMove,
+                mover = mover,
+                wasForced = wasForced,
+                onlyReply = typedState.onlyReply,
+                beforeAnalysis = beforeAnalysis,
+                afterAnalysis = afterTypedAnalysis,
+            )
             speaker.speakPlayedTerminal(typedMoverLabel, opponentMove, typedTerminal)
             speakFinishedSaveOptionQueued()
             engineStatus =
@@ -692,7 +757,16 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val typedMoveGivesCheck = engine.isSideToMoveInCheck(historyForEngine.moves)
+        val typedMoveGivesCheck = typedState.inCheck
+        rememberNarrativeForMove(
+            historyBefore = historyBeforeTypedMove,
+            move = opponentMove,
+            mover = mover,
+            wasForced = wasForced,
+            onlyReply = typedState.onlyReply,
+            beforeAnalysis = beforeAnalysis,
+            afterAnalysis = afterTypedAnalysis,
+        )
         speaker.speakPlayedThenCalculating(
             typedMoverLabel,
             opponentMove,
@@ -723,10 +797,22 @@ class MainActivity : ComponentActivity() {
                         Log.d(TAG, "Step 4 (manual): opp=$opponentMove suggested=$best")
                         prefillManualSuggestion(best)
                     } else {
+                        val historyBeforeReply = historyForEngine
                         val replyHistory = historyForEngine.append(best)
-                        val terminal = terminalStateAfter(replyHistory)
+                        val replyState = positionStateAfter(replyHistory)
+                        val replyAnalysis = analysisFor(replyHistory)
+                        val terminal = replyState.terminalState
                         moveHistory = replyHistory
                         pendingMove = null
+                        rememberNarrativeForMove(
+                            historyBefore = historyBeforeReply,
+                            move = best,
+                            mover = nextMover,
+                            wasForced = typedState.legalMoves.size == 1,
+                            onlyReply = replyState.onlyReply,
+                            beforeAnalysis = afterTypedAnalysis,
+                            afterAnalysis = replyAnalysis,
+                        )
                         if (terminal != null) {
                             terminalState = terminal
                             finishedGame = FinishedGameUiState(terminal.toEndReason())
@@ -743,12 +829,11 @@ class MainActivity : ComponentActivity() {
                             return
                         }
 
-                        val replyGivesCheck = engine.isSideToMoveInCheck(replyHistory.moves)
                         speaker.speakPlayedMove(
                             moverLabel(nextMover),
                             best,
                             waitingPhrase(),
-                            givesCheck = replyGivesCheck,
+                            givesCheck = replyState.inCheck,
                             queued = true,
                         )
                         engineStatus =
@@ -762,6 +847,15 @@ class MainActivity : ComponentActivity() {
                     pendingMove = null
                     terminalState = result.state
                     finishedGame = FinishedGameUiState(result.state.toEndReason())
+                    rememberNarrativeForMove(
+                        historyBefore = historyBeforeTypedMove,
+                        move = opponentMove,
+                        mover = mover,
+                        wasForced = wasForced,
+                        onlyReply = null,
+                        beforeAnalysis = beforeAnalysis,
+                        afterAnalysis = afterTypedAnalysis,
+                    )
                     speaker.speakTerminal(result.state)
                     speakFinishedSaveOptionQueued()
                     engineStatus =
@@ -881,12 +975,21 @@ class MainActivity : ComponentActivity() {
         scheduleInactivityPrompt(after)
     }
 
-    private suspend fun terminalStateAfter(history: MoveHistory): TerminalState? {
-        if (engine.legalMoves(history.moves).isNotEmpty()) return null
-        return if (engine.isSideToMoveInCheck(history.moves)) {
-            TerminalState.CHECKMATE
-        } else {
-            TerminalState.STALEMATE
+    private suspend fun positionStateAfter(history: MoveHistory): PositionState =
+        PositionState(
+            legalMoves = engine.legalMoves(history.moves),
+            inCheck = engine.isSideToMoveInCheck(history.moves),
+        )
+
+    private suspend fun analysisFor(history: MoveHistory): AnalysisSummary? {
+        latestAnalysis
+            ?.takeIf { it.history == history }
+            ?.let { return it.summary }
+        return engine.analyzePosition(
+            uciMoves = history.moves,
+            movetimeMs = NARRATIVE_ANALYSIS_MOVETIME_MS,
+        )?.also {
+            latestAnalysis = CachedAnalysis(history, it)
         }
     }
 
@@ -933,6 +1036,7 @@ class MainActivity : ComponentActivity() {
         finishedGame = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
+        latestAnalysis = null
         speaker.speakUndo(waitingPhrase())
         rememberCurrentPositionForRepeat()
         engineStatus = "Undo: history=${moveHistory.size} plies"
@@ -958,6 +1062,8 @@ class MainActivity : ComponentActivity() {
         finishedGame = null
         moveBuffer = MoveBuffer.DEFAULT
         terminalState = null
+        latestNarrative = null
+        latestAnalysis = null
         phase = AppPhase.StartMenu(0)
         engineStatus = "Engine: idle"
         speaker.speakMenuOption("New game. ${START_MENU_OPTIONS[0]}")
@@ -966,19 +1072,43 @@ class MainActivity : ComponentActivity() {
 
     private fun handleRepeatLast() {
         inactivityJob?.cancel(); inactivityJob = null
-        speaker.repeatLast()
+        speaker.repeatLast(latestNarrative)
         Log.d(TAG, "Repeat last spoken output")
     }
 
     // --- Misc --------------------------------------------------------------
 
+    private fun rememberNarrativeForMove(
+        historyBefore: MoveHistory,
+        move: String,
+        mover: ChessSide,
+        wasForced: Boolean,
+        onlyReply: String?,
+        beforeAnalysis: AnalysisSummary?,
+        afterAnalysis: AnalysisSummary?,
+    ) {
+        latestNarrative = MoveNarrative.forMove(
+            historyBefore = historyBefore,
+            move = move,
+            wasForced = wasForced,
+            onlyReply = onlyReply,
+            emotionalPrefix = NarrativeTone.emotionalPrefix(
+                before = beforeAnalysis,
+                after = afterAnalysis,
+                mover = mover,
+            ),
+        )
+    }
+
     private fun rememberCurrentPositionForRepeat() {
         val lastMove = moveHistory.moves.lastOrNull()
         if (lastMove == null) {
+            latestNarrative = null
             speaker.rememberBoardAtStart(waitingPhrase())
             return
         }
 
+        latestNarrative = MoveNarrative.latestFromHistory(moveHistory)
         val lastMover = if ((moveHistory.size - 1) % 2 == 0) ChessSide.WHITE else ChessSide.BLACK
         speaker.rememberPlayedMove(moverLabel(lastMover), lastMove, waitingPhrase())
     }

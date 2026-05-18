@@ -553,6 +553,15 @@ automatic repeat as the default; it is likely to interrupt thought or
 physical-board handling. If auto-repeat is ever added, make it a single
 delayed reminder after no input, not an infinite interval.
 
+Narrative follow-up: active-game repeat still speaks the exact replayable
+board event first, then appends a compact narrative phrase. The first geometry
+layer covers capture, trade/recapture, promotion, castling, forced move, and
+one legal reply. `StockfishEngine.analyzePosition()` parses `info score ... pv
+...`, normalizes raw UCI scores to a stable White POV at the wrapper boundary,
+and `NarrativeTone` converts before/after analysis into mover-relative
+"Blunder", "Mistake", "Sharp", or "Great move" prefixes. Do not bypass that
+normalization or app logic can invert emotion for Black.
+
 ---
 
 ## Battery telemetry (firmware v5, input-gated in v8)

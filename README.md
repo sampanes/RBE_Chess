@@ -249,6 +249,9 @@ Firmware build notes and upload troubleshooting are in
 - Terminal positions are handled explicitly: `bestmove (none)` becomes
   replayable "Checkmate." or "Stalemate." speech instead of a fake move,
   and normal move input is blocked by the finished-game menu.
+- Active-game repeat still replays the last board-changing phrase, then
+  appends a compact narrative when useful: normalized Stockfish eval emotion
+  plus captures, trades, promotion, castling, forced moves, or one legal reply.
 - Finished games can be saved as a text file containing FEN plus PGN-style
   UCI movetext. On Android 10+, exports are written to
   `Downloads/RBE Chess`.
@@ -261,8 +264,9 @@ Firmware build notes and upload troubleshooting are in
 - M2 chord paths + start menu + manual toggle + undo + new game are
   hardware-confirmed. Battery reporting is hardware-confirmed.
 - Full-game loop dogfood is green enough to continue feature work; recent
-  board, autocomplete, battery smoothing, export, end-game, and resume changes
-  still need focused phone checks. Tracked in [`STATUS.md`](STATUS.md).
+  board, autocomplete, battery smoothing, export, end-game, resume, and repeat
+  narrative changes still need focused phone checks. Tracked in
+  [`STATUS.md`](STATUS.md).
 - True screen-off/background keyboard capture is deferred. The standard
   BLE Battery Service path (Android Settings battery %) is also deferred
   — this nRF51 module's AT firmware

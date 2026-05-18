@@ -48,6 +48,40 @@ class BestMoveSpeakerTest {
     }
 
     @Test
+    fun `repeatLast appends narrative to board event`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedMove("Your White", "e4d5", "Waiting for Opponent Black.")
+        speaker.repeatLast("Takes pawn on D five.")
+
+        assertEquals(
+            listOf(
+                "Your White played E four to D five. Waiting for Opponent Black.",
+                "Your White played E four to D five. Waiting for Opponent Black. Takes pawn on D five.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
+    fun `repeatLast does not append narrative to status fallback`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakManualMode(on = true, waiting = "Waiting for Your White.")
+        speaker.repeatLast("Forced.")
+
+        assertEquals(
+            listOf(
+                "Manual mode on. Waiting for Your White.",
+                "Manual mode on. Waiting for Your White.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
     fun `played move can announce ordinary check`() {
         val sink = FakeSpeechSink()
         val speaker = BestMoveSpeaker(sink)

@@ -2,6 +2,7 @@ package com.ratherbeembed.rbe_chess.engine
 
 import android.content.Context
 import android.util.Log
+import com.ratherbeembed.rbe_chess.chess.ChessSide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -92,6 +93,36 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
                     BestMoveResult.Terminal(state)
                 } else {
                     BestMoveResult.Move(move)
+                }
+            }
+        }
+    }
+
+    override suspend fun analyzePosition(
+        uciMoves: List<String>,
+        movetimeMs: Long,
+    ): AnalysisSummary? {
+        check(booted) { "engine not booted; call boot() first" }
+        return lock.withLock {
+            withContext(Dispatchers.IO) {
+                val movesSuffix =
+                    if (uciMoves.isEmpty()) "" else " moves " + uciMoves.joinToString(" ")
+                send("position startpos$movesSuffix")
+                send("go movetime $movetimeMs")
+                var latest: UciAnalysisInfo? = null
+                withTimeout(movetimeMs + 5_000L) {
+                    while (true) {
+                        val line = readLineLogged()
+                        UciAnalysisParser.analysisFromInfoLine(line)
+                            ?.let { latest = it }
+                        if (UciBestMoveParser.moveFromLine(line) != null) break
+                    }
+                }
+                latest?.let {
+                    AnalysisSummary.fromRaw(
+                        info = it,
+                        sideToMove = sideToMove(uciMoves),
+                    )
                 }
             }
         }
@@ -202,6 +233,9 @@ class StockfishProcessEngine(context: Context) : StockfishEngine {
         Log.d(TAG, "<< $line")
         return line
     }
+
+    private fun sideToMove(uciMoves: List<String>): ChessSide =
+        if (uciMoves.size % 2 == 0) ChessSide.WHITE else ChessSide.BLACK
 
     override fun shutdown() {
         booted = false
