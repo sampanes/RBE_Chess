@@ -332,20 +332,11 @@ private data class BoardSelection(
 )
 
 private fun MoveBuffer.selection(): BoardSelection {
-    val from =
-        if (fromFileIdx != null && fromRankIdx != null) {
-            BoardSquare(fromFileIdx, fromRankIdx)
-        } else {
-            null
-        }
-    val to =
-        if (toFileIdx != null && toRankIdx != null) {
-            BoardSquare(toFileIdx, toRankIdx)
-        } else {
-            null
-        }
+    // Treat null as 0 for visual feedback (Always-On highlight)
+    val from = BoardSquare(fromFileIdx ?: 0, fromRankIdx ?: 0)
+    val to = BoardSquare(toFileIdx ?: 0, toRankIdx ?: 0)
     val move =
-        if (from != null && to != null) {
+        if (fromFileIdx != null && fromRankIdx != null && toFileIdx != null && toRankIdx != null) {
             BoardMove(uci = "${from.name}${to.name}", from = from, to = to)
         } else {
             null
@@ -446,13 +437,23 @@ private fun leftFile(side: ChessSide): Int =
     if (side == ChessSide.WHITE) 0 else 7
 
 private fun ChessPiece.boardSymbol(): String =
-    when (type) {
-        PieceType.KING -> "♚"
-        PieceType.QUEEN -> "♛"
-        PieceType.ROOK -> "♜"
-        PieceType.BISHOP -> "♝"
-        PieceType.KNIGHT -> "♞"
-        PieceType.PAWN -> "♟"
+    when (side) {
+        ChessSide.WHITE -> when (type) {
+            PieceType.KING -> "♔"
+            PieceType.QUEEN -> "♕"
+            PieceType.ROOK -> "♖"
+            PieceType.BISHOP -> "♗"
+            PieceType.KNIGHT -> "♘"
+            PieceType.PAWN -> "♙"
+        }
+        ChessSide.BLACK -> when (type) {
+            PieceType.KING -> "♚"
+            PieceType.QUEEN -> "♛"
+            PieceType.ROOK -> "♜"
+            PieceType.BISHOP -> "♝"
+            PieceType.KNIGHT -> "♞"
+            PieceType.PAWN -> "♟"
+        }
     }
 
 private fun pieceTextColor(side: ChessSide): Color =
