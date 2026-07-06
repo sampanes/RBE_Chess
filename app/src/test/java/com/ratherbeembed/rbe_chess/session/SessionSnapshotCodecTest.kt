@@ -60,6 +60,24 @@ class SessionSnapshotCodecTest {
     }
 
     @Test
+    fun `round trip preserves automatic draw terminal state`() {
+        val snapshot = SessionSnapshot(
+            phase = AppPhase.InGame,
+            moveHistory = MoveHistory(listOf("e2e4", "e7e5")),
+            moveBuffer = MoveBuffer.DEFAULT,
+            gameMode = GameMode.AutoAdvance,
+            playerSide = ChessSide.WHITE,
+            terminalState = TerminalState.DRAW_MOVE_RULE,
+            finishedGame = FinishedGameUiState(reason = GameEndReason.DRAW_MOVE_RULE),
+            promotionPick = null,
+            batteryPct = 50,
+            miniKeyboardVisible = false,
+        )
+
+        assertEquals(snapshot, SessionSnapshotCodec.decode(SessionSnapshotCodec.encode(snapshot)))
+    }
+
+    @Test
     fun `invalid snapshots are ignored`() {
         assertNull(SessionSnapshotCodec.decode("not a properties file"))
         assertNull(SessionSnapshotCodec.decode("version=999\nphase=inGame"))

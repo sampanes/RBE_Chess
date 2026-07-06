@@ -14,7 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import com.ratherbeembed.rbe_chess.chess.AutomaticDraw
 import com.ratherbeembed.rbe_chess.chess.ChessSide
+import com.ratherbeembed.rbe_chess.chess.DrawDetector
 import com.ratherbeembed.rbe_chess.chess.GameEndReason
 import com.ratherbeembed.rbe_chess.chess.GameTextExporter
 import com.ratherbeembed.rbe_chess.chess.MoveHistory
@@ -733,8 +735,10 @@ class MainActivity : ComponentActivity() {
         val nextMover = sideToMove(historyForEngine)
         val beforeAnalysis = analysisFor(historyBeforeTypedMove)
         val typedState = positionStateAfter(historyForEngine)
+        val typedDraw = DrawDetector.statusFor(historyForEngine)
         val afterTypedAnalysis = analysisFor(historyForEngine)
         val typedTerminal = typedState.terminalState
+            ?: typedDraw.automatic?.toTerminalState()
         if (typedTerminal != null) {
             moveHistory = historyForEngine
             pendingMove = null
@@ -773,6 +777,7 @@ class MainActivity : ComponentActivity() {
             moverLabel(nextMover),
             givesCheck = typedMoveGivesCheck,
         )
+        typedDraw.claimable?.let { speaker.speakDrawClaimAvailable(it) }
         engineStatus = "Engine: thinking on $opponentMove..."
         Log.d(TAG, "Commit $opponentMove (history -> ${historyForEngine.moves}, mode=$gameMode)")
         try {
@@ -800,8 +805,10 @@ class MainActivity : ComponentActivity() {
                         val historyBeforeReply = historyForEngine
                         val replyHistory = historyForEngine.append(best)
                         val replyState = positionStateAfter(replyHistory)
+                        val replyDraw = DrawDetector.statusFor(replyHistory)
                         val replyAnalysis = analysisFor(replyHistory)
                         val terminal = replyState.terminalState
+                            ?: replyDraw.automatic?.toTerminalState()
                         moveHistory = replyHistory
                         pendingMove = null
                         rememberNarrativeForMove(
@@ -836,6 +843,7 @@ class MainActivity : ComponentActivity() {
                             givesCheck = replyState.inCheck,
                             queued = true,
                         )
+                        replyDraw.claimable?.let { speaker.speakDrawClaimAvailable(it) }
                         engineStatus =
                             "Last: opp=$opponentMove -> engine=$best (${moveHistory.size} plies)"
                         Log.d(TAG, "Step 4 reply: opp=$opponentMove eng=$best history=${moveHistory.moves}")
@@ -1132,12 +1140,25 @@ class MainActivity : ComponentActivity() {
         when (state) {
             TerminalState.CHECKMATE -> "Checkmate"
             TerminalState.STALEMATE -> "Stalemate"
+            TerminalState.DRAW_REPETITION -> "Draw by repetition"
+            TerminalState.DRAW_MOVE_RULE -> "Draw by seventy-five-move rule"
+            TerminalState.DRAW_MATERIAL -> "Draw by insufficient material"
         }
 
     private fun TerminalState.toEndReason(): GameEndReason =
         when (this) {
             TerminalState.CHECKMATE -> GameEndReason.CHECKMATE
             TerminalState.STALEMATE -> GameEndReason.STALEMATE
+            TerminalState.DRAW_REPETITION -> GameEndReason.DRAW_REPETITION
+            TerminalState.DRAW_MOVE_RULE -> GameEndReason.DRAW_MOVE_RULE
+            TerminalState.DRAW_MATERIAL -> GameEndReason.DRAW_MATERIAL
+        }
+
+    private fun AutomaticDraw.toTerminalState(): TerminalState =
+        when (this) {
+            AutomaticDraw.FIVEFOLD_REPETITION -> TerminalState.DRAW_REPETITION
+            AutomaticDraw.SEVENTY_FIVE_MOVE_RULE -> TerminalState.DRAW_MOVE_RULE
+            AutomaticDraw.INSUFFICIENT_MATERIAL -> TerminalState.DRAW_MATERIAL
         }
 
     private fun Int.coerceFinishedOptionIndex(): Int =

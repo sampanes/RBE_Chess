@@ -67,6 +67,25 @@ class GameTextExporterTest {
     }
 
     @Test
+    fun `draw reasons export a half point result and their termination`() {
+        val export = GameTextExporter.build(
+            history = MoveHistory.EMPTY.append("e2e4"),
+            reason = GameEndReason.DRAW_REPETITION,
+            generatedAt = LocalDateTime.of(2026, 7, 6, 12, 34, 56),
+        )
+
+        assertTrue(export.pgn.contains("""[Result "1/2-1/2"]"""))
+        assertTrue(export.pgn.contains("""[Termination "fivefold repetition"]"""))
+        assertTrue(
+            GameTextExporter.build(
+                history = MoveHistory.EMPTY.append("e2e4"),
+                reason = GameEndReason.DRAW_MATERIAL,
+                generatedAt = LocalDateTime.of(2026, 7, 6, 12, 34, 56),
+            ).pgn.contains("""[Result "1/2-1/2"]"""),
+        )
+    }
+
+    @Test
     fun `checkmate result is credited to side that just moved`() {
         val whiteMate = GameTextExporter.build(
             history = MoveHistory.EMPTY.append("f2f3"),
