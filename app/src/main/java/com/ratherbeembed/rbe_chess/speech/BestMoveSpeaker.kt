@@ -1,5 +1,6 @@
 package com.ratherbeembed.rbe_chess.speech
 
+import com.ratherbeembed.rbe_chess.chess.ClaimableDraw
 import com.ratherbeembed.rbe_chess.input.MoveBuffer
 import com.ratherbeembed.rbe_chess.engine.TerminalState
 
@@ -59,6 +60,9 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         when (state) {
             TerminalState.CHECKMATE -> "Checkmate."
             TerminalState.STALEMATE -> "Stalemate."
+            TerminalState.DRAW_REPETITION -> "Draw by repetition."
+            TerminalState.DRAW_MOVE_RULE -> "Draw by the seventy five move rule."
+            TerminalState.DRAW_MATERIAL -> "Draw by insufficient material."
         }
 
     fun repeatLast(narrative: String? = null) {
@@ -233,6 +237,20 @@ class BestMoveSpeaker(private val output: SpeechSink) {
     fun speakAutofill(uci: String, reason: String) {
         val move = SpokenMoveFormatter.spokenUciMove(uci)
         speakQueued("$reason: $move.")
+    }
+
+    /**
+     * Claimable draws (threefold repetition, fifty-move rule) do not end
+     * the game; this queues an advisory hint behind the current move
+     * phrase, like autofill announcements, without replacing the
+     * repeat-last target.
+     */
+    fun speakDrawClaimAvailable(claim: ClaimableDraw) {
+        val rule = when (claim) {
+            ClaimableDraw.THREEFOLD_REPETITION -> "threefold repetition"
+            ClaimableDraw.FIFTY_MOVE_RULE -> "the fifty move rule"
+        }
+        speakQueued("A draw can be claimed by $rule.")
     }
 
     fun speakBatteryWarning(critical: Boolean) {

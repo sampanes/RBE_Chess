@@ -1,5 +1,6 @@
 package com.ratherbeembed.rbe_chess.speech
 
+import com.ratherbeembed.rbe_chess.chess.ClaimableDraw
 import com.ratherbeembed.rbe_chess.engine.TerminalState
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -212,6 +213,58 @@ class BestMoveSpeakerTest {
             ),
             sink.spoken,
         )
+    }
+
+    @Test
+    fun `automatic draw terminal states speak their rule`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakTerminal(TerminalState.DRAW_REPETITION)
+        speaker.speakTerminal(TerminalState.DRAW_MOVE_RULE)
+        speaker.speakTerminal(TerminalState.DRAW_MATERIAL)
+
+        assertEquals(
+            listOf(
+                "Draw by repetition.",
+                "Draw by the seventy five move rule.",
+                "Draw by insufficient material.",
+            ),
+            sink.spoken,
+        )
+    }
+
+    @Test
+    fun `draw claim hint queues and does not replace last board event`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakPlayedMove("Opponent Black", "e7e5", "Waiting for Your White.")
+        speaker.speakDrawClaimAvailable(ClaimableDraw.THREEFOLD_REPETITION)
+        speaker.repeatLast()
+
+        assertEquals(
+            listOf(
+                "Opponent Black played E seven to E five. Waiting for Your White.",
+                "A draw can be claimed by threefold repetition.",
+                "Opponent Black played E seven to E five. Waiting for Your White.",
+            ),
+            sink.spoken,
+        )
+        assertEquals(
+            listOf("A draw can be claimed by threefold repetition."),
+            sink.queued,
+        )
+    }
+
+    @Test
+    fun `fifty move claim hint names the rule`() {
+        val sink = FakeSpeechSink()
+        val speaker = BestMoveSpeaker(sink)
+
+        speaker.speakDrawClaimAvailable(ClaimableDraw.FIFTY_MOVE_RULE)
+
+        assertEquals(listOf("A draw can be claimed by the fifty move rule."), sink.spoken)
     }
 
     @Test

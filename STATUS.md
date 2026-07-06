@@ -1,6 +1,6 @@
 # RBE Chess — Status
 
-Last updated: 2026-05-17 (normalized repeat emotion landed.)
+Last updated: 2026-07-06 (draw detection landed.)
 
 This file is the single-glance state of the project. Updated at the end of
 each session, or as part of the commit that closes a sub-step. If the
@@ -32,7 +32,20 @@ as session-priority cleanup before doing other work.
   button/chord queues the report behind that input. User reports firmware
   v8 and the real game loop have both been semi-thoroughly dogfooded
   successfully (2026-05-16).
-- **Current code addition:** normalized repeat emotion. Active-game
+- **Current code addition:** draw detection. New `chess/DrawDetector.kt`
+  replays history through a new shared `PositionReplay` (also now backing
+  `BoardProjector` and `FenExporter`, replacing three duplicated replay
+  implementations) and detects repetition (FIDE position identity:
+  placement + side to move + castling rights + *capturable* en passant),
+  the 50/75-move halfmove clock, and insufficient-material dead positions.
+  Automatic draws (fivefold, 75-move, insufficient material) end the game
+  through the same terminal plumbing as checkmate/stalemate — new
+  `TerminalState`/`GameEndReason` draw variants flow into speech, the
+  finished-game export menu ("1/2-1/2" PGN result), and session resume.
+  Claimable draws (threefold, 50-move) only queue a spoken hint
+  ("A draw can be claimed by...") and play continues, since the physical
+  opponent may not claim and auto-ending a winning game would be wrong.
+- **Recent code addition:** normalized repeat emotion. Active-game
   Thumb+Middle still replays the same board-changing phrase as before, then
   appends a compact narrative phrase. `StockfishEngine.analyzePosition()`
   parses `info score ... pv ...`, normalizes scores to White POV at the wrapper
@@ -276,9 +289,10 @@ What's still deferred:
 
 - **Cancel/clear current input buffer.** Deferred indefinitely for now; Undo
   plus retype is the current workaround.
-- **Richer draw detection.** Terminal checkmate/stalemate and ordinary check
-  speech are handled, but forced draw / repetition / 50-move detection are
-  still future work.
+- ~~**Richer draw detection.**~~ Landed 2026-07-06: repetition, 50/75-move
+  rule, and insufficient material via `DrawDetector` (see above). Still not
+  covered: claiming a draw *on the user's behalf* (deliberate — the app only
+  announces claimable draws) and draw offers/agreed draws.
 - **Evaluation-based autocomplete dogfood.** The score-gap path is implemented
   and JVM/build verified. Dedicated score-margin tuning is deferred
   indefinitely unless dogfood shows it feels pushy or confusing.
@@ -298,8 +312,9 @@ Further out: clock / time control, draw offers, takebacks, opening book.
 
 | Surface | Status | Note |
 |---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-05-17 after normalized repeat emotion |
-| `:app:testDebugUnitTest` | 166 / 166 green | includes `NarrativeToneTest` (5), `MoveNarrativeTest` (7), `UciAnalysisParserTest` (5), `SessionSnapshotCodecTest` (3), `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (18), `FakeStockfishEngineTest` (13), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
+| `./gradlew assembleDebug` | green | re-confirmed 2026-07-06 after draw detection |
+| Draw detection on-device | needs dogfood | automatic draws end the game with spoken reason; threefold/50-move only announce "A draw can be claimed by..."; easiest check: shuffle knights back and forth from the start position (threefold hint on the 3rd occurrence, auto-draw on the 5th) |
+| `:app:testDebugUnitTest` | 183 / 183 green | adds `DrawDetectorTest` (12) and draw cases in exporter/speaker/session tests; previously includes `NarrativeToneTest` (5), `MoveNarrativeTest` (7), `UciAnalysisParserTest` (5), `SessionSnapshotCodecTest` (3), `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (18), `FakeStockfishEngineTest` (13), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
 | Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
 | `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
 | Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
