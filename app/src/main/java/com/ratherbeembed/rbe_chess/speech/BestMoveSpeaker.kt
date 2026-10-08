@@ -11,7 +11,7 @@ import com.ratherbeembed.rbe_chess.engine.TerminalState
  *
  * The name reflects the M1 acceptance target ("speak the bestmove"); it
  * also covers the per-press and inactivity-prompt phrases per the
- * AGENT_NOTES grammar.
+ * docs/ENGINEERING_NOTES.md grammar.
  */
 class BestMoveSpeaker(private val output: SpeechSink) {
 

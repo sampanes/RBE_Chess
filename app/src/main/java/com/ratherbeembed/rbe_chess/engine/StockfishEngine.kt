@@ -2,7 +2,7 @@ package com.ratherbeembed.rbe_chess.engine
 
 /**
  * Sole seam between the rest of the app and the chess engine. Per
- * AGENT_NOTES: the UI / speech / pocket layers must never touch
+ * docs/ENGINEERING_NOTES.md: the UI / speech / pocket layers must never touch
  * process management -- they go through this interface.
  *
  * Step 3 only needs `boot` and `bestMove` to prove the round-trip;

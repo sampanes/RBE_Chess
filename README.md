@@ -33,7 +33,7 @@ flowchart TD
     end
 
     bleCmd --> androidHid["Android Bluetooth HID keyboard stack"]
-    androidHid --> dispatch["MainActivity.dispatchKeyEvent"]
+    androidHid --> dispatch["MainActivity.dispatchKeyEvent<br/>-> GameController.onKeyDown"]
 
     subgraph app["RBE Chess Android app"]
         direction TB
@@ -153,17 +153,23 @@ sees it, so the keystream stays clean. See the firmware README's
 
 ## Android Architecture
 
-The app is intentionally small and Activity-owned for the M1/M2 pocket
-loop:
+`MainActivity` is a thin Android shell. All game behavior lives in the
+Android-free `game/` package so it runs in plain JVM tests against a
+scripted engine and a recording speech sink.
 
 | Area          | Files                                    | Responsibility                                                              |
 | ------------- | ---------------------------------------- | --------------------------------------------------------------------------- |
-| App shell     | `MainActivity.kt`, `ui/`                 | Start menu, normal screen, Pocket Mode entry, key dispatch                  |
-| Input grammar | `input/`                                 | Map Android `KeyEvent`s to chess actions and mutate `MoveBuffer`            |
-| Game state    | `chess/MoveHistory.kt`, `ui/AppPhase.kt` | Track UCI plies, side selection, AutoAdvance vs Manual                      |
+| App shell     | `MainActivity.kt`                        | Own TTS, Stockfish process, Pocket Mode window flags, session storage; forward keys |
+| Game loop     | `game/GameController.kt`                 | Start menu, move entry, legality check, engine turns, chords, promotion, finished-game menu, battery |
+| Game state    | `game/GameState.kt`, `chess/MoveHistory.kt` | Observable UI state, UCI plies, side, AutoAdvance vs Manual, session snapshot mapping |
+| Autofill      | `game/AutofillCoordinator.kt`, `input/MoveAutofill.kt` | Prefill forced or clearly-best moves without clobbering newer input |
+| Narrative     | `game/NarrativeTracker.kt`, `narrative/` | Repeat-last narrative tail and engine-eval tone                             |
+| Input grammar | `input/`                                 | Map Android key codes to chess actions and mutate `MoveBuffer`              |
+| UI            | `ui/`                                    | Compose start menu, board, normal screen, mini keypad                       |
 | Pocket Mode   | `pocket/`                                | Keep the Activity awake, dim the screen, show the black long-press-to-exit surface |
 | Engine        | `engine/`                                | Spawn Stockfish and speak UCI over stdin/stdout                             |
 | Speech        | `speech/`                                | Convert UCI moves and status events into TTS-friendly phrases               |
+| Persistence   | `session/`, `export/`                    | SharedPreferences session resume, PGN/FEN text export                       |
 
 Stockfish is treated as a black-box process. The Android code does not
 implement chess search; it sends `position startpos moves ...` and
@@ -231,51 +237,15 @@ Firmware build notes and upload troubleshooting are in
 
 ## Current Status
 
-- Pocket Mode black screen, brightness dimming, long-press exit, and
-  Activity-scoped keyboard capture are implemented.
-- Firmware v8: finger-labeled cycler keys, Thumb-as-modifier chords
-  (Pinky/Ring/Middle/Index emit `U`/`M`/`R`/`N` HID), and battery reports via the HID stream
-  (`B` + 3 zero-padded ASCII digits, input-gated after the timer is due). The app
-  parses the reports out of the keystream and shows
-  `Keypad battery: NN%` on the normal screen. Battery smoothing holds the
-  last accepted display percentage through a single low/critical outlier;
-  TTS warns below 20 % / 5 % only after repeated low samples, with hysteresis
-  above 30 %.
-  Adjacent duplicate keypresses are split across BLE commands so rapid
-  repeated taps count without being treated as a held key by Android.
-- Keypad-entered moves are checked against Stockfish legal moves before
-  they enter history. Illegal moves leave the current buffer intact and
-  TTS says "Illegal move."
-- Terminal positions are handled explicitly: `bestmove (none)` becomes
-  replayable "Checkmate." or "Stalemate." speech instead of a fake move,
-  and normal move input is blocked by the finished-game menu.
-- Active-game repeat still replays the last board-changing phrase, then
-  appends a compact narrative when useful: normalized Stockfish eval emotion
-  plus captures, trades, promotion, castling, forced moves, or one legal reply.
-- Finished games can be saved as a text file containing FEN plus PGN-style
-  UCI movetext. On Android 10+, exports are written to
-  `Downloads/RBE Chess`.
-- Game/session state is persisted locally and restored on relaunch, including
-  move history, current buffer, side, mode, terminal/export state, battery
-  display, and mini-keyboard visibility.
-- Promotion input is implemented as a pick state after the four-coordinate
-  pawn move is entered: Pinky/D = knight, Ring/F = bishop, Middle/J = rook,
-  and Index/K or Thumb/Space = queen.
-- M2 chord paths + start menu + manual toggle + undo + new game are
-  hardware-confirmed. Battery reporting is hardware-confirmed.
-- Full-game loop dogfood is green enough to continue feature work; recent
-  board, autocomplete, battery smoothing, export, end-game, resume, and repeat
-  narrative changes still need focused phone checks. Tracked in
-  [`STATUS.md`](STATUS.md).
-- True screen-off/background keyboard capture is deferred. The standard
-  BLE Battery Service path (Android Settings battery %) is also deferred
-  -- this nRF51 module's AT firmware
-  doesn't expose `AT+BLEBATTEN`, so reaching it would need the manual
-  `AT+GATTADDSERVICE` route.
+The full keypad game loop (start menu, move entry, legality guard, engine
+replies, chords, promotion, check/mate/stalemate, repetition/move-rule/
+material draws, export, resume, battery telemetry) is implemented and has been dogfooded with firmware v8. True
+screen-off capture is deferred. See [`STATUS.md`](STATUS.md) for what is
+verified on-device, what needs a phone recheck, and what is next.
 
-For detailed project history and design constraints, read:
+## Further Reading
 
-- [`STATUS.md`](STATUS.md) - current milestone, verification table, and next steps.
-- [`AGENT_NOTES.md`](AGENT_NOTES.md) - implementation decisions and the canonical keypad grammar.
-- [`RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md`](RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md) - Pocket Mode requirements.
-- [`RBE_CHESS_APP_HANDOFF.md`](RBE_CHESS_APP_HANDOFF.md) - original product and architecture brief.
+- [`STATUS.md`](STATUS.md) - current state, verification, next steps.
+- [`docs/ENGINEERING_NOTES.md`](docs/ENGINEERING_NOTES.md) - implementation decisions and the canonical keypad grammar.
+- [`docs/AUTOCOMPLETE.md`](docs/AUTOCOMPLETE.md) and [`docs/NARRATIVE.md`](docs/NARRATIVE.md) - feature designs.
+- [`docs/history/`](docs/history/) - original product brief, Pocket Mode addendum, milestone history.

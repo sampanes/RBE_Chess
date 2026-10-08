@@ -42,7 +42,7 @@ input bursts are no longer dropped by the AT-command roundtrip.
 
 The receiving phone sees discrete HID keystrokes. The Android app
 (`../../app/`) interprets each character per the 4-coordinate cycler
-grammar -- see the project's `AGENT_NOTES.md` section "Keyboard grammar --
+grammar -- see the project's `docs/ENGINEERING_NOTES.md` section "Keyboard grammar --
 hardware-aware V1".
 
 ### Thumb/Space-as-modifier chords (v2)

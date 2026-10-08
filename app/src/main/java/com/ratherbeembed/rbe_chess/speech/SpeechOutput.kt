@@ -16,7 +16,7 @@ private const val TAG = "RBE_TTS"
  * loop. Routes via USAGE_MEDIA + CONTENT_TYPE_SPEECH so a connected A2DP
  * Bluetooth speaker/headset receives the audio (Android's default media
  * routing is what we rely on; do not build custom BT routing per
- * AGENT_NOTES). Requests transient-may-duck audio focus on each utterance
+ * docs/ENGINEERING_NOTES.md). Requests transient-may-duck audio focus on each utterance
  * and abandons it when the utterance completes.
  *
  * QUEUE_FLUSH is used intentionally so the latest press is what the user

@@ -1,382 +1,108 @@
 # RBE Chess -- Status
 
-Last updated: 2026-07-06 (draw detection landed.)
+Last updated: 2026-10-08 (GameController refactor on top of draw detection, ASCII purge, docs consolidation).
 
-This file is the single-glance state of the project. Updated at the end of
-each session, or as part of the commit that closes a sub-step. If the
-verification table or step checklist drifts more than a row or two, treat
-as session-priority cleanup before doing other work.
+Single-glance state of the project. Update it in the commit that changes
+what is true here. Long-form history (milestone checklists, firmware
+battery saga, the old verification table) is frozen in
+[`docs/history/MILESTONES.md`](docs/history/MILESTONES.md).
 
 ## Where we are
 
-- **Milestone:** M2 -- Game Lifecycle. M1 step 4 was committed as
-  code-complete-but-untested (`ecbeb6b`); M2 builds on top to make the
-  app dogfoodable as a real game loop (start a game, undo, switch modes,
-  start over) instead of "one game forever from the implicit opening."
-- **In flight:** hardware verification of both M1 step 4 AND M2 -- both
-  layers ship together since M2 keys the firmware-v2 chords through the
-  same Thumb/Space commit path step 4 introduced.
-- **Last completed (hardware):** firmware v7 repeated-key batching fix.
-  Adjacent duplicate queued keypresses are split across BLE commands
-  instead of sent as `AT+BleKeyboard=DD...`, which keeps rapid human
-  repeated taps countable without Android treating them as a held key.
-  The app-side repeat skip was removed because it dropped legitimate
-  fast taps. Undo still leaves repeat memory on the current board state
-  rather than the undo action. Dogfood note: before v7, phone Notepad
-  reproduced the failure as `B08...` followed by repeated `8` spam until
-  another key interrupted it; after flashing v7, no keyboard problems
-  were observed.
-- **Current firmware:** firmware v8 input-gated battery reports.
-  The app still parses `B` + 3 digits, but the keypad no longer sends
-  idle timer heartbeats. Once the battery interval is due, the next real
-  button/chord queues the report behind that input. User reports firmware
-  v8 and the real game loop have both been semi-thoroughly dogfooded
-  successfully (2026-05-16).
-- **Current code addition:** draw detection. New `chess/DrawDetector.kt`
-  replays history through a new shared `PositionReplay` (also now backing
-  `BoardProjector` and `FenExporter`, replacing three duplicated replay
-  implementations) and detects repetition (FIDE position identity:
-  placement + side to move + castling rights + *capturable* en passant),
-  the 50/75-move halfmove clock, and insufficient-material dead positions.
-  Automatic draws (fivefold, 75-move, insufficient material) end the game
-  through the same terminal plumbing as checkmate/stalemate -- new
-  `TerminalState`/`GameEndReason` draw variants flow into speech, the
-  finished-game export menu ("1/2-1/2" PGN result), and session resume.
-  Claimable draws (threefold, 50-move) only queue a spoken hint
-  ("A draw can be claimed by...") and play continues, since the physical
-  opponent may not claim and auto-ending a winning game would be wrong.
-- **Recent code addition:** normalized repeat emotion. Active-game
-  Thumb+Middle still replays the same board-changing phrase as before, then
-  appends a compact narrative phrase. `StockfishEngine.analyzePosition()`
-  parses `info score ... pv ...`, normalizes scores to White POV at the wrapper
-  boundary, and `NarrativeTone` converts before/after deltas into mover-relative
-  "Blunder", "Mistake", "Sharp", or "Great move" prefixes. Kotlin geometry
-  currently adds captures, recaptures/trades, castling, promotion, forced moves,
-  and one legal reply.
-- **Recent code addition:** session resume persistence. The app saves a
-  compact session snapshot in SharedPreferences whenever move history, buffer,
-  side, mode, terminal/finished state, promotion pick, battery display, or mini
-  keyboard visibility changes. On launch it restores before first render and
-  speaks "Resumed game..." for live/finished games.
-- **Recent code addition:** finished-game export. Checkmate/stalemate and
-  the live-game Hold+Index chord now enter a finished-game menu with
-  "Save PGN/FEN" and "New game". Saving writes a `.txt` export containing
-  FEN plus PGN-style UCI movetext to `Downloads/RBE Chess` on modern Android.
-- **Recent code addition:** promotion pick state. A four-coordinate pawn
-  promotion base move now pauses after legality lookup, speaks the promotion
-  choices, and maps Pinky/D to knight, Ring/F to bishop, Middle/J to rook,
-  and Index/K or Thumb/Space to queen before committing the suffixed UCI move.
-- **Recent code addition:** battery telemetry smoothing. The app now holds
-  the last accepted keypad battery percentage through a single low/critical
-  outlier, requires repeated low samples before low/critical TTS warnings,
-  and rearms after charging/reporting at or above 30%.
-- **Recent code addition:** board readability + Pocket Mode soft-lock pass.
-  The board now has stronger last-move/current-input/pending-move highlights,
-  arrow overlays for last/current/pending moves, and a "Pending: ..." line
-  while a committed move is being legality-checked / answered by Stockfish.
-  Ordinary cycler taps are ignored while that pending move is active so the
-  visible buffer stays stable. Pocket Mode no longer exits on any tap; it
-  requires a deliberate long press on the black screen.
-- **Current test aid:** Mini 5-button keyboard simulator. A tiny `Mini off`
-  / `Mini on` toggle is present on both the start menu and normal in-game
-  screen. When enabled, P/R/M/I/T buttons inject the same `ChessKey`s as
-  the Bluetooth keypad. `Hold` latches Thumb for one chord, remapping the
-  four finger buttons to U/M/R/N, and `B%` cycles mock battery reports
-  through the normal battery handler.
-- **Last completed (code):** M2 -- Thumb-as-modifier chord support
-  (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
-  `RBE Keypad v2`). Held Thumb + cycler emits a distinct HID letter:
-  Thumb+Pinky -> `U` (undo), Thumb+Ring -> `M` (manual toggle),
-  Thumb+Index -> `N` (new game), Thumb+Middle reserved (no emission).
-  Thumb tap alone still emits ` ` as commit. App side:
-  `AppPhase` (StartMenu / InGame) +
-  `GameMode` (AutoAdvance / Manual). New `StartMenuScreen` is verbal-
-  first (Ring up, Middle down, Thumb select; Pinky/Index no-op in menu); two options
-  Play-as-white / Play-as-black. Play-as-white bootstraps with an
-  immediate engine query on empty history so Stockfish speaks white's
-  opener; AutoAdvance also appends it. Manual mode keeps the engine's
-  reply advisory ("Suggestion: ...") and only appends the user's typed
-  move. Undo cancels in-flight engine work, drops the last pair of
-  plies (or one if odd), clears the buffer, says "Undid last move."
-  New-game chord cancels engine work, clears history, returns to the
-  start menu. JVM: 76 / 76 tests green; `assembleDebug` green.
-- **Next:** dogfood the board/Pocket changes on-device with the mini keyboard,
-  then hardware. Check pending arrows during engine think, last/current move
-  highlights, ignored cycler taps while pending, and long-press Pocket Mode
-  exit. Also re-check the recent M5/check fixes in the same pass.
-- **Recent code addition:** M4 legality guard. Before appending a typed
-  move, the app asks Stockfish for legal moves from the current history
-  via `go perft 1`. Illegal moves leave history unchanged, keep the
-  typed buffer intact, and speak "Illegal move" without replacing the
-  repeat-last board event. Engine think time is now 4 s instead of 1 s to
-  reduce TTS cutoffs between "played..." and the engine reply.
+- **Milestones M1 (Pocket Mode loop), M2 (game lifecycle chords), M3
+  (terminal states), M4 (legality guard) and M5 (autocomplete) have landed.**
+  The full keypad game loop has been dogfooded on the S22 Ultra with
+  firmware v8 and is good enough to build on.
+- **Firmware:** v8. Finger cycler keys, Thumb-as-modifier chords
+  (`U`/`M`/`R`/`N`), duplicate-key batching fix (v7), and input-gated
+  `Bnnn` battery reports (v8).
+- **App features beyond the core loop:** display-only board with
+  last/current/pending highlights and arrows, Pocket Mode long-press exit,
+  promotion pick state, ordinary check announcements, draw detection
+  (automatic: fivefold repetition, 75-move rule, insufficient material end
+  the game; claimable: threefold and 50-move only get a spoken hint, since
+  the physical opponent may not claim), repeat-last with a
+  narrative tail (captures, trades, castling, forced moves, eval-based
+  "Blunder"/"Great move" tone), finished-game menu with PGN/FEN text export,
+  session resume, battery telemetry smoothing, on-screen mini keypad
+  simulator.
+- **Draw detection (2026-07-06):** `chess/DrawDetector.kt` replays history
+  through the shared `chess/PositionReplay.kt` (which also backs
+  `BoardProjector` and `FenExporter`). Repetition uses FIDE position
+  identity: placement, side to move, castling rights, and en passant only
+  when actually capturable. Checkmate/stalemate take precedence.
+- **Latest code change (2026-10-08):** all game logic moved out of
+  `MainActivity` into the Android-free `game/` package
+  (`GameController`, `GameState`, `AutofillCoordinator`, `NarrativeTracker`).
+  `MainActivity` is now only Android wiring. Cancelled engine jobs no
+  longer report a fake "Engine error" or clear a move committed right after
+  Undo. JVM: 220 / 220 tests green, 37 of them controller tests.
 
-## M1 implementation checklist
+## Next
 
-The order is fixed by `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` section "M1
-Implementation Order" with the cycler-grammar refinement. Tick boxes
-as steps land:
+1. Dogfood draw detection with the mini keypad in Manual mode: shuffle both
+   knights out and back from the start. Expect "A draw can be claimed by
+   threefold repetition." on the third occurrence and an automatic "Draw by
+   repetition." on the fifth, opening the export menu with a `1/2-1/2` result.
+2. On-device dogfood of the post-2026-05-17 changes that never got a focused
+   phone pass: board arrows/highlights, long-press Pocket exit, finished-game
+   export menu, session resume, score-gap autocomplete, battery smoothing
+   (`B%` mock cycle 88 -> 19 -> 4 -> 3 -> 73).
+3. Same pass, re-check that the GameController refactor changed nothing you
+   can hear: commit/reply speech order, undo mid-think, manual mode, promotion.
+4. If board arrows feel cluttered, simplify the overlay before any new feature.
 
-- [x] **1 / 2a** Keyboard input, cycler, `MoveBuffer`, `KeyboardGrammar`,
-      `HardwareKeyboardHandler`. Logcat-only feedback. (`e5e51c0`)
-- [x] **2b** TTS scaffold: `SpeechOutput`, `BestMoveSpeaker`,
-      `SpokenMoveFormatter`. Each cycle press speaks; 2.5 s
-      `lifecycleScope` job fires *"Move ... to ...?"*. Verified on phone
-      speaker and dual-BT (BT earbuds + Bluefruit keypad). Promotion
-      still deferred to 2d. (`b86f0a4`)
-- [x] **2c** Pocket Mode shell: `PocketModeState`, `PocketModeController`
-      (`FLAG_KEEP_SCREEN_ON` + brightness dim/restore), `PocketModeScreen`
-      (full black, long-press onExit). "Enter Pocket Mode" button on
-      the normal screen. `BestMoveSpeaker.speakCommit()` -> "Calculating"
-      on Thumb/Space. Verified on the S22 Ultra 2026-05-15.
-- [x] **3** Stockfish PoC: `engine/` package + `scripts/fetch-stockfish.sh`
-      + `useLegacyPackaging = true` (forces extractNativeLibs). UCI
-      handshake + `bestmove` from startpos verified on the S22 Ultra.
-- [~] **4** Wire Thumb/Space commit to engine; speak bestmove; auto-advance
-      the bestmove into board state. `chess/MoveHistory.kt` + new
-      `MainActivity.commitMove(...)` ship the wiring. JVM-green;
-      hardware verification pending. Bundled into the M2 hardware
-      test rather than verified standalone.
-- [ ] **5** Test BT keyboard in Pocket Mode on the S22 Ultra.
-- [ ] **post-M1** `AccessibilityService` spike for true screen-off
-      (optional; revisit AGP/SDK 36 first per AGENT_NOTES).
+## Verification
 
-## M2 implementation checklist
+| Surface | Status |
+|---|---|
+| `.\gradlew.bat testDebugUnitTest` | 220 / 220 green (2026-10-08) |
+| Post-refactor phone smoke test (adb key events) | green (2026-10-08) on the refactor build *before* it was rebased onto draw detection: resume, start as black, type + commit, real Stockfish reply, illegal move, undo mid-think, manual mode, end-game menu. Rebased build is JVM-verified only so far |
+| Full keypad game loop on hardware | green, semi-thorough dogfood (2026-05-16) |
+| Chords, start menu, manual toggle, undo | green on hardware (2026-05-15) |
+| BT keypad + BT earbuds TTS routing | green (2026-05-15) |
+| Firmware v8 input-gated battery reports | green (2026-05-16) |
+| Board affordances, Pocket long-press exit | needs phone recheck |
+| Finished-game export, session resume | needs phone recheck |
+| Draw detection on-device | needs dogfood (JVM-covered, incl. controller wiring) |
+| Promotion pick on hardware | nice-to-have, not yet exercised |
 
-- [x] **F1** Firmware v2: Thumb-as-modifier chord detection. Bumped
-      `FIRMWARE_VERSION` to 2; new `BtnEdge` tri-state replaces the
-      v1 press-only `is_changed`. Thumb/Space defers emission until release
-      (and only emits if no chord fired); held Thumb + cycler emits
-      `U`/`M`/`N` (Thumb+Middle reserved). README updated with the chord
-      table.
-- [x] **A1** App: `ChessKey.UNDO/TOGGLE_MANUAL/NEW_GAME` + grammar
-      actions; `HardwareKeyboardHandler` routes `KEYCODE_U/M/N`.
-- [x] **A2** `MoveHistory.undoLastPair()` (drops up to two plies);
-      Undo handler cancels engine work, clears buffer, speaks "Undid
-      last move."
-- [x] **A3** `GameMode` toggle. AutoAdvance appends engine reply;
-      Manual leaves it advisory (`speakSuggestion`).
-- [x] **A4** `AppPhase.StartMenu` + `StartMenuScreen`. Ring/Middle cycle,
-      Thumb selects. Play-as-white triggers a bootstrap engine query;
-      Play-as-black waits for user input. Cold launch speaks the menu
-      intro.
-- [x] **A5** New-game chord returns to StartMenu, cancels engine,
-      clears history + buffer.
-- [x] **HW1** Flash firmware v2 to the Bluefruit Feather; verify
-      2-blink boot, `RBE Keypad v2` BLE name, re-pair if Android keys
-      pairings by name. (User-confirmed chord emissions reach the app
-      as expected, 2026-05-15.)
-- [~] **HW2** S22 Ultra end-to-end: cold launch lands in start menu
-      with TTS; Ring/Middle navigate; Thumb picks a side; play-as-white hears
-      engine opener; play-as-black waits for input; commit cycle still
-      works (M1 step 4); each chord does its thing. Chord paths +
-      menu + manual + undo + new-game confirmed; full game loop
-      (multiple commit cycles in a row) not yet exercised.
+`StockfishProcessEngine` and the Compose UI are only verified on-device;
+everything in `game/`, `input/`, `chess/`, `engine/` parsers, `narrative/`,
+`session/` codec and `speech/` formatting is covered by JVM tests.
 
-## Firmware v3 -> v4 -> v5 -- battery reporting saga
+## Deferred
 
-Single new piece of work post-M2, later adjusted after dogfood:
+- Cancel/clear the current input buffer (workaround: Undo and retype).
+- Draw offers / agreed draws. Claiming a draw on the user's behalf is
+  deliberately not done; the app only announces claimable draws.
+- Score-gap autocomplete margin tuning, unless dogfood says it feels pushy.
+- True screen-off / locked-screen keyboard capture (AccessibilityService
+  spike). Bump AGP and `compileSdk` to 36 first.
+- Standard BLE Battery Service (Android Settings battery %). This nRF51
+  module rejects `AT+BLEBATTEN`; would need `AT+GATTADDSERVICE`.
+- Double-tap Thumb semantics.
+- Further out: clocks, draw offers, opening book.
 
-- **v3 (broken)**: tried the standard BLE Battery Service via
-  `AT+BLEBATTEN=on`. On this module's AT firmware that command returns
-  ERROR, and `setup_helper.h` treated the failure as fatal via
-  `error()` -- so the keypad bricked (LED steady fast blink, never
-  advertised, serial monitor caught the one error message only if it
-  was already open before boot).
-- **v4 (diagnosis)**: made the BAS attempt non-fatal. Serial log
-  confirmed `AT+BLEBATTEN=on` returns ERROR on this nRF51 SPI Friend.
-  The BAS-via-AT path is dead on this module. Keypad still works as a
-  keyboard.
-- **v5 (battery HID stream)**: report battery through the existing HID stream
-  instead. Firmware enqueues `'B'` + 3 zero-padded ASCII digits (e.g.
-  `B025`) into the same FIFO chords/chess input use, every 60 s, first
-  push 5 s after boot. App-side `BatteryReportParser` intercepts the
-  sequence before the chess grammar sees it, updates a `batteryPct`
-  state shown on the normal screen, and issues one-shot TTS warnings
-  on crossing 20 % (low) and 5 % (critical), re-armed when % climbs
-  back above 30 %. `FIRMWARE_VERSION` 4 -> 5 (5-blink boot,
-  `RBE Keypad v5` BLE name).
-- **v6 (repeat chord)**: keep v5 battery behavior and map
-  Thumb+Middle to `R` for repeat-last spoken output.
-- **v7 (duplicate-key batching fix)**: keep v6 behavior but split
-  adjacent duplicate queued keys across separate `AT+BleKeyboard=...`
-  commands. This preserves fast repeated cycler taps while avoiding
-  Android held-key repeat behavior. Hardware-confirmed after flashing
-  v7: no keyboard spam observed in dogfood.
-- **v8 (input-gated battery reports)**: keep the same HID `Bnnn`
-  report format, but stop idle timer pushes. When the report timer is
-  due, the next real button/chord queues the battery packet. This avoids
-  typing `B071` into unrelated apps after RBE Chess is closed. Pending
-  flash/hardware verification.
+## Cautions
 
-The custom-GATT BAS path (`AT+GATTADDSERVICE` + `AT+GATTADDCHAR`)
-remains an option if we ever want Android's Settings UI to show the
-percentage too. Punted unless something explicitly needs it -- the
-HID-stream path covers the in-app + TTS requirements end-to-end with
-no Android Settings dependency.
+- Keep `StockfishEngine` as the only process-management boundary.
+- Never append illegal moves or `bestmove (none)` to `MoveHistory`.
+- Do not reintroduce app-side repeat suppression for cycler keys; firmware
+  v7 fixed duplicate HID batching without dropping fast human taps.
+- Bump `FIRMWARE_VERSION` on every meaningful firmware flash.
+- Source files are ASCII only. Write chess glyphs as `\u` escapes.
 
-## Beyond M2 -- roadmap
+## Docs map
 
-M1 proved the move loop; M2 makes the *game* operable from the keypad.
-Landed after M2:
-
-- **In-app board viewer.** Display-only Compose board on the
-  normal in-game screen, oriented with the selected Stockfish/player
-  side at the bottom. It projects `MoveHistory` from the start position,
-  renders in-square rank/file labels and piece letters, highlights last move
-  / current input / pending committed move, and draws arrows for those move
-  affordances. It intentionally has no touch input; the board only changes
-  through Stockfish auto-advance and keyboard-entered moves.
-- **Repeat-last spoken output.** Firmware v6 maps Thumb+Middle to `R`;
-  the app maps it to `RepeatLast` and now prefers the last board-changing
-  spoken event. Transient statuses such as illegal-move warnings and
-  autofill announcements do not replace the replay target.
-- **Duplicate-key batching fix.** Firmware v7 splits adjacent duplicate
-  keypresses across BLE commands so rapid repeated cycler taps count
-  without app-side repeat suppression.
-- **M4 legality guard.** Stockfish `go perft 1` now validates
-  keypad-entered moves before history mutation. This prevents illegal
-  waiting moves from desyncing app history from Stockfish's actual
-  position; the dogfood trigger was `e2e4 d7d5 e4d5 e8d7 g1f3 e7e5
-  d5e6 a7a5`, where black was in check and `a7a5` was illegal.
-- **M3 terminal handling.** Stockfish `bestmove (none)` is parsed as a
-  terminal state instead of a move. Mate-score info classifies checkmate;
-  otherwise the app calls it stalemate. Terminal positions speak a
-  replayable phrase and stop normal move input until Undo/New Game.
-- **M5 autocomplete.** `MoveBuffer.copyFromEngine()` can
-  prefill UCI coordinates, and `MoveAutofill` picks only unambiguous
-  legal moves: exactly one legal move in the position, or exactly one
-  legal move from the source square the user entered. First press on an
-  autofilled coordinate reads the preset value without advancing it.
-  The score-gap path uses Stockfish `searchmoves` / `MultiPV` through
-  `StockfishEngine.scoredMoves()` and autofills only when the best scored
-  legal candidate beats the runner-up by the configured margin. Source-square
-  autocomplete waits for the inactivity-prompt delay before querying the
-  engine, so normal rank/file scrolling can pass through suggestible squares.
-- **Ordinary check announcements.** `StockfishEngine.isSideToMoveInCheck()`
-  reads Stockfish's `d` output and parses the `Checkers:` line. Move speech
-  includes "Check" for non-terminal checking moves without changing the
-  terminal checkmate/stalemate path.
-- **Terminal state after board-changing moves.** After each appended typed
-  move or AutoAdvance engine reply, the app checks for zero legal replies and
-  classifies checkmate/stalemate from `Checkers:`. This catches engine-delivered
-  mates that return a normal `bestmove` instead of `bestmove (none)`.
-- **Speech pacing.** `SpeechSink.speakQueued()` lets AutoAdvance engine replies
-  and follow-up hints such as forced-move autocomplete wait behind the
-  replayable board move phrase while per-press speech still uses flush
-  semantics.
-- **Mini 5-button keyboard simulator.** `MiniKeyboardInput` mirrors the
-  hardware/chord mapping in pure Kotlin, and `MiniKeyboardPanel` exposes
-  a tiny on-screen keypad for no-hardware app dogfood. It is intentionally
-  UI-only: injected keys go through the same Activity menu/game handlers
-  as real HID events.
-- **Promotion pick state.** If the user commits a four-coordinate move and
-  Stockfish's legal moves only contain promotion-suffixed variants of that
-  base move, the app prompts for the promotion piece instead of calling it
-  illegal. The chosen piece is then committed as normal UCI, e.g. `e7e8q`.
-  Promotion dogfood is nice-to-have, not a blocker for the current phone pass.
-- **PGN/FEN text export.** Finished games expose a small keypad menu:
-  F/Ring and J/Middle cycle options, Thumb selects. "Save PGN/FEN" writes
-  a timestamped `.txt` with a full FEN and PGN-style UCI movetext; "New game"
-  returns to the start menu. Live-game Hold+Index now means "end current
-  game" so forfeits/abandoned games can also be exported.
-- **Session resume.** `SessionSnapshotCodec` serializes the Activity-owned
-  game state to app private SharedPreferences via `SessionStore`. Restored
-  sessions always come back in normal screen mode, not Pocket Mode, and do
-  not resurrect in-flight engine jobs or pending arrows.
-
-What's still deferred:
-
-- **Cancel/clear current input buffer.** Deferred indefinitely for now; Undo
-  plus retype is the current workaround.
-- ~~**Richer draw detection.**~~ Landed 2026-07-06: repetition, 50/75-move
-  rule, and insufficient material via `DrawDetector` (see above). Still not
-  covered: claiming a draw *on the user's behalf* (deliberate -- the app only
-  announces claimable draws) and draw offers/agreed draws.
-- **Evaluation-based autocomplete dogfood.** The score-gap path is implemented
-  and JVM/build verified. Dedicated score-margin tuning is deferred
-  indefinitely unless dogfood shows it feels pushy or confusing.
-
-Further out: clock / time control, draw offers, takebacks, opening book.
-
-## M5 implementation checklist -- Autocomplete & Predictive Entry
-
-- [x] **A1** `MoveBuffer.copyFromEngine(uci)` implementation.
-- [x] **E1** Score-gap autocomplete path: `StockfishEngine.scoredMoves()` uses `searchmoves` / `MultiPV`, parses `info score ... pv ...`, and `MoveAutofill.clearBestScoredMove()` requires a configured margin before autofill.
-- [x] **A2** Predictive Trigger: legal-only and score-gap versions landed. Once `from` coordinates are fixed and the user pauses for the inactivity-prompt delay, the app queries legal moves and autofills if the source has exactly one legal move or one scored candidate is clearly ahead.
-- [x] **A3** Forced Move Detection: after each applied ply/undo, the app checks `count(legalMoves) == 1` and pre-fills the whole move when true.
-- [x] **S1** Read Autocomplete: autofill announcements are queued behind the current move phrase, and the inactivity prompt reads the prefilled buffer.
-- [x] **A4** Manual Mode guard: autocomplete never auto-commits; it only mutates the buffer and waits for Thumb.
-
-## Verification status
-
-| Surface | Status | Note |
-|---|---|---|
-| `./gradlew assembleDebug` | green | re-confirmed 2026-07-06 after draw detection |
-| Draw detection on-device | needs dogfood | automatic draws end the game with spoken reason; threefold/50-move only announce "A draw can be claimed by..."; easiest check: shuffle knights back and forth from the start position (threefold hint on the 3rd occurrence, auto-draw on the 5th) |
-| `:app:testDebugUnitTest` | 183 / 183 green | adds `DrawDetectorTest` (12) and draw cases in exporter/speaker/session tests; previously includes `NarrativeToneTest` (5), `MoveNarrativeTest` (7), `UciAnalysisParserTest` (5), `SessionSnapshotCodecTest` (3), `GameTextExporterTest` (6), `PromotionPickStateTest` (6), `BatteryTelemetrySmootherTest` (5), `MiniKeyboardInputTest` (3), `MoveAutofillTest` (10), `MoveBufferTest` (17), `BestMoveSpeakerTest` (18), `FakeStockfishEngineTest` (13), `BoardProjectorTest` (7), `UciPerftParserTest` (3), `UciBestMoveParserTest` (4), `UciScoredMoveParserTest` (4), and `UciCheckersParserTest` (3); `StockfishProcessEngine` + the Activity-level commit flow are Android-bound |
-| Display-only board viewer | green (JVM/build) | projects startpos + UCI history, supports castling/promotion/en passant display, last/current/pending highlights and arrows |
-| `scripts/fetch-stockfish.sh` | green | idempotent; verifies ELF magic; size-checked against the sf_18 release |
-| Compose preview (`ui/AppRoot.kt`) | renders | confirmed in AS |
-| App launch on S22 Ultra | green | confirmed 2026-05-14 |
-| BT keyboard input on-device | green | Bluefruit paired as "RBE Keypad v1", all 5 keycodes received and dispatched correctly 2026-05-14 |
-| Firmware v7 duplicate-key batching | green | User-confirmed 2026-05-15: pre-v7 Notepad reproduced held-key spam (`B08...` then repeated `8` until another key); after flashing v7, no keyboard problems observed. |
-| Firmware v8 input-gated battery reports | green (semi-thorough dogfood) | User-confirmed 2026-05-16: no idle battery-report typing issue observed; battery packet still queues behind real input once due. |
-| Compose recomposition on state change | green | required `@Immutable` on `MoveBuffer` to defeat strong-skipping |
-| Firmware v1 input latency | green | non-blocking BLE state machine; user reports "buttery smooth" 2026-05-14 |
-| Per-press TTS on-device | green (phone speaker) | "loud and clear" on S22 Ultra speaker 2026-05-15 |
-| 2.5 s inactivity prompt on-device | green (phone speaker) | fires on pause, cancels on next press |
-| TTS routing to BT A2DP speaker | green | dual-BT verified 2026-05-15: earbuds + Bluefruit keypad together, audio routes to earbuds |
-| Pocket Mode entry/exit on-device | needs recheck | enter dims + keeps awake was green 2026-05-15; exit gesture changed from tap-anywhere to long-press 2026-05-17 |
-| Stockfish UCI loop on-device | green | Initial proof button verified boot -> uci/uciok -> isready/readyok -> position startpos -> go movetime 1000 -> bestmove spoken via TTS 2026-05-15; the temporary button has since been removed from the normal screen. |
-| Thumb -> engine -> bestmove on-device | green (semi-thorough dogfood) | User-confirmed 2026-05-16: real game loop has been tested through repeated physical-piece play enough to move on to M5. |
-| Firmware v2 chord detection | green | User-confirmed 2026-05-15: hold Thumb + tap Pinky/Ring/Index emits the right HID codes. |
-| Start menu navigation on-device | green | User-confirmed 2026-05-15: cold launch lands in StartMenu, TTS speaks the intro, Ring/Middle cycle, Thumb selects. |
-| Manual mode toggle on-device | green | User-confirmed 2026-05-15: Thumb+Ring flips mode and TTS announces. |
-| Undo on-device | green | User-confirmed 2026-05-15: Thumb+Pinky drops the last pair, TTS confirms. |
-| End game / export menu on-device | needs recheck | Hold+Index now ends a live game and opens finished-game options instead of immediately returning to StartMenu. |
-| Session resume on-device | needs recheck | New SharedPreferences-backed snapshot restore should resume live/finished games after app process death/relaunch. |
-| Full keypad game loop on-device | green (semi-thorough dogfood) | User-confirmed 2026-05-16: firmware v8 plus repeated game-loop play are good enough for the next feature slice. |
-| Firmware v3 BAS battery percentage | broken | v3 made `AT+BLEBATTEN=on` failure fatal; the nRF51 module's AT firmware doesn't support that command, so the keypad bricked into `error()`. |
-| Firmware v4 BAS init non-fatal | green | Confirmed via serial: `AT+BLEBATTEN=on` returns ERROR on this module, warning logged, boot continues. Keypad works as keyboard, no BAS visible to Android. |
-| Firmware v5 HID-stream battery report | green | User-confirmed 2026-05-15: in-app "Keypad battery: 90%" populated shortly after pairing. TTS warning thresholds not yet exercised at low battery. |
-
-## Open follow-ups (scheduled, not blockers)
-
-- Board readability + Pocket long-press exit need on-device dogfood after the
-  2026-05-17 affordance pass. Revisit if arrows are cluttered, piece letters
-  are too plain, or long-press is awkward with the dimmed screen.
-- Bump AGP and `compileSdk` back to 36 before the post-M1 screen-off
-  spike. (AGENT_NOTES section "Build configuration -- deviations".)
-- *Manual mode* (working title: "user types their own moves too") --
-  optional toggle where Stockfish still speaks the bestmove but the
-  user types their *own* move on the cycler instead of the engine
-  auto-advancing. Motivation: deliberately deviate from the engine --
-  e.g. play a sub-optimal move against a friend, then recover from
-  there -- while still hearing the engine's pick as a hidden advisor.
-  Gated on whether real-world M1 testing finds the cycler intuitive
-  enough that doubling input per move isn't punishing. Logged in
-  AGENT_NOTES section "Keyboard grammar -- hardware-aware V1" -> Deferred list.
-- Promotion pick state dogfood is nice-to-have/deferred; do not spend the
-  next phone pass forcing a promotion unless it is convenient.
-- Double-tap Space semantics -- TBD.
-
-## Where to read next (precedence: high -> low)
-
-0. `SESSION_HANDOFF.md` -- compact resume point for the current dogfood
-   state, recent commits, and next recommended work.
-1. `AGENT_NOTES.md` -- routing layer + every architectural deviation from
-   the addendum. Hardware-aware keyboard grammar lives here.
-2. `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` -- M1 spec for everything not
-   superseded in AGENT_NOTES.
-3. `RBE_CHESS_APP_HANDOFF.md` -- original project spec.
-4. `BUILD_FIXES_2025_05_14.md` -- sidecar narrative on the AGP/SDK
-   deviation (Gemini's pass on 2026-05-14).
-5. `firmware/RBE_32u4_chess/README.md` -- firmware build instructions
-   and library dependencies. Read before touching `*.ino`.
-
-## Memory pointers
-
-Project memory under
-the local Claude Code memory folder (outside this repo)
-captures user/hardware/grammar context. `MEMORY.md` there is the index.
+- [`README.md`](README.md) -- what the app is, controls, hardware, build.
+- [`docs/ENGINEERING_NOTES.md`](docs/ENGINEERING_NOTES.md) -- design
+  decisions and the canonical keypad grammar (Stockfish packaging, chords,
+  battery protocol, start menu).
+- [`docs/AUTOCOMPLETE.md`](docs/AUTOCOMPLETE.md) -- M5 autocomplete design.
+- [`docs/NARRATIVE.md`](docs/NARRATIVE.md) -- repeat-last narrative design.
+- [`narrative-sidekick/`](narrative-sidekick/) -- longer-range narration spec.
+- [`firmware/RBE_32u4_chess/README.md`](firmware/RBE_32u4_chess/README.md) --
+  firmware build, upload recovery, chord and battery protocol.
+- `docs/history/` -- original handoff brief, M1 addendum, 2026-05-14 build
+  fixes, milestone history. Superseded where ENGINEERING_NOTES disagrees.

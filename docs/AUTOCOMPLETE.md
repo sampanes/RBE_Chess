@@ -72,9 +72,9 @@ that move rather than leaving the user at `a1a1`.
 - Add `scoredMoves(history, candidates, movetimeMs)`.
 - It uses `searchmoves` plus `MultiPV`, parses `info score ... pv ...`, and restores `MultiPV` to 1 after the candidate search.
 
-### Changes to `MainActivity.kt`
-- Update `handleAction` to trigger the engine prediction once `fromFileIdx` and `fromRankIdx` are non-null.
-- Use `lifecycleScope` to ensure the engine call doesn't block the UI thread.
+### Changes to `game/` (originally `MainActivity.kt`)
+- `GameController.cycleBuffer` triggers `AutofillCoordinator.afterSourceSelected` once `fromFileIdx` and `fromRankIdx` are non-null and the source changed.
+- `AutofillCoordinator` runs engine calls in the controller's coroutine scope (the Activity's `lifecycleScope`) so they never block the UI thread, and drops results if the board or buffer changed meanwhile.
 
 ## 4. Future Considerations
 - **Toggle Settings:** Allow users to turn off "Predictive Autocomplete" if they find it distracting or want to play purely manually.

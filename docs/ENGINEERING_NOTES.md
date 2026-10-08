@@ -1,6 +1,6 @@
-# RBE Chess -- Agent Notes
+# RBE Chess -- Engineering Notes
 
-Companion to `RBE_CHESS_APP_HANDOFF.md` and `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md`.
+Companion to `history/ORIGINAL_HANDOFF.md` and `history/M1_POCKET_MODE_ADDENDUM.md`.
 The handoff doc is the original spec; the pocket-mode addendum refines it for
 M1 and resolves every open question this file used to track. This file is the
 short routing layer over those two docs.
@@ -9,9 +9,9 @@ Precedence when docs disagree:
 
 1. **This file** for any topic where a later hardware/build reality has
    diverged from the addendum (notably: keyboard grammar, AGP/SDK level).
-2. `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` (M1 spec for everything not
+2. `history/M1_POCKET_MODE_ADDENDUM.md` (M1 spec for everything not
    superseded here).
-3. `RBE_CHESS_APP_HANDOFF.md` (original spec).
+3. `history/ORIGINAL_HANDOFF.md` (original spec).
 
 If anything is still ambiguous, ask the user before deviating.
 
@@ -156,7 +156,7 @@ committing to SDK 35 long-term. If the spike needs an API 36 feature, bump AGP
 to 8.10+ (or 9.x once stable) and raise compileSdk/targetSdk back to 36 at
 that time.
 
-Build-system context for these decisions is in `BUILD_FIXES_2025_05_14.md`.
+Build-system context for these decisions is in `history/BUILD_FIXES_2026_05_14.md`.
 
 ---
 
@@ -179,6 +179,10 @@ phone and workstation on the same trusted Wi-Fi network.
 ---
 
 ## Architecture sketch (M1, aligned with addendum)
+
+Original M1 sketch, kept for intent. The real package layout is the
+"Android Architecture" table in the root README; game logic lives in
+`game/GameController.kt`, not `MainActivity`.
 
 ```text
 com.ratherbeembed.rbe_chess/
@@ -288,7 +292,7 @@ Full acceptance criteria are in section "M1 Acceptance Criteria" of the addendum
   in-flight pending engine state on restore.
 - Board readability pass landed: piece letters, in-square rank/file labels,
   stronger last/current/pending move highlights, and arrows for those move
-  states. `MainActivity.pendingMove` shows the committed move during the short
+  states. `GameState.pendingMove` shows the committed move during the short
   gap after Thumb commit while legality checking / Stockfish thinking is in
   progress and before history updates. Dogfood whether the arrows are helpful
   or too visually busy.
@@ -321,7 +325,7 @@ Full acceptance criteria are in section "M1 Acceptance Criteria" of the addendum
 ## Open questions -- RESOLVED in the M1 addendum
 
 All four open questions this file used to track are answered by
-`RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md`. Pointers, not duplicated content:
+`history/M1_POCKET_MODE_ADDENDUM.md`. Pointers, not duplicated content:
 
 | Question | Resolved by addendum section | Short answer |
 |---|---|---|
@@ -446,7 +450,7 @@ emit full-speed repeats, while separate `D` sends preserve each deliberate
 human tap. Do not reintroduce app-side repeat suppression for cycler keys;
 it makes fast counted input land short.
 
-App routing: see `MainActivity.handleGameKey` / `handleMenuKey`. In
+App routing: see `GameController.handleGameKey` / `handleMenuKey`. In
 StartMenu state, Ring/Middle navigate, Thumb/Space selects, and
 Thumb+Middle repeats the last spoken option/status. Other chord keys are
 no-ops in the menu.
@@ -622,7 +626,7 @@ surface is decorative. Two options today:
 Navigation: **Ring = up, Middle = down, Thumb = select**; Pinky, Index,
 and chord keys are ignored. Wraps at the ends.
 
-Bootstrap implementation: `MainActivity.bootstrapEngineMove()`. Manual
+Bootstrap implementation: `GameController.bootstrapEngineMove()`. Manual
 mode + Play-as-white still triggers the bootstrap query but speaks the
 result as "Suggestion: ..." and does **not** append -- the user is
 expected to type their own first move regardless.

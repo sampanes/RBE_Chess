@@ -3,7 +3,7 @@
 This directory ships the Stockfish chess engine as a native binary that
 Android extracts into the app's read-only-but-executable
 `nativeLibraryDir`, so the app can `Runtime.exec()` it and talk UCI
-over stdin/stdout. See `AGENT_NOTES.md` section "Stockfish packaging decision"
+over stdin/stdout. See `docs/ENGINEERING_NOTES.md` section "Stockfish packaging decision"
 for why this pattern over JNI for M1.
 
 > **The actual `.so` file is not in git.** It is 109 MB and exceeds
@@ -45,7 +45,7 @@ We ship the upstream binary unmodified and invoke it as a separate
 OS process -- the standard "exec the engine" pattern used by every
 mainstream chess GUI. We do **not** statically or dynamically link
 against Stockfish source. If we ever switch to JNI / static linking
-(see AGENT_NOTES "Falls back cleanly to JNI later" note), the
+(see docs/ENGINEERING_NOTES.md "Falls back cleanly to JNI later" note), the
 licensing implications need to be re-examined first.
 
 ## Why the file is named `libstockfish.so`
@@ -64,7 +64,7 @@ linker mmap's it from there without ever writing a real file to
 disk. `Runtime.exec()` then fails with ENOENT. With `true` AGP
 injects `android:extractNativeLibs="true"` into the merged manifest
 and Android extracts the binary into `nativeLibraryDir` as a real
-file at install time. See AGENT_NOTES section "Stockfish packaging
+file at install time. See docs/ENGINEERING_NOTES.md section "Stockfish packaging
 decision" for the full background and verification command.
 
 ## How to update

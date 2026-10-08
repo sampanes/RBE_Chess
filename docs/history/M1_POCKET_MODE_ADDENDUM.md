@@ -176,7 +176,7 @@ Do not put Stockfish process ownership in the AccessibilityService. If an Access
 The grammar that originally appeared here assumed a full alphanumeric
 Bluetooth keyboard. The real input device is a custom 5-button HID device
 (Adafruit Feather 32u4 Bluefruit LE) that only emits D / F / J / K / Space.
-The real M1 grammar is documented in `AGENT_NOTES.md` section "Keyboard grammar --
+The real M1 grammar is documented in `../ENGINEERING_NOTES.md` section "Keyboard grammar --
 hardware-aware V1". This section is intentionally short so that the
 hardware-aware grammar is the single source of truth.
 
@@ -366,7 +366,7 @@ M1 is complete when all of these work on the S22 Ultra:
 5. App sends `isready`.
 6. App receives `readyok`.
 7. User can enter a from-to move using the 5-button HID keyboard, per
-   the hardware-aware grammar in AGENT_NOTES.md.
+   the hardware-aware grammar in ../ENGINEERING_NOTES.md.
 8. Each press is spoken back via TTS (letter or digit).
 9. After ~2.5 s of inactivity the app speaks the assembled move as a
    "Move <from> to <to>?" question.
@@ -387,7 +387,7 @@ True screen-off input is not required for M1.
 1. Build visible keyboard input in the Activity (`HardwareKeyboardHandler`,
    `KeyboardGrammar`, `MoveBuffer`). Logcat-only feedback at first.
 2. Add TTS speech output (`SpeechOutput`, `SpokenMoveFormatter`). Each
-   button press speaks; inactivity prompt fires per AGENT_NOTES grammar.
+   button press speaks; inactivity prompt fires per ENGINEERING_NOTES grammar.
    Keyboard and TTS must land together to be perceivable.
 3. Add hardcoded Stockfish UCI proof.
 4. Connect move list + commits to Stockfish; speak bestmove.
