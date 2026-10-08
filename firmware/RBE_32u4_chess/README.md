@@ -1,4 +1,4 @@
-# RBE Chess Firmware — 5-button BT keypad
+# RBE Chess Firmware -- 5-button BT keypad
 
 Custom 5-button Bluetooth HID keyboard for the RBE Chess Android app.
 
@@ -6,12 +6,12 @@ Custom 5-button Bluetooth HID keyboard for the RBE Chess Android app.
 
 - **Board:** Adafruit Feather 32u4 Bluefruit LE (ATmega32u4 + nRF51822).
 - **Buttons:** 5 momentary switches, left hand:
-  - **Pinky** (HID `D`) — pin 5
-  - **Ring** (HID `F`) — pin 6
-  - **Middle** (HID `J`) — pin 10
-  - **Index** (HID `K`) — pin 11
-  - **Thumb** (HID `Space`) — pin 12
-- Wiring: input pin → button → GND. Pins are `INPUT_PULLUP`.
+  - **Pinky** (HID `D`) -- pin 5
+  - **Ring** (HID `F`) -- pin 6
+  - **Middle** (HID `J`) -- pin 10
+  - **Index** (HID `K`) -- pin 11
+  - **Thumb** (HID `Space`) -- pin 12
+- Wiring: input pin -> button -> GND. Pins are `INPUT_PULLUP`.
 - BLE module advertises as `Bluefruit Keyboard`.
 - Battery monitor on A9 via 1:1 voltage divider
   ([Adafruit pinout](https://learn.adafruit.com/adafruit-feather-32u4-bluefruit-le/pinouts)).
@@ -20,11 +20,11 @@ Custom 5-button Bluetooth HID keyboard for the RBE Chess Android app.
 
 Arduino IDE or `arduino-cli`.
 
-**Board:** Tools → Board → "Adafruit Feather 32u4."
+**Board:** Tools -> Board -> "Adafruit Feather 32u4."
 
 **Required external libraries** (Library Manager):
 
-- **Adafruit BluefruitLE nRF51** — provides `Adafruit_BLE.h`,
+- **Adafruit BluefruitLE nRF51** -- provides `Adafruit_BLE.h`,
   `Adafruit_BluefruitLE_SPI.h`, `Adafruit_BluefruitLE_UART.h`.
 
 No other dependencies. The sketch will not compile without the library
@@ -37,12 +37,12 @@ Index, emitted as HID `D` / `F` / `J` / `K`), the sketch pushes the
 corresponding character onto a press FIFO. A
 non-blocking BLE state machine drains the FIFO and sends batches via
 `AT+BleKeyboard=<chars>`. Crucially, button scanning continues every loop
-iteration even while a BLE send is awaiting its `OK` response — so fast
+iteration even while a BLE send is awaiting its `OK` response -- so fast
 input bursts are no longer dropped by the AT-command roundtrip.
 
 The receiving phone sees discrete HID keystrokes. The Android app
 (`../../app/`) interprets each character per the 4-coordinate cycler
-grammar — see the project's `AGENT_NOTES.md` §"Keyboard grammar —
+grammar -- see the project's `AGENT_NOTES.md` section "Keyboard grammar --
 hardware-aware V1".
 
 ### Thumb/Space-as-modifier chords (v2)
@@ -60,7 +60,7 @@ only if no chord fired during the hold:
 
 Once a chord has fired during a Thumb/Space hold, the trailing Thumb/Space release
 is silent and any further cycler presses during the same hold are
-ignored — release Space and start over to fire another chord.
+ignored -- release Space and start over to fire another chord.
 
 Cycler keys (Pinky / Ring / Middle / Index, emitted as HID `D` / `F` /
 `J` / `K`) still emit immediately on press when Thumb/Space is **not**
@@ -75,7 +75,7 @@ of treating the key as held/repeating.
 ### Battery reporting via the HID stream (v5)
 
 The standard BLE Battery Service path (`AT+BLEBATTEN=on`) is **not
-supported** by this nRF51 SPI Friend's AT firmware revision — v4
+supported** by this nRF51 SPI Friend's AT firmware revision -- v4
 confirmed via serial log that the command returns ERROR. v5 takes a
 different tack: report battery through the HID keyboard stream the
 app is already consuming.
@@ -126,7 +126,7 @@ top of `RBE_32u4_chess.ino`. Bump the constant on every meaningful flash.
 
 1. **Boot LED blink.** On power-up, the onboard LED blinks
    `FIRMWARE_VERSION` times (120 ms on, 180 ms off) before BLE init.
-   Power-cycle the keypad and count the flashes — you don't need a phone
+   Power-cycle the keypad and count the flashes -- you don't need a phone
    or USB cable.
 2. **Versioned BLE device name.** The keypad advertises as
    `RBE Keypad v<N>`. Visible in Android's Bluetooth settings, in the
@@ -148,9 +148,9 @@ without a USB cable.
 
 ## Files
 
-- `RBE_32u4_chess.ino` — main sketch (setup, loop, debounce).
-- `setup_helper.h` — Bluefruit module init + HID enable.
-- `BluefruitConfig.h` — SPI-mode pin definitions. The SW UART defines in
+- `RBE_32u4_chess.ino` -- main sketch (setup, loop, debounce).
+- `setup_helper.h` -- Bluefruit module init + HID enable.
+- `BluefruitConfig.h` -- SPI-mode pin definitions. The SW UART defines in
   this file are unused but their pin numbers overlap with button pins;
   see the comment at the top of that file.
 
@@ -173,20 +173,20 @@ reset" trick can fail if the running sketch's USB stack has crashed.
 **Recipe that has worked reliably here:**
 
 1. Unplug the Feather, plug it back in.
-2. (Recommended) Enable upload diagnostics: **File → Preferences →
+2. (Recommended) Enable upload diagnostics: **File -> Preferences ->
    Show verbose output during: Upload**. Helps next time something is
    off.
-3. Open a known-good primer sketch: **File → Examples → 01.Basics →
+3. Open a known-good primer sketch: **File -> Examples -> 01.Basics ->
    Blink**.
-4. **Tools → Board → Adafruit Feather 32u4**.
-5. **Tools → Port → COM5** (or whichever number the board enumerates
-   as on this machine; check Device Manager → Ports if unsure).
+4. **Tools -> Board -> Adafruit Feather 32u4**.
+5. **Tools -> Port -> COM5** (or whichever number the board enumerates
+   as on this machine; check Device Manager -> Ports if unsure).
 6. Click **Upload**.
-7. **The instant the IDE status flips from "Compiling…" to "Uploading…",
+7. **The instant the IDE status flips from "Compiling..." to "Uploading...",
    double-tap the RST button** on the Feather. The onboard LED should
    start a slow breathing pulse (Caterina is now alive). Avrdude finds
    it and flashes.
-8. Reopen your real sketch and upload normally — no RST gymnastics
+8. Reopen your real sketch and upload normally -- no RST gymnastics
    needed for subsequent uploads in the same session, because the
    freshly-flashed sketch's USB stack is healthy and the soft-reset
    trick works again.

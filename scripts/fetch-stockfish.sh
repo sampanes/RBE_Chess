@@ -6,7 +6,7 @@
 #
 # The binary is excluded from git (>100 MB GitHub limit). See
 # app/src/main/jniLibs/README.md for source/version details and
-# AGENT_NOTES.md §"Stockfish packaging decision" for the why.
+# AGENT_NOTES.md section "Stockfish packaging decision" for the why.
 #
 # Idempotent: if the target already exists with the right size,
 # this is a no-op.

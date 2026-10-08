@@ -13,7 +13,7 @@ enum class AutomaticDraw {
 
 /**
  * Draws a player could claim over the board but that don't end the
- * game by themselves. The app announces these and keeps playing —
+ * game by themselves. The app announces these and keeps playing --
  * the opponent at the physical board may well not claim, and ending a
  * winning game on the user's behalf would be wrong.
  */

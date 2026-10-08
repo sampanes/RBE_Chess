@@ -5,7 +5,7 @@ import com.ratherbeembed.rbe_chess.input.MoveBuffer
 import com.ratherbeembed.rbe_chess.engine.TerminalState
 
 /**
- * High-level speech facade for the Pocket Mode loop. Owns nothing — composes
+ * High-level speech facade for the Pocket Mode loop. Owns nothing -- composes
  * a [SpeechOutput] (lifecycle managed by the Activity) with the pure
  * [SpokenMoveFormatter]. Lets the caller stay free of TTS detail.
  *

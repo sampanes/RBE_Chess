@@ -142,7 +142,7 @@ Firmware blinks `FIRMWARE_VERSION` on boot and advertises as
 `RBE Keypad v<N>`, making it possible to confirm which sketch is flashed
 without a USB serial session. (Current version is 8.)
 
-Battery is sampled from the A9 voltage divider, converted to a 0–100 %
+Battery is sampled from the A9 voltage divider, converted to a 0-100 %
 piecewise-linear Li-Po estimate, and reported as four HID keystrokes:
 the literal characters `B` + three zero-padded ASCII digits (e.g.
 `B025`). Firmware v8 no longer sends idle timer heartbeats; once a report
@@ -213,7 +213,7 @@ Common app commands:
 
 Wireless debugging over Wi-Fi is supported and preferred for app
 dogfooding on the S22 Ultra. Use USB mainly for initial pairing,
-recovery, or firmware work. On the phone, enable **Developer options →
+recovery, or firmware work. On the phone, enable **Developer options ->
 Wireless debugging**, then pair/connect from the workstation:
 
 ```powershell
@@ -269,7 +269,7 @@ Firmware build notes and upload troubleshooting are in
   [`STATUS.md`](STATUS.md).
 - True screen-off/background keyboard capture is deferred. The standard
   BLE Battery Service path (Android Settings battery %) is also deferred
-  — this nRF51 module's AT firmware
+  -- this nRF51 module's AT firmware
   doesn't expose `AT+BLEBATTEN`, so reaching it would need the manual
   `AT+GATTADDSERVICE` route.
 

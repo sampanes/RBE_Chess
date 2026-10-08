@@ -65,7 +65,7 @@ internal class PositionReplay {
      * True when the recorded en-passant target could actually be taken:
      * an enemy pawn sits beside the pawn that just double-pushed. FIDE
      * position identity for repetition only distinguishes positions by
-     * en passant when the capture is possible. (Pins are ignored — a
+     * en passant when the capture is possible. (Pins are ignored -- a
      * pinned pawn very rarely makes this over-distinguish, which only
      * under-counts repetitions, never over-counts.)
      */

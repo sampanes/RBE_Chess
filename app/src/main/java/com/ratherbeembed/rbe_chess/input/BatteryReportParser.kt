@@ -7,7 +7,7 @@ import android.view.KeyEvent
  *
  * Firmware v5 emits the literal characters `'B'` + 3 zero-padded ASCII
  * digits once per minute. This parser sits ABOVE [HardwareKeyboardHandler]
- * so those keystrokes never reach the chess grammar — feed every
+ * so those keystrokes never reach the chess grammar -- feed every
  * `KeyEvent` keycode through [consume] first.
  *
  * The parser is timeout-protected: if a partial report starts but the
@@ -18,7 +18,7 @@ import android.view.KeyEvent
  *
  * @param nowMs clock injection for unit tests; defaults to wall time.
  * @param timeoutMs how long a partial report can sit before being
- *   discarded. 500 ms is generous — HID keystrokes inside one
+ *   discarded. 500 ms is generous -- HID keystrokes inside one
  *   `AT+BleKeyboard=` batch arrive within ~50 ms of each other.
  */
 class BatteryReportParser(
@@ -46,7 +46,7 @@ class BatteryReportParser(
         }
 
         if (buf == null) {
-            // Idle state — only 'B' opens a new collection.
+            // Idle state -- only 'B' opens a new collection.
             if (keyCode == KeyEvent.KEYCODE_B) {
                 buf = StringBuilder()
                 startedAt = now
@@ -58,7 +58,7 @@ class BatteryReportParser(
         // Collecting digits.
         val digit = keyCodeToDigit(keyCode)
         if (digit == null) {
-            // Non-digit while collecting — abandon the partial and let
+            // Non-digit while collecting -- abandon the partial and let
             // the caller dispatch this keycode normally. Whatever the
             // firmware was trying to send is lost, but we don't risk
             // swallowing real input.

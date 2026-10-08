@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.ratherbeembed.rbe_chess.input.ChessKey
 
 /**
- * Verbal start menu. The TTS layer is the primary feedback channel — the
+ * Verbal start menu. The TTS layer is the primary feedback channel -- the
  * visible Compose surface is just so a sighted user can confirm which
  * option is highlighted. Ring = up, Middle = down, Thumb = select;
  * Pinky and Index do nothing in menu state. See

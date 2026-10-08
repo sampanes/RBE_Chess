@@ -36,7 +36,7 @@ const val START_MENU_PLAY_BLACK: Int = 1
  * Toggleable input flow. AutoAdvance is the default M1 loop: each typed
  * move is the opponent's, and the engine's reply is auto-appended so the
  * user only ever enters opponent moves. Manual mode keeps the engine's
- * reply advisory — the user types every ply themselves and Stockfish just
+ * reply advisory -- the user types every ply themselves and Stockfish just
  * whispers what it would have played.
  */
 enum class GameMode { AutoAdvance, Manual }

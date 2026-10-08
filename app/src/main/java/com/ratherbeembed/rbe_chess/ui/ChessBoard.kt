@@ -436,23 +436,25 @@ private fun bottomRank(side: ChessSide): Int =
 private fun leftFile(side: ChessSide): Int =
     if (side == ChessSide.WHITE) 0 else 7
 
+// Unicode chess glyphs, written as escapes so the source stays ASCII.
+// White outline set is U+2654..U+2659, black filled set is U+265A..U+265F.
 private fun ChessPiece.boardSymbol(): String =
     when (side) {
         ChessSide.WHITE -> when (type) {
-            PieceType.KING -> "♔"
-            PieceType.QUEEN -> "♕"
-            PieceType.ROOK -> "♖"
-            PieceType.BISHOP -> "♗"
-            PieceType.KNIGHT -> "♘"
-            PieceType.PAWN -> "♙"
+            PieceType.KING -> "\u2654"
+            PieceType.QUEEN -> "\u2655"
+            PieceType.ROOK -> "\u2656"
+            PieceType.BISHOP -> "\u2657"
+            PieceType.KNIGHT -> "\u2658"
+            PieceType.PAWN -> "\u2659"
         }
         ChessSide.BLACK -> when (type) {
-            PieceType.KING -> "♚"
-            PieceType.QUEEN -> "♛"
-            PieceType.ROOK -> "♜"
-            PieceType.BISHOP -> "♝"
-            PieceType.KNIGHT -> "♞"
-            PieceType.PAWN -> "♟"
+            PieceType.KING -> "\u265A"
+            PieceType.QUEEN -> "\u265B"
+            PieceType.ROOK -> "\u265C"
+            PieceType.BISHOP -> "\u265D"
+            PieceType.KNIGHT -> "\u265E"
+            PieceType.PAWN -> "\u265F"
         }
     }
 

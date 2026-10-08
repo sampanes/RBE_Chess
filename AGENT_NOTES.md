@@ -1,4 +1,4 @@
-# RBE Chess — Agent Notes
+# RBE Chess -- Agent Notes
 
 Companion to `RBE_CHESS_APP_HANDOFF.md` and `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md`.
 The handoff doc is the original spec; the pocket-mode addendum refines it for
@@ -22,7 +22,7 @@ If anything is still ambiguous, ask the user before deviating.
 The user added two requirements verbally after the handoff doc was written.
 They are first-class, not nice-to-haves.
 
-### 1. Bluetooth keyboard input — "Pocket Mode," not screen-off (M1)
+### 1. Bluetooth keyboard input -- "Pocket Mode," not screen-off (M1)
 
 The original verbal requirement was "BT keyboard input must keep working with
 the screen off / app in the background." The pocket-mode addendum refines this
@@ -35,14 +35,14 @@ into two distinct technical problems:
 - **True screen-off / locked-screen input (deferred experiment):** would
   require an `AccessibilityService` with `canRequestFilterKeyEvents=true`. Per
   the addendum this is post-M1, gated on the Pocket Mode path working first,
-  and must be empirically tested on the S22 Ultra — Android may not deliver
+  and must be empirically tested on the S22 Ultra -- Android may not deliver
   arbitrary BT keys while locked or suspended.
 
 **Decision (revised):** M1 uses an in-Activity `HardwareKeyboardHandler` while
 the Pocket Mode screen is foregrounded. No `AccessibilityService`, no
 foreground service, no wake locks beyond Activity-scoped keep-awake.
 `AccessibilityService` is M2+ and, if ever added, only relays key events to
-the engine layer — it must not own the Stockfish process.
+the engine layer -- it must not own the Stockfish process.
 
 ### 2. Text-to-speech readout over Bluetooth speakers
 
@@ -55,7 +55,7 @@ Implications:
 - Use Android `TextToSpeech` with `AudioAttributes` set to
   `USAGE_MEDIA` / `CONTENT_TYPE_SPEECH`. When BT A2DP is connected, media
   audio routes to it by default.
-- Need to handle the case where TTS is requested while screen is off — TTS
+- Need to handle the case where TTS is requested while screen is off -- TTS
   works fine in that state as long as the service stays alive (hence the
   foreground service).
 - Pronunciation: speak moves as `"E two to E four"`, not the raw UCI string.
@@ -98,7 +98,7 @@ android {
         jniLibs {
             // MUST be true for the exec()-the-engine approach.
             // false stores .so uncompressed in the APK and the linker
-            // mmap's it directly — System.loadLibrary works, but
+            // mmap's it directly -- System.loadLibrary works, but
             // Runtime.exec() gets ENOENT because nothing is written to
             // disk. Setting this true makes AGP inject
             // `android:extractNativeLibs="true"` into the merged
@@ -131,7 +131,7 @@ footprint (~114 MB extracted) on top of the compressed APK copy
 
 ---
 
-## Build configuration — deviations from the handoff doc
+## Build configuration -- deviations from the handoff doc
 
 The handoff doc specifies **Android 16 / API 36**. The current build targets
 API 35 because AGP 9 / SDK 36 caused a sync failure during M1 step 1. Recorded
@@ -247,9 +247,9 @@ real binary.
 
 The addendum collapses what was previously four milestones into a single
 M1 that proves the full Pocket Mode loop end-to-end. Implementation order
-inside M1 is fixed by §"M1 Implementation Order" of the addendum.
+inside M1 is fixed by section "M1 Implementation Order" of the addendum.
 
-### M1 — Pocket Mode loop (the only milestone we are currently planning)
+### M1 -- Pocket Mode loop (the only milestone we are currently planning)
 
 Build, in this order:
 
@@ -261,16 +261,16 @@ Build, in this order:
 5. Wire the live move list to `StockfishProcessEngine`.
 6. Pocket Mode black/minimal screen + `PocketModeController`.
 7. Test BT keyboard input while in Pocket Mode on the S22 Ultra.
-8. Optional spike: `AccessibilityService` for true screen-off — only if
+8. Optional spike: `AccessibilityService` for true screen-off -- only if
    step 7 fully works and the user wants to extend it.
 
-Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
+Full acceptance criteria are in section "M1 Acceptance Criteria" of the addendum
 (14 checks, all on the S22 Ultra).
 
 ### Deferred (post-M1)
 
-- True screen-off input via `AccessibilityService` (experimental — addendum
-  §"True Screen-Off Mode: Experimental").
+- True screen-off input via `AccessibilityService` (experimental -- addendum
+  section "True Screen-Off Mode: Experimental").
 - If true screen-off remains infeasible and Pocket Mode continues to be
   "black/backlight-low screen still technically on", keep the deliberate soft
   screen lock. Current implementation exits on long press, not tap-anywhere.
@@ -278,7 +278,7 @@ Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
   Alternative gestures remain double tap, a specific corner/area, or a volume
   key.
 - Foreground service + wake locks (only if screen-off path is pursued).
-- Tappable board input, MultiPV, etc. (handoff M4+ and §Future
+- Tappable board input, MultiPV, etc. (handoff M4+ and section Future
   Enhancements). A minimal display-only Compose board viewer shipped
   post-M2; FEN plus PGN-style UCI text export shipped later as a
   finished-game option.
@@ -295,7 +295,7 @@ Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
 
 ---
 
-## Agent operating rules (extends handoff §Agent Instructions and addendum §Agent Guardrails)
+## Agent operating rules (extends handoff section Agent Instructions and addendum section Agent Guardrails)
 
 - Order of precedence: addendum > handoff > this file. Read all three before
   starting non-trivial work.
@@ -310,7 +310,7 @@ Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
   process or TTS engine.
 - `SpeechOutput` must use speech-oriented `AudioAttributes` and request
   audio focus before speaking; abandon focus when utterance completes.
-  Rely on system audio routing for BT — do not build custom BT routing.
+  Rely on system audio routing for BT -- do not build custom BT routing.
 - Add unit tests for: UCI response parsing, UciMove parsing,
   `SpokenMoveFormatter`, `KeyboardGrammar`, and the `position startpos moves
   ...` command builder.
@@ -318,19 +318,19 @@ Full acceptance criteria are in §"M1 Acceptance Criteria" of the addendum
 
 ---
 
-## Open questions — RESOLVED in the M1 addendum
+## Open questions -- RESOLVED in the M1 addendum
 
 All four open questions this file used to track are answered by
 `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md`. Pointers, not duplicated content:
 
 | Question | Resolved by addendum section | Short answer |
 |---|---|---|
-| Stockfish binary source | §"Stockfish Binary Source" | Stockfish 18 Android ARMv8 Dot Product (`sf_18`); fallback plain ARMv8. Record in `app/src/main/jniLibs/README.md` when the `.so` is added. |
-| Engine settings defaults | §"Engine Settings Defaults" | Threads=3, Hash=64 MB, MultiPV=1, Ponder=false, movetime=4000 ms. Raised from 1000 ms after dogfood showed TTS cutting off "played..." before the engine reply, then raised to 4000 ms because the slower dogfood cadence felt better. Run the 20-analysis thermal test before raising further. |
-| AccessibilityService UX | §"AccessibilityService UX" | Not required for M1. When added later: explicit consent screen, two-button choice, opens `Settings.ACTION_ACCESSIBILITY_SETTINGS`. |
+| Stockfish binary source | section "Stockfish Binary Source" | Stockfish 18 Android ARMv8 Dot Product (`sf_18`); fallback plain ARMv8. Record in `app/src/main/jniLibs/README.md` when the `.so` is added. |
+| Engine settings defaults | section "Engine Settings Defaults" | Threads=3, Hash=64 MB, MultiPV=1, Ponder=false, movetime=4000 ms. Raised from 1000 ms after dogfood showed TTS cutting off "played..." before the engine reply, then raised to 4000 ms because the slower dogfood cadence felt better. Run the 20-analysis thermal test before raising further. |
+| AccessibilityService UX | section "AccessibilityService UX" | Not required for M1. When added later: explicit consent screen, two-button choice, opens `Settings.ACTION_ACCESSIBILITY_SETTINGS`. |
 
 (The addendum's original "Keyboard grammar v0" question is no longer
-listed here; its answer is the "Keyboard grammar — hardware-aware V1"
+listed here; its answer is the "Keyboard grammar -- hardware-aware V1"
 section below, which is the single source of truth for keyboard input.)
 
 If a future change reopens any of these, update the relevant addendum
@@ -338,9 +338,9 @@ section first, then update this table.
 
 ---
 
-## Keyboard grammar — hardware-aware V1 (supersedes addendum V0)
+## Keyboard grammar -- hardware-aware V1 (supersedes addendum V0)
 
-The Bluetooth "keyboard" is a custom 5-button HID device — Adafruit Feather
+The Bluetooth "keyboard" is a custom 5-button HID device -- Adafruit Feather
 32u4 Bluefruit LE, firmware in (gitignored) `hidden/RBE_32u4_chess_arduino/`.
 It only emits the HID keystrokes `D`, `F`, `J`, `K`, `Space`. The addendum's
 "type `e2e4` Enter" grammar cannot work on this device. New grammar:
@@ -350,10 +350,10 @@ from-to move and advances it by one on every press, wrapping around:
 
 | Physical button | HID | Coordinate | Cycle | TTS on press |
 |---|---|---|---|---|
-| **Pinky** | `D` | from-file | a → b → c → … → h → a | speak the new letter |
-| **Ring** | `F` | from-rank | 1 → 2 → 3 → … → 8 → 1 | speak the new digit |
-| **Middle** | `J` | to-file | a → … → h → a         | speak the new letter |
-| **Index** | `K` | to-rank | 1 → … → 8 → 1         | speak the new digit |
+| **Pinky** | `D` | from-file | a -> b -> c -> ... -> h -> a | speak the new letter |
+| **Ring** | `F` | from-rank | 1 -> 2 -> 3 -> ... -> 8 -> 1 | speak the new digit |
+| **Middle** | `J` | to-file | a -> ... -> h -> a         | speak the new letter |
+| **Index** | `K` | to-rank | 1 -> ... -> 8 -> 1         | speak the new digit |
 
 **Default state at the start of each move:** all four coordinates start
 **unset**. For display (inactivity prompt, on-screen text), unset renders
@@ -361,11 +361,11 @@ as `'a'` or `'1'`, so an untouched move appears as `a1a1`. **The first
 press of a cycle button selects the first value rather than advancing
 past it**, so press N lands on the Nth letter / digit:
 
-- 1st Pinky press → 'A' (idx 0)
-- 2nd Pinky press → 'B' (idx 1)
-- 3rd Pinky press → 'C' (idx 2)
-- 8th Pinky press → 'H' (idx 7)
-- 9th Pinky press → 'A' (wraps)
+- 1st Pinky press -> 'A' (idx 0)
+- 2nd Pinky press -> 'B' (idx 1)
+- 3rd Pinky press -> 'C' (idx 2)
+- 8th Pinky press -> 'H' (idx 7)
+- 9th Pinky press -> 'A' (wraps)
 
 A coord the user never touches stays unset and renders as `'a'` / `'1'`
 in the prompt. After Commit (Thumb/Space), all four coords return to unset so
@@ -375,12 +375,12 @@ the next move starts fresh.
 assembled move as a question: *"Move C1 to A1?"*. The timer resets on every
 press.
 
-**Thumb/Space (single tap) — commit and advance:**
+**Thumb/Space (single tap) -- commit and advance:**
 
 1. Apply the entered move to the board state as the opponent's move.
 2. Run Stockfish `go movetime 4000`.
 3. TTS speaks the bestmove (e.g. *"Best move: D2 to D4"*).
-4. **Auto-apply the bestmove** to the board state — the user will play it
+4. **Auto-apply the bestmove** to the board state -- the user will play it
    on the physical board next, so the model advances with it.
 5. Reset the buffer to `(a, 1, a, 1)`.
 
@@ -421,16 +421,16 @@ The v0 single-key emit-on-press model is preserved for the cycler keys
 so move input stays snappy. **Thumb/Space** is reworked into a modifier:
 
 - **Thumb/Space alone (press + release with no other key held)** still emits
-  `' '` → commit (no behavior change).
+  `' '` -> commit (no behavior change).
 - **Hold Thumb/Space, tap a cycler** emits a distinct HID letter instead of
   the cycler's normal char *and* suppresses the trailing Thumb/Space release.
 
-Chord assignments (firmware → HID → app action):
+Chord assignments (firmware -> HID -> app action):
 
 | Chord | Emitted | `ChessKey` | `GrammarAction` | Effect |
 |---|---|---|---|---|
 | Thumb + Pinky | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
-| Thumb + Ring | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance ⇄ Manual; speak the new state. |
+| Thumb + Ring | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance <-> Manual; speak the new state. |
 | Thumb + Middle | `R` | `REPEAT_LAST` | `RepeatLast` | Replay the last board-changing spoken event without changing history. |
 | Thumb + Index | `N` | `NEW_GAME` | `NewGame` | Live game: end current game and open export/new-game options. Finished game: return to StartMenu. |
 
@@ -567,7 +567,7 @@ normalization or app logic can invert emotion for Black.
 ## Battery telemetry (firmware v5, input-gated in v8)
 
 Battery percentage rides the HID keystream, not a BLE service. The
-firmware enqueues `'B'` + 3 zero-padded ASCII digits (`B000`–`B100`)
+firmware enqueues `'B'` + 3 zero-padded ASCII digits (`B000`-`B100`)
 into the same FIFO that carries cycler/chord input. Firmware v8 stopped
 idle timer pushes: once the battery interval is due, the next real
 button/chord input queues the report. This preserves in-app telemetry
@@ -586,7 +586,7 @@ may still be useful, but are no longer required for the app warning path.
 
 Why not the standard BLE Battery Service: v3 tried `AT+BLEBATTEN=on`
 and v4 confirmed via serial log that this nRF51 SPI Friend's AT
-firmware returns ERROR for that command — it isn't supported on this
+firmware returns ERROR for that command -- it isn't supported on this
 module revision. The HID-stream path was the workaround.
 
 **If a future change wants Android Settings to show the keypad
@@ -598,9 +598,9 @@ AT+GATTADDSERVICE=UUID=0x180F          # Battery Service
 AT+GATTADDCHAR=UUID=0x2A19,PROPERTIES=0x12,MIN_LEN=1,VALUE=100
 ```
 
-…then `AT+GATTCHAR=<charId>,<pct>` on the same minute cadence instead
+...then `AT+GATTCHAR=<charId>,<pct>` on the same minute cadence instead
 of (or alongside) the HID-stream push. Note that Android's Settings
-battery display for BLE HID peripherals is OEM-inconsistent — even a
+battery display for BLE HID peripherals is OEM-inconsistent -- even a
 correctly-formed BAS may not render on Samsung One UI. Don't promise
 the user it'll appear until it does on their device.
 
@@ -613,10 +613,10 @@ state `Thumb+Index` returns to mid-game. `StartMenuScreen` is verbal-first:
 the TTS layer is the primary feedback channel, and the visible Compose
 surface is decorative. Two options today:
 
-1. **Play as white** — selecting this immediately triggers a bootstrap
+1. **Play as white** -- selecting this immediately triggers a bootstrap
    engine query on empty history so Stockfish speaks white's opening
    move (and, in AutoAdvance mode, auto-appends it to `MoveHistory`).
-2. **Play as black** — selecting this leaves history empty and waits
+2. **Play as black** -- selecting this leaves history empty and waits
    for the user to type white's first move on the cycler.
 
 Navigation: **Ring = up, Middle = down, Thumb = select**; Pinky, Index,
@@ -624,5 +624,5 @@ and chord keys are ignored. Wraps at the ends.
 
 Bootstrap implementation: `MainActivity.bootstrapEngineMove()`. Manual
 mode + Play-as-white still triggers the bootstrap query but speaks the
-result as "Suggestion: …" and does **not** append — the user is
+result as "Suggestion: ..." and does **not** append -- the user is
 expected to type their own first move regardless.

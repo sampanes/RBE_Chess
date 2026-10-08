@@ -2,7 +2,7 @@ package com.ratherbeembed.rbe_chess.engine
 
 /**
  * In-memory stand-in for [StockfishProcessEngine]. Lets the rest of the
- * app — and JVM unit tests — exercise the engine seam without spawning
+ * app -- and JVM unit tests -- exercise the engine seam without spawning
  * a real Stockfish process. Returns canned bestmoves in the order
  * supplied; falls back to "e2e4" once the script is exhausted.
  */

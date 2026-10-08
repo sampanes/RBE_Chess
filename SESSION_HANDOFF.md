@@ -8,16 +8,16 @@ Use this file first after a context reset, then read `STATUS.md` and
 - Draw detection is implemented (2026-07-06). A new pure-Kotlin
   `chess/DrawDetector.kt` replays history through the new shared
   `chess/PositionReplay.kt` (which now also backs `BoardProjector` and
-  `FenExporter` — the three duplicated replay implementations are gone).
+  `FenExporter` -- the three duplicated replay implementations are gone).
   It tracks repetition using FIDE position identity (placement + side to
   move + castling rights + en passant *only when actually capturable*),
   the halfmove clock, and dead positions (K vs K, K+minor vs K,
-  same-color-bishops-only). Automatic draws — fivefold repetition,
-  75-move rule, insufficient material — end the game exactly like
+  same-color-bishops-only). Automatic draws -- fivefold repetition,
+  75-move rule, insufficient material -- end the game exactly like
   checkmate/stalemate: new `TerminalState.DRAW_*` values map to new
   `GameEndReason.DRAW_*` values, speak "Draw by ...", open the
   finished-game export menu, export as `1/2-1/2`, and survive session
-  resume. Claimable draws — threefold repetition, 50-move rule — do NOT
+  resume. Claimable draws -- threefold repetition, 50-move rule -- do NOT
   end the game: the app queues "A draw can be claimed by ..." behind the
   move phrase (it never replaces the repeat-last target) and play
   continues, because the physical-board opponent may not claim and
@@ -134,7 +134,7 @@ Use this file first after a context reset, then read `STATUS.md` and
 ## Next Recommended Work
 
 0. Dogfood draw detection with the mini keyboard: from a fresh game,
-   shuffle both knights out and back repeatedly — expect the claim hint
+   shuffle both knights out and back repeatedly -- expect the claim hint
    ("A draw can be claimed by threefold repetition.") on the third
    occurrence of the position and an automatic "Draw by repetition."
    ending on the fifth, opening the finished-game export menu with a

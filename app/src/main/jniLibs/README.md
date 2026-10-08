@@ -1,9 +1,9 @@
-# jniLibs — Stockfish binary
+# jniLibs -- Stockfish binary
 
 This directory ships the Stockfish chess engine as a native binary that
 Android extracts into the app's read-only-but-executable
 `nativeLibraryDir`, so the app can `Runtime.exec()` it and talk UCI
-over stdin/stdout. See `AGENT_NOTES.md` §"Stockfish packaging decision"
+over stdin/stdout. See `AGENT_NOTES.md` section "Stockfish packaging decision"
 for why this pattern over JNI for M1.
 
 > **The actual `.so` file is not in git.** It is 109 MB and exceeds
@@ -42,7 +42,7 @@ Official pages:
 
 Stockfish is GPL v3 (see `Copying.txt` inside the upstream tarball).
 We ship the upstream binary unmodified and invoke it as a separate
-OS process — the standard "exec the engine" pattern used by every
+OS process -- the standard "exec the engine" pattern used by every
 mainstream chess GUI. We do **not** statically or dynamically link
 against Stockfish source. If we ever switch to JNI / static linking
 (see AGENT_NOTES "Falls back cleanly to JNI later" note), the
@@ -54,17 +54,17 @@ Android's package manager only extracts files matching `lib*.so` from
 an APK's `lib/<abi>/` directory into the app's `nativeLibraryDir`.
 Anywhere else in the APK, the file lives compressed inside the APK
 and is not directly exec-able. The `.so` extension is a packaging
-trick — the file is a regular ELF executable, not a shared library.
+trick -- the file is a regular ELF executable, not a shared library.
 
 For the same reason, `build.gradle.kts` sets
 `android.packaging.jniLibs.useLegacyPackaging = true`. This is the
-opposite of the modern default and intentionally so — the modern
+opposite of the modern default and intentionally so -- the modern
 default (`false`) stores .so uncompressed *inside* the APK and the
 linker mmap's it from there without ever writing a real file to
 disk. `Runtime.exec()` then fails with ENOENT. With `true` AGP
 injects `android:extractNativeLibs="true"` into the merged manifest
 and Android extracts the binary into `nativeLibraryDir` as a real
-file at install time. See AGENT_NOTES §"Stockfish packaging
+file at install time. See AGENT_NOTES section "Stockfish packaging
 decision" for the full background and verification command.
 
 ## How to update

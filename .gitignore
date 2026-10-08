@@ -22,6 +22,6 @@ local.properties
 /hidden/
 /.claude/
 
-# Stockfish binary — too large for GitHub (>100 MB hard limit).
+# Stockfish binary -- too large for GitHub (>100 MB hard limit).
 # Run scripts/fetch-stockfish.sh to populate before ./gradlew assembleDebug.
 /app/src/main/jniLibs/arm64-v8a/*.so

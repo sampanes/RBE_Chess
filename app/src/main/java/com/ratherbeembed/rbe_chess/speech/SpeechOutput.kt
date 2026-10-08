@@ -20,7 +20,7 @@ private const val TAG = "RBE_TTS"
  * and abandons it when the utterance completes.
  *
  * QUEUE_FLUSH is used intentionally so the latest press is what the user
- * hears — bursts of presses outpace TTS, and we'd rather speak the current
+ * hears -- bursts of presses outpace TTS, and we'd rather speak the current
  * value than play back a stale queue.
  */
 class SpeechOutput(context: Context) : SpeechSink {

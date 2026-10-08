@@ -42,7 +42,7 @@ There are two different ideas that sound similar but are technically different:
    - The Activity can retain keyboard focus.
    - The app can ignore touch input.
    - This is much more likely to work reliably.
-   - On an OLED phone, a black screen is visually close to “off,” although the device is not actually asleep.
+   - On an OLED phone, a black screen is visually close to "off," although the device is not actually asleep.
 
 For M1, implement **Pocket black-screen mode first**. Treat true screen-off/background keyboard capture as a later experiment.
 
@@ -54,7 +54,7 @@ M1 should prove the following:
 - Pocket Mode can switch the visible UI to a black/minimal interface.
 - The app can keep enough wake state to continue receiving keyboard input.
 - The app can run Stockfish locally.
-- The app can speak “best move” through Android TextToSpeech.
+- The app can speak "best move" through Android TextToSpeech.
 - The app can be used without looking at the screen.
 
 Do not make AccessibilityService mandatory for M1 unless normal foreground keyboard input fails.
@@ -176,7 +176,7 @@ Do not put Stockfish process ownership in the AccessibilityService. If an Access
 The grammar that originally appeared here assumed a full alphanumeric
 Bluetooth keyboard. The real input device is a custom 5-button HID device
 (Adafruit Feather 32u4 Bluefruit LE) that only emits D / F / J / K / Space.
-The real M1 grammar is documented in `AGENT_NOTES.md` §"Keyboard grammar —
+The real M1 grammar is documented in `AGENT_NOTES.md` section "Keyboard grammar --
 hardware-aware V1". This section is intentionally short so that the
 hardware-aware grammar is the single source of truth.
 

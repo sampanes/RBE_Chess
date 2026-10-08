@@ -11,7 +11,7 @@ import android.view.WindowManager
  *   - Drop screen brightness to a low value so an OLED display is close
  *     to off in a pocket; restore the prior value on exit.
  *
- * Per AGENT_NOTES this is the M1 path — no foreground service, no wake
+ * Per AGENT_NOTES this is the M1 path -- no foreground service, no wake
  * locks beyond Activity-scoped keep-awake.
  */
 class PocketModeController(private val activity: Activity) {

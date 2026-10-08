@@ -1,4 +1,4 @@
-# RBE Chess — Status
+# RBE Chess -- Status
 
 Last updated: 2026-07-06 (draw detection landed.)
 
@@ -9,11 +9,11 @@ as session-priority cleanup before doing other work.
 
 ## Where we are
 
-- **Milestone:** M2 — Game Lifecycle. M1 step 4 was committed as
+- **Milestone:** M2 -- Game Lifecycle. M1 step 4 was committed as
   code-complete-but-untested (`ecbeb6b`); M2 builds on top to make the
   app dogfoodable as a real game loop (start a game, undo, switch modes,
   start over) instead of "one game forever from the implicit opening."
-- **In flight:** hardware verification of both M1 step 4 AND M2 — both
+- **In flight:** hardware verification of both M1 step 4 AND M2 -- both
   layers ship together since M2 keys the firmware-v2 chords through the
   same Thumb/Space commit path step 4 introduced.
 - **Last completed (hardware):** firmware v7 repeated-key batching fix.
@@ -39,7 +39,7 @@ as session-priority cleanup before doing other work.
   placement + side to move + castling rights + *capturable* en passant),
   the 50/75-move halfmove clock, and insufficient-material dead positions.
   Automatic draws (fivefold, 75-move, insufficient material) end the game
-  through the same terminal plumbing as checkmate/stalemate — new
+  through the same terminal plumbing as checkmate/stalemate -- new
   `TerminalState`/`GameEndReason` draw variants flow into speech, the
   finished-game export menu ("1/2-1/2" PGN result), and session resume.
   Claimable draws (threefold, 50-move) only queue a spoken hint
@@ -83,11 +83,11 @@ as session-priority cleanup before doing other work.
   the Bluetooth keypad. `Hold` latches Thumb for one chord, remapping the
   four finger buttons to U/M/R/N, and `B%` cycles mock battery reports
   through the normal battery handler.
-- **Last completed (code):** M2 — Thumb-as-modifier chord support
+- **Last completed (code):** M2 -- Thumb-as-modifier chord support
   (firmware v2 bumped from v1; LED blinks twice on boot, BLE advertises
   `RBE Keypad v2`). Held Thumb + cycler emits a distinct HID letter:
-  Thumb+Pinky → `U` (undo), Thumb+Ring → `M` (manual toggle),
-  Thumb+Index → `N` (new game), Thumb+Middle reserved (no emission).
+  Thumb+Pinky -> `U` (undo), Thumb+Ring -> `M` (manual toggle),
+  Thumb+Index -> `N` (new game), Thumb+Middle reserved (no emission).
   Thumb tap alone still emits ` ` as commit. App side:
   `AppPhase` (StartMenu / InGame) +
   `GameMode` (AutoAdvance / Manual). New `StartMenuScreen` is verbal-
@@ -113,7 +113,7 @@ as session-priority cleanup before doing other work.
 
 ## M1 implementation checklist
 
-The order is fixed by `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` §"M1
+The order is fixed by `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` section "M1
 Implementation Order" with the cycler-grammar refinement. Tick boxes
 as steps land:
 
@@ -121,13 +121,13 @@ as steps land:
       `HardwareKeyboardHandler`. Logcat-only feedback. (`e5e51c0`)
 - [x] **2b** TTS scaffold: `SpeechOutput`, `BestMoveSpeaker`,
       `SpokenMoveFormatter`. Each cycle press speaks; 2.5 s
-      `lifecycleScope` job fires *"Move … to …?"*. Verified on phone
+      `lifecycleScope` job fires *"Move ... to ...?"*. Verified on phone
       speaker and dual-BT (BT earbuds + Bluefruit keypad). Promotion
       still deferred to 2d. (`b86f0a4`)
 - [x] **2c** Pocket Mode shell: `PocketModeState`, `PocketModeController`
       (`FLAG_KEEP_SCREEN_ON` + brightness dim/restore), `PocketModeScreen`
       (full black, long-press onExit). "Enter Pocket Mode" button on
-      the normal screen. `BestMoveSpeaker.speakCommit()` → "Calculating"
+      the normal screen. `BestMoveSpeaker.speakCommit()` -> "Calculating"
       on Thumb/Space. Verified on the S22 Ultra 2026-05-15.
 - [x] **3** Stockfish PoC: `engine/` package + `scripts/fetch-stockfish.sh`
       + `useLegacyPackaging = true` (forces extractNativeLibs). UCI
@@ -173,14 +173,14 @@ as steps land:
       menu + manual + undo + new-game confirmed; full game loop
       (multiple commit cycles in a row) not yet exercised.
 
-## Firmware v3 → v4 → v5 — battery reporting saga
+## Firmware v3 -> v4 -> v5 -- battery reporting saga
 
 Single new piece of work post-M2, later adjusted after dogfood:
 
 - **v3 (broken)**: tried the standard BLE Battery Service via
   `AT+BLEBATTEN=on`. On this module's AT firmware that command returns
   ERROR, and `setup_helper.h` treated the failure as fatal via
-  `error()` — so the keypad bricked (LED steady fast blink, never
+  `error()` -- so the keypad bricked (LED steady fast blink, never
   advertised, serial monitor caught the one error message only if it
   was already open before boot).
 - **v4 (diagnosis)**: made the BAS attempt non-fatal. Serial log
@@ -194,7 +194,7 @@ Single new piece of work post-M2, later adjusted after dogfood:
   sequence before the chess grammar sees it, updates a `batteryPct`
   state shown on the normal screen, and issues one-shot TTS warnings
   on crossing 20 % (low) and 5 % (critical), re-armed when % climbs
-  back above 30 %. `FIRMWARE_VERSION` 4 → 5 (5-blink boot,
+  back above 30 %. `FIRMWARE_VERSION` 4 -> 5 (5-blink boot,
   `RBE Keypad v5` BLE name).
 - **v6 (repeat chord)**: keep v5 battery behavior and map
   Thumb+Middle to `R` for repeat-last spoken output.
@@ -211,11 +211,11 @@ Single new piece of work post-M2, later adjusted after dogfood:
 
 The custom-GATT BAS path (`AT+GATTADDSERVICE` + `AT+GATTADDCHAR`)
 remains an option if we ever want Android's Settings UI to show the
-percentage too. Punted unless something explicitly needs it — the
+percentage too. Punted unless something explicitly needs it -- the
 HID-stream path covers the in-app + TTS requirements end-to-end with
 no Android Settings dependency.
 
-## Beyond M2 — roadmap
+## Beyond M2 -- roadmap
 
 M1 proved the move loop; M2 makes the *game* operable from the keypad.
 Landed after M2:
@@ -291,7 +291,7 @@ What's still deferred:
   plus retype is the current workaround.
 - ~~**Richer draw detection.**~~ Landed 2026-07-06: repetition, 50/75-move
   rule, and insufficient material via `DrawDetector` (see above). Still not
-  covered: claiming a draw *on the user's behalf* (deliberate — the app only
+  covered: claiming a draw *on the user's behalf* (deliberate -- the app only
   announces claimable draws) and draw offers/agreed draws.
 - **Evaluation-based autocomplete dogfood.** The score-gap path is implemented
   and JVM/build verified. Dedicated score-margin tuning is deferred
@@ -299,7 +299,7 @@ What's still deferred:
 
 Further out: clock / time control, draw offers, takebacks, opening book.
 
-## M5 implementation checklist — Autocomplete & Predictive Entry
+## M5 implementation checklist -- Autocomplete & Predictive Entry
 
 - [x] **A1** `MoveBuffer.copyFromEngine(uci)` implementation.
 - [x] **E1** Score-gap autocomplete path: `StockfishEngine.scoredMoves()` uses `searchmoves` / `MultiPV`, parses `info score ... pv ...`, and `MoveAutofill.clearBestScoredMove()` requires a configured margin before autofill.
@@ -328,8 +328,8 @@ Further out: clock / time control, draw offers, takebacks, opening book.
 | 2.5 s inactivity prompt on-device | green (phone speaker) | fires on pause, cancels on next press |
 | TTS routing to BT A2DP speaker | green | dual-BT verified 2026-05-15: earbuds + Bluefruit keypad together, audio routes to earbuds |
 | Pocket Mode entry/exit on-device | needs recheck | enter dims + keeps awake was green 2026-05-15; exit gesture changed from tap-anywhere to long-press 2026-05-17 |
-| Stockfish UCI loop on-device | green | Initial proof button verified boot → uci/uciok → isready/readyok → position startpos → go movetime 1000 → bestmove spoken via TTS 2026-05-15; the temporary button has since been removed from the normal screen. |
-| Thumb → engine → bestmove on-device | green (semi-thorough dogfood) | User-confirmed 2026-05-16: real game loop has been tested through repeated physical-piece play enough to move on to M5. |
+| Stockfish UCI loop on-device | green | Initial proof button verified boot -> uci/uciok -> isready/readyok -> position startpos -> go movetime 1000 -> bestmove spoken via TTS 2026-05-15; the temporary button has since been removed from the normal screen. |
+| Thumb -> engine -> bestmove on-device | green (semi-thorough dogfood) | User-confirmed 2026-05-16: real game loop has been tested through repeated physical-piece play enough to move on to M5. |
 | Firmware v2 chord detection | green | User-confirmed 2026-05-15: hold Thumb + tap Pinky/Ring/Index emits the right HID codes. |
 | Start menu navigation on-device | green | User-confirmed 2026-05-15: cold launch lands in StartMenu, TTS speaks the intro, Ring/Middle cycle, Thumb selects. |
 | Manual mode toggle on-device | green | User-confirmed 2026-05-15: Thumb+Ring flips mode and TTS announces. |
@@ -347,32 +347,32 @@ Further out: clock / time control, draw offers, takebacks, opening book.
   2026-05-17 affordance pass. Revisit if arrows are cluttered, piece letters
   are too plain, or long-press is awkward with the dimmed screen.
 - Bump AGP and `compileSdk` back to 36 before the post-M1 screen-off
-  spike. (AGENT_NOTES §"Build configuration — deviations".)
-- *Manual mode* (working title: "user types their own moves too") —
+  spike. (AGENT_NOTES section "Build configuration -- deviations".)
+- *Manual mode* (working title: "user types their own moves too") --
   optional toggle where Stockfish still speaks the bestmove but the
   user types their *own* move on the cycler instead of the engine
-  auto-advancing. Motivation: deliberately deviate from the engine —
+  auto-advancing. Motivation: deliberately deviate from the engine --
   e.g. play a sub-optimal move against a friend, then recover from
-  there — while still hearing the engine's pick as a hidden advisor.
+  there -- while still hearing the engine's pick as a hidden advisor.
   Gated on whether real-world M1 testing finds the cycler intuitive
   enough that doubling input per move isn't punishing. Logged in
-  AGENT_NOTES §"Keyboard grammar — hardware-aware V1" → Deferred list.
+  AGENT_NOTES section "Keyboard grammar -- hardware-aware V1" -> Deferred list.
 - Promotion pick state dogfood is nice-to-have/deferred; do not spend the
   next phone pass forcing a promotion unless it is convenient.
-- Double-tap Space semantics — TBD.
+- Double-tap Space semantics -- TBD.
 
-## Where to read next (precedence: high → low)
+## Where to read next (precedence: high -> low)
 
-0. `SESSION_HANDOFF.md` — compact resume point for the current dogfood
+0. `SESSION_HANDOFF.md` -- compact resume point for the current dogfood
    state, recent commits, and next recommended work.
-1. `AGENT_NOTES.md` — routing layer + every architectural deviation from
+1. `AGENT_NOTES.md` -- routing layer + every architectural deviation from
    the addendum. Hardware-aware keyboard grammar lives here.
-2. `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` — M1 spec for everything not
+2. `RBE_CHESS_M1_POCKET_MODE_ADDENDUM.md` -- M1 spec for everything not
    superseded in AGENT_NOTES.
-3. `RBE_CHESS_APP_HANDOFF.md` — original project spec.
-4. `BUILD_FIXES_2025_05_14.md` — sidecar narrative on the AGP/SDK
+3. `RBE_CHESS_APP_HANDOFF.md` -- original project spec.
+4. `BUILD_FIXES_2025_05_14.md` -- sidecar narrative on the AGP/SDK
    deviation (Gemini's pass on 2026-05-14).
-5. `firmware/RBE_32u4_chess/README.md` — firmware build instructions
+5. `firmware/RBE_32u4_chess/README.md` -- firmware build instructions
    and library dependencies. Read before touching `*.ino`.
 
 ## Memory pointers

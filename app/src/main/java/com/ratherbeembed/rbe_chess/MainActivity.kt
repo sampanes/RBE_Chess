@@ -591,7 +591,7 @@ class MainActivity : ComponentActivity() {
             // While a committed move is being checked / answered, keep the
             // visible buffer stable. Chords such as Undo/New Game are handled
             // before this method and can still cancel the engine job.
-            Log.d(TAG, "Input ignored — engine still calculating")
+            Log.d(TAG, "Input ignored -- engine still calculating")
             return
         }
         when (action) {

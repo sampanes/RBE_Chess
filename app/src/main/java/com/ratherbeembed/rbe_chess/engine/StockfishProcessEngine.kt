@@ -26,7 +26,7 @@ private const val BIN_NAME = "libstockfish.so"
  * protocol stays in lock-step. Step 3 only needs one outstanding
  * exchange at a time. stderr is merged into stdout (via
  * `redirectErrorStream`) and any non-UCI lines are skipped during
- * `readUntil` — Stockfish prints NNUE-load info etc. before the first
+ * `readUntil` -- Stockfish prints NNUE-load info etc. before the first
  * `uciok`.
  *
  * Timeouts are coroutine-level via [withTimeout]; the underlying
