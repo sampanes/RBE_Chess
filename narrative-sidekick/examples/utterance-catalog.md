@@ -40,7 +40,7 @@ means the narrator emits an empty string (nothing is spoken).
 | event | L1 | L2 | L3 |
 |---|---|---|---|
 | `{engine, w, "e4", cp +30}` | `engine: e four.` | `engine: e four, plus 0.3.` | `engine: e four, plus 0.3. then e five, then knight f three. or c four, plus 0.2.` |
-| `{engine, b, "c5", cp -15}` | `engine: c five.` | `engine: c five, minus 0.1.` | `engine: c five, level. then knight f three.` |
+| `{engine, b, "c5", cp -15}` | `engine: c five.` | `engine: c five, minus 0.2.` | `engine: c five, minus 0.2. then knight f three.` |
 | `{engine, w, "Qh5", mate 3}` | `engine: queen h five.` | `engine: queen h five, mate in three.` | `engine: queen h five, mate in three. then g six, then queen takes g six.` |
 | `{engine, w, "Rd8", cp +720, wdl 850/130/20}` | `engine: rook d eight.` | `engine: rook d eight, plus 7.2.` | `engine: rook d eight, plus 7.2. winning four times out of five.` |
 
@@ -53,7 +53,7 @@ At most one cheap-tier motif at L1, only if it's the point of the move.
 | `{move, w, "Ne7", self, motifs:[fork(K,R)]}` | `white knight e seven, forking king and rook.` | `white knight e seven, forking king and rook. best move.` |
 | `{move, b, "Bb5", opp, motifs:[pin(N)]}` | `black bishop b five, pinning the knight.` | `black bishop b five, pinning the knight. fine.` |
 | `{move, w, "Rxd5", self, motifs:[trade(even)]}` | `white rook takes d five.` (capture already in SAN) | `white rook takes d five. trade, even.` |
-| `{move, w, "Qxh7", self, motifs:[sacrifice], conf:false}` | `white queen takes h seven.` <- *sacrifice unproven at L1, stays silent* | `white queen takes h seven. blunder, lost about 9 pawns.` |
+| `{move, w, "Qxh7", self, motifs:[sacrifice], conf:false}` (blunder, cpLoss 900) | `white queen takes h seven, blunder.` <- *sacrifice unproven, never named; the self blunder flag still speaks* | `white queen takes h seven. blunder, lost about 9 pawns.` |
 
 ## SEQUENCE narration (section 14) -- pulled via chord/repeat
 
