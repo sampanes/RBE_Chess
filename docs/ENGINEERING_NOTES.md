@@ -435,8 +435,21 @@ Chord assignments (firmware -> HID -> app action):
 |---|---|---|---|---|
 | Thumb + Pinky | `U` | `UNDO` | `Undo` | Drop last pair of plies; clear buffer; speak "Undid last move." |
 | Thumb + Ring | `M` | `TOGGLE_MANUAL` | `ToggleManual` | Flip `GameMode` AutoAdvance <-> Manual; speak the new state. |
-| Thumb + Middle | `R` | `REPEAT_LAST` | `RepeatLast` | Replay the last board-changing spoken event without changing history. |
+| Thumb + Middle | `R` | `REPEAT_LAST` | `RepeatLast` | Replay the last board-changing spoken event without changing history. Further presses climb the repeat ladder (below). |
 | Thumb + Index | `N` | `NEW_GAME` | `NewGame` | Live game: end current game and open export/new-game options. Finished game: return to StartMenu. |
+
+**Repeat ladder (2026-10-09).** The first Thumb+Middle after a board change
+is the classic replay above, unchanged. Each further press, with no board
+change in between, speaks the narrative-sidekick narrator
+(`narrator/Narrator.kt`) for the last move and the engine's pick in the
+resulting position: press 2 is L2 (SAN move, headline motif, quality label
+with magnitude; "engine: <move>, <eval>"), press 3 and later are L3 (adds
+every confident motif and the engine's next two plies). Quality and eval
+come from the 600 ms narrative analyses `NarrativeTracker` already caches;
+without them the ladder still names the move. Any new ply resets the
+ladder. SAN and motifs come from `chess/Position.kt`, a perft-verified
+legal-move generator used only for narration -- Stockfish stays the
+legality oracle for the game loop.
 
 Once any chord fires during a Thumb/Space hold, further cycler presses during
 the same hold are silently ignored (prevents double-fires from

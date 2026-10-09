@@ -59,17 +59,37 @@ agreed first deliverable). The spec is detailed enough to implement against.
 - **Opponent moves at L1** -- current call: blunders break silence. Alternative:
   total silence at L1, let L2 eval reveal the swing. One-line change in section 8.1.
 
+## Implementation status (2026-10-09)
+
+Steps 1-3 below are implemented in Kotlin inside the app, with golden tests:
+
+- `app/.../chess/Position.kt` -- legal-move generator (perft-verified against the
+  chessprogramming reference counts) standing in for python-chess primitives.
+- `app/.../chess/San.kt` -- UCI -> SAN with minimal disambiguation and +/#.
+- `app/.../narrator/` -- `Narrator.narrate(event, level)` (L0-L3, all event
+  types), `SpokenSan` (section 4/7 expansion, phonetic hook), `MoveQuality` +
+  `WinPercent` (section 8/8.2), `MotifDetector` (fork, pin, hanging, plus a
+  simple even-trade check), `NarrationFacts` / `AnalysisFacts` (app-side
+  fact builders).
+- `NarratorGoldenTest` pins every catalog row and the session-play transcript.
+  Two catalog rows were self-contradictory and were corrected in
+  `examples/utterance-catalog.md` (the -15 cp engine rows now read
+  "minus 0.2" at L2 and L3 per section 9.1 rounding; the unproven-sacrifice
+  row now flags the self blunder at L1 per section 8.1).
+- Wired in as the **repeat ladder**: the first repeat press is the app's
+  classic replay; presses 2 and 3 speak this narrator's L2 and L3. The
+  default first-pass speech is unchanged -- swapping it for L1 is a product
+  call to make after hearing L2/L3 on the phone.
+
+Not done: ENTRY/L1 as the primary speech, the `status` chord, SEE-based
+material motifs, sequence narration, the LLM tier.
+
 ## Recommended next steps (in order)
 
-1. **v1 motif detectors as pseudocode/reference code.** The critical path. Research
-   handed us the exact `python-chess` calls (SPEC section 13.1 cheap tier: capture,
-   check/mate, pin via `is_pinned`/`pin`, fork via multi-target `attacks()`,
-   hanging via `attackers()` defenders-vs-threats). Write these as a small pure
-   module + golden tests against `examples/`. **This was the agreed next build
-   step when work paused.**
-2. **Implement the pure `narrate(event, level)`** core for L0-L1 (entry, confirm,
-   engine move) against the golden catalog -- the deterministic backbone.
-3. **Win% + quality bucketing** (SPEC section 8.2) as a tiny computation the app feeds in.
+1. ~~v1 motif detectors~~ -- done (see above).
+2. ~~Pure `narrate(event, level)`~~ -- done for L0-L3.
+3. ~~Win% + quality bucketing~~ -- done; quality currently keys on cpLoss from
+   the app's 600 ms analyses (`WinPercent.classifyDrop` is ready to swap in).
 4. **SEE-based v1.5 motifs** (trade / wins-material / sacrifice).
 5. **Sequence narration** (SPEC section 14) once per-move motifs + Win% history exist.
 6. **Optional LLM tier** (SPEC section 12) -- last, only after the core feels good on-device.

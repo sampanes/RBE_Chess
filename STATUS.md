@@ -1,6 +1,6 @@
 # RBE Chess -- Status
 
-Last updated: 2026-10-08 (GameController refactor on top of draw detection, ASCII purge, docs consolidation).
+Last updated: 2026-10-09 (narrative-sidekick narrator core wired in as the repeat ladder).
 
 Single-glance state of the project. Update it in the commit that changes
 what is true here. Long-form history (milestone checklists, firmware
@@ -36,10 +36,23 @@ battery saga, the old verification table) is frozen in
   (`GameController`, `GameState`, `AutofillCoordinator`, `NarrativeTracker`).
   `MainActivity` is now only Android wiring. Cancelled engine jobs no
   longer report a fake "Engine error" or clear a move committed right after
-  Undo. JVM: 220 / 220 tests green, 37 of them controller tests.
+  Undo.
+- **Narrator (2026-10-09):** the narrative-sidekick spec's agreed first build
+  steps are implemented in `narrator/`: pure `narrate(event, level)` for
+  L0-L3, SAN-to-speech, move quality, and fork/pin/hanging/trade motifs, on
+  top of a new perft-verified legal-move generator (`chess/Position.kt`)
+  and SAN formatter (`chess/San.kt`). Every row of the spec's golden
+  catalog is a test. It is audible through the **repeat ladder**: the first
+  Thumb+Middle is the classic replay, the second speaks L2 (SAN move, motif,
+  quality, "engine: <move>, <eval>"), the third L3 (adds the engine's line).
+  First-pass speech is unchanged. JVM: 270 / 270 tests green.
 
 ## Next
 
+0. Listen to the repeat ladder: after any move press Thumb+Middle three
+   times. Decide whether L2/L3 wording works by ear, and whether the terse
+   L1 ("black e four." / "engine: e five.") should replace the current
+   first-pass speech ("Opponent Black played E seven to E five...").
 1. Dogfood draw detection with the mini keypad in Manual mode: shuffle both
    knights out and back from the start. Expect "A draw can be claimed by
    threefold repetition." on the third occurrence and an automatic "Draw by
@@ -56,7 +69,7 @@ battery saga, the old verification table) is frozen in
 
 | Surface | Status |
 |---|---|
-| `.\gradlew.bat testDebugUnitTest` | 220 / 220 green (2026-10-08) |
+| `.\gradlew.bat testDebugUnitTest` | 270 / 270 green (2026-10-09) |
 | Post-refactor phone smoke test (adb key events) | green (2026-10-08) on the refactor build *before* it was rebased onto draw detection: resume, start as black, type + commit, real Stockfish reply, illegal move, undo mid-think, manual mode, end-game menu. Rebased build is JVM-verified only so far |
 | Full keypad game loop on hardware | green, semi-thorough dogfood (2026-05-16) |
 | Chords, start menu, manual toggle, undo | green on hardware (2026-05-15) |
@@ -65,11 +78,12 @@ battery saga, the old verification table) is frozen in
 | Board affordances, Pocket long-press exit | needs phone recheck |
 | Finished-game export, session resume | needs phone recheck |
 | Draw detection on-device | needs dogfood (JVM-covered, incl. controller wiring) |
+| Repeat ladder (sidekick L2/L3) on-device | needs dogfood (JVM-covered: golden catalog, perft, controller wiring) |
 | Promotion pick on hardware | nice-to-have, not yet exercised |
 
 `StockfishProcessEngine` and the Compose UI are only verified on-device;
 everything in `game/`, `input/`, `chess/`, `engine/` parsers, `narrative/`,
-`session/` codec and `speech/` formatting is covered by JVM tests.
+`narrator/`, `session/` codec and `speech/` formatting is covered by JVM tests.
 
 ## Deferred
 
@@ -101,7 +115,8 @@ everything in `game/`, `input/`, `chess/`, `engine/` parsers, `narrative/`,
   battery protocol, start menu).
 - [`docs/AUTOCOMPLETE.md`](docs/AUTOCOMPLETE.md) -- M5 autocomplete design.
 - [`docs/NARRATIVE.md`](docs/NARRATIVE.md) -- repeat-last narrative design.
-- [`narrative-sidekick/`](narrative-sidekick/) -- longer-range narration spec.
+- [`narrative-sidekick/`](narrative-sidekick/) -- narration spec; its
+  `HANDOFF.md` tracks what the app's `narrator/` package implements.
 - [`firmware/RBE_32u4_chess/README.md`](firmware/RBE_32u4_chess/README.md) --
   firmware build, upload recovery, chord and battery protocol.
 - `docs/history/` -- original handoff brief, M1 addendum, 2026-05-14 build

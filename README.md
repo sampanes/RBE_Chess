@@ -99,7 +99,7 @@ flowchart TD
 | **Thumb tap**              | `Space`             | Commit the current UCI move and ask Stockfish |
 | **Hold Thumb + Pinky**     | `U`                 | Undo the last move pair and clear the buffer  |
 | **Hold Thumb + Ring**      | `M`                 | Toggle Manual / AutoAdvance mode              |
-| **Hold Thumb + Middle**    | `R`                 | Repeat the last replayable spoken output      |
+| **Hold Thumb + Middle**    | `R`                 | Repeat the last replayable spoken output; press again for more detail (sidekick L2, then L3) |
 | **Hold Thumb + Index**     | `N`                 | End the current game; finished games can start a new one |
 
 Each coordinate starts unset and renders as `a` or `1`. The first press
@@ -164,6 +164,7 @@ scripted engine and a recording speech sink.
 | Game state    | `game/GameState.kt`, `chess/MoveHistory.kt` | Observable UI state, UCI plies, side, AutoAdvance vs Manual, session snapshot mapping |
 | Autofill      | `game/AutofillCoordinator.kt`, `input/MoveAutofill.kt` | Prefill forced or clearly-best moves without clobbering newer input |
 | Narrative     | `game/NarrativeTracker.kt`, `narrative/` | Repeat-last narrative tail and engine-eval tone                             |
+| Narrator      | `narrator/`, `chess/Position.kt`, `chess/San.kt` | narrative-sidekick core: pure `narrate(event, level)`, SAN, fork/pin/hanging/trade motifs, repeat ladder detail |
 | Input grammar | `input/`                                 | Map Android key codes to chess actions and mutate `MoveBuffer`              |
 | UI            | `ui/`                                    | Compose start menu, board, normal screen, mini keypad                       |
 | Pocket Mode   | `pocket/`                                | Keep the Activity awake, dim the screen, show the black long-press-to-exit surface |

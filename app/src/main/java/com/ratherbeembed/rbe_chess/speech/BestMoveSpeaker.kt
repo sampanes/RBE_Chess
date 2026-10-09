@@ -76,6 +76,14 @@ class BestMoveSpeaker(private val output: SpeechSink) {
         output.speak(withNarrative)
     }
 
+    /**
+     * Repeat-ladder detail (second and later Repeat Last presses). Does not
+     * replace the repeat-last target, so the classic replay is unchanged.
+     */
+    fun speakDetail(text: String) {
+        speak(text)
+    }
+
     fun speakIllegalMove(waiting: String) {
         speak("Illegal move. $waiting")
     }

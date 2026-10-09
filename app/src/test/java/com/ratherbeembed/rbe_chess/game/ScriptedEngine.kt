@@ -19,6 +19,7 @@ class ScriptedEngine : StockfishEngine {
     val legalByHistory = mutableMapOf<List<String>, Set<String>>()
     val checkByHistory = mutableMapOf<List<String>, Boolean>()
     val scoredByHistory = mutableMapOf<List<String>, List<ScoredMove>>()
+    val analysisByHistory = mutableMapOf<List<String>, AnalysisSummary>()
     val bestMoveRequests = mutableListOf<List<String>>()
 
     override suspend fun boot() = Unit
@@ -30,7 +31,8 @@ class ScriptedEngine : StockfishEngine {
         return replies.removeFirstOrNull() ?: BestMoveResult.Move("a7a6")
     }
 
-    override suspend fun analyzePosition(uciMoves: List<String>, movetimeMs: Long): AnalysisSummary? = null
+    override suspend fun analyzePosition(uciMoves: List<String>, movetimeMs: Long): AnalysisSummary? =
+        analysisByHistory[uciMoves]
 
     override suspend fun legalMoves(uciMoves: List<String>): Set<String> =
         legalByHistory[uciMoves] ?: defaultLegalMoves

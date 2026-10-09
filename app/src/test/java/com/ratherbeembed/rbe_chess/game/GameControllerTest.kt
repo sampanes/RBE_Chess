@@ -5,6 +5,7 @@ import com.ratherbeembed.rbe_chess.chess.ChessSide
 import com.ratherbeembed.rbe_chess.chess.GameEndReason
 import com.ratherbeembed.rbe_chess.chess.GameTextExport
 import com.ratherbeembed.rbe_chess.chess.MoveHistory
+import com.ratherbeembed.rbe_chess.engine.AnalysisSummary
 import com.ratherbeembed.rbe_chess.engine.BestMoveResult
 import com.ratherbeembed.rbe_chess.engine.EngineScore
 import com.ratherbeembed.rbe_chess.engine.ScoredMove
@@ -588,6 +589,102 @@ class GameControllerTest {
 
         assertEquals("Mock battery report: 4%", h.state.engineStatus)
         assertEquals(1, h.sink.spoken.count { it.startsWith("Keypad battery") })
+    }
+
+    // --- Repeat ladder (narrative-sidekick) ---------------------------------
+
+    private fun analysis(whiteCp: Int, vararg pv: String) =
+        AnalysisSummary(whiteCentipawns = whiteCp, mate = null, bestMove = pv.first(), principalVariation = pv.toList())
+
+    private fun Harness.scriptOpeningAnalyses() {
+        engine.analysisByHistory[emptyList()] = analysis(30, "e2e4", "e7e5")
+        engine.analysisByHistory[listOf("e2e4")] = analysis(30, "e7e5", "g1f3")
+        engine.analysisByHistory[listOf("e2e4", "e7e5")] = analysis(35, "g1f3", "b8c6", "f1b5")
+    }
+
+    @Test
+    fun `repeat ladder climbs from classic replay to sidekick L2 and L3`() = gameTest { h ->
+        h.startAsBlack()
+        h.scriptOpeningAnalyses()
+        h.engine.replies += BestMoveResult.Move("e7e5")
+        h.commit("e2e4")
+        runCurrent()
+        h.sink.spoken.clear()
+
+        h.press(ChessKey.REPEAT_LAST)
+        assertTrue(h.lastSpoken, h.lastSpoken.startsWith("Your Black played E seven to E five."))
+
+        h.press(ChessKey.REPEAT_LAST)
+        assertEquals("black pawn e five. best move. engine: knight f three, plus 0.4.", h.lastSpoken)
+
+        h.press(ChessKey.REPEAT_LAST)
+        val l3 = "black pawn e five. best move. engine: knight f three, plus 0.4. " +
+            "then knight c six, then bishop b five."
+        assertEquals(l3, h.lastSpoken)
+
+        h.press(ChessKey.REPEAT_LAST)
+        assertEquals(l3, h.lastSpoken)
+    }
+
+    @Test
+    fun `a new move resets the repeat ladder`() = gameTest { h ->
+        h.startAsBlack()
+        h.scriptOpeningAnalyses()
+        h.engine.replies += BestMoveResult.Move("e7e5")
+        h.commit("e2e4")
+        runCurrent()
+        h.press(ChessKey.REPEAT_LAST, ChessKey.REPEAT_LAST)
+
+        h.engine.legalByHistory[listOf("e2e4", "e7e5")] = setOf("g1f3")
+        h.engine.replies += BestMoveResult.Move("b8c6")
+        h.commit("g1f3")
+        runCurrent()
+        h.sink.spoken.clear()
+
+        h.press(ChessKey.REPEAT_LAST)
+        assertTrue(h.lastSpoken, h.lastSpoken.startsWith("Your Black played B eight to C six."))
+    }
+
+    @Test
+    fun `manual mode flags the typed move's quality at L2`() = gameTest { h ->
+        h.startAsBlack()
+        h.press(ChessKey.TOGGLE_MANUAL)
+        h.engine.analysisByHistory[emptyList()] = analysis(30, "d2d4", "d7d5")
+        h.engine.analysisByHistory[listOf("e2e4")] = analysis(-60, "e7e5", "g1f3")
+        h.commit("e2e4")
+        runCurrent()
+
+        h.press(ChessKey.REPEAT_LAST, ChessKey.REPEAT_LAST)
+
+        assertEquals(
+            "white pawn e four. inaccuracy, lost about half a pawn. engine: e five, plus 0.6.",
+            h.lastSpoken,
+        )
+    }
+
+    @Test
+    fun `repeat ladder without analysis still names the move`() = gameTest { h ->
+        h.startAsBlack()
+        h.engine.replies += BestMoveResult.Move("e7e5")
+        h.commit("e2e4")
+        runCurrent()
+
+        h.press(ChessKey.REPEAT_LAST, ChessKey.REPEAT_LAST)
+
+        assertEquals("black pawn e five.", h.lastSpoken)
+    }
+
+    @Test
+    fun `repeat ladder falls back to the classic replay for a non-chess history`() = gameTest { h ->
+        h.startAsBlack()
+        h.engine.legalByHistory[emptyList()] = setOf("e2e5")
+        h.commit("e2e5")
+        runCurrent()
+        h.sink.spoken.clear()
+
+        h.press(ChessKey.REPEAT_LAST, ChessKey.REPEAT_LAST)
+
+        assertEquals(h.sink.spoken[0], h.sink.spoken[1])
     }
 
     // --- Session restore ------------------------------------------------------

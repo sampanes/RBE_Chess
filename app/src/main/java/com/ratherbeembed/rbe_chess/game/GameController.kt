@@ -205,7 +205,8 @@ class GameController(
                     speaker.speakPromotionPrompt(promotion.baseMove)
                 } else {
                     inactivityJob.cancel()
-                    speaker.repeatLast(narrative.latest)
+                    val detail = narrative.nextRepeatDetail()
+                    if (detail != null) speaker.speakDetail(detail) else speaker.repeatLast(narrative.latest)
                 }
             }
             GrammarAction.NewGame ->
@@ -444,6 +445,7 @@ class GameController(
             historyBefore = historyBefore,
             move = typedMove,
             mover = mover,
+            self = isSelf(mover),
             wasForced = wasForced,
             onlyReply = onlyReply,
             beforeAnalysis = beforeAnalysis,
@@ -524,6 +526,14 @@ class GameController(
         }
     }
 
+    /**
+     * Whose move gets "self" quality commentary (narrative-sidekick SPEC
+     * 8.1): the player's side in AutoAdvance; both sides in Manual mode,
+     * where the user is entering every ply as a study tool.
+     */
+    private fun isSelf(mover: ChessSide): Boolean =
+        state.gameMode == GameMode.Manual || mover == state.playerSide
+
     /** AutoAdvance: append an engine-chosen move and announce it (or the game end). */
     private suspend fun applyEngineMove(
         historyBefore: MoveHistory,
@@ -544,6 +554,7 @@ class GameController(
             historyBefore = historyBefore,
             move = move,
             mover = mover,
+            self = isSelf(mover),
             wasForced = wasForced,
             onlyReply = afterState.onlyReply,
             beforeAnalysis = beforeAnalysis,
