@@ -98,6 +98,7 @@ class SpeechOutput(context: Context) : SpeechSink {
 
     private fun speakInternal(text: String, queueMode: Int) {
         val id = "rbe-${System.nanoTime()}"
+        Log.d(TAG, "say(${if (queueMode == TextToSpeech.QUEUE_ADD) "queued" else "flush"}): $text")
         currentUtteranceId = id
         audioManager.requestAudioFocus(focusRequest)
         val rc = tts.speak(text, queueMode, null, id)
